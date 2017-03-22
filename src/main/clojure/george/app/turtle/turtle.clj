@@ -115,11 +115,18 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
     (setPenColor [color]))
 
 
+(defn- get-heading* [inst]
+  (let [a (- (rem (.getRotate inst) 360.0))]
+    a))
+
+
+
 (defn- set-heading* [inst ang]
-  (let [duration (* (/ (Math/abs ang) (* 3 360.)) 1000)]
-      (fx/synced-keyframe
-             duration ;; 3 rotations pr second
-             [(.rotateProperty inst) (- ang)])))
+  (let [diff (- (get-heading* inst) ang)
+        duration (* (/ (Math/abs diff) (* 3 360.)) 1000)]
+    (fx/synced-keyframe
+           duration ;; 3 rotations pr second
+           [(.rotateProperty inst) (- ang)])))
 
 
 
@@ -130,10 +137,6 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
         :default (rem a 360)))
 
 
-(defn- get-heading* [inst]
-  (let [a (- (rem (.getRotate inst) 360.0))]
-      ;(println "  ## get-heading*" a)
-      a))
 
 (defn- get-x* [inst]
     (let [x (.getTranslateX inst)]
@@ -286,7 +289,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
                         :title "Turtle Geometry"
                         :scene (fx/scene root :size [w h] :fill fx/WHITESMOKE)
                         :resizable true
-                        :location [30 100]
+                        :location [30 120]
                         :onhidden #(reset! screen-and-turtle-singleton nil))]
 
           ;; not useful to bind now, as resizable is false
@@ -425,6 +428,26 @@ Returns turtle instance"
     (set-pen-color "black"))
 
 
+;(defmacro rep [n & body]
+;    `(dotimes [~'_ ~n]
+;       ~@body))
+
+(defmacro rep
+  "Repeatedly executes body (presumably for side-effects) from 0 through n-1."
+  [n & body]
+  `(let [n# (try (clojure.lang.RT/longCast ~n)
+                 (catch Exception ~'e
+                   (throw (IllegalArgumentException.
+                            (format "First argument to `rep` must be a number. Cannot convert '%s' to number." ~n)
+                            ~'e))))]
+     (dotimes [~'_ n#]
+       ~@body)))
+
+;(def frm '(rep 3 (print "hello, ") (println "world")))
+;(def frm '(rep "b" (print "hello, ") (println "world")))
+;(def frm '(rep  (print "hello, ") (println "world")))
+;(prn (macroexpand-1 frm))
+;(eval frm)
 
 
 

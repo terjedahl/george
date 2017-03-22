@@ -355,19 +355,22 @@ Solve this to make something more user-friendly: A more usable and beginner-fire
     (let [input (gcode/text code-area)]
         (if (s/blank? input)
             (println)
-            (
-                (.setDisable eval-button true) ;; disable the button synchronously (not in thread)
+            (fx/later  ;; GUI interatactions must be on a JavaFX render thread
+                (.setDisable eval-button true)
                 (fxj/thread
+                    ;; From within the JavaFX thread we can spin of a new Java thread.
+                    ;; But from within the Java-thread we must again place GUI interactions on
+                    ;; the JavaFX render thread using `fx/later`.
                     (let [new-ns (read-eval-print-in-ns input (.getText ns-textfield))]
                         (when (not= new-ns (.getText ns-textfield))
-                            (fx/thread (.setText ns-textfield new-ns))
+                            (fx/later (.setText ns-textfield new-ns))
                             (output-ns (str "-> " new-ns)))
                         ;; handle history and clearing
                         (hist/append-history repl-uuid input)
                         (reset! current-history-index-atom -1)
                         (when clear? (fx/later (.clear code-area)))
                         ;; all state changes done, it is now safe to eval again
-                        (.setDisable eval-button false)))))))
+                        (fx/later (.setDisable eval-button false))))))))
 
 
 (defn- input-scene [ns]
@@ -518,9 +521,10 @@ Next 'global' history.   SHIFT-%s-RIGHT" SHORTCUT_KEY SHORTCUT_KEY)))
                   :title (format "Input %s" repl-nr)
                   :scene scene
                   :sizetoscene true
-                  :location [ (- (first screen-WH) (.getWidth scene) 30 horizontal-offset) (+ 30  vertical-offset)]
+                  :location [ (- (first screen-WH) (.getWidth scene) 30 horizontal-offset)
+                             (+ 80  vertical-offset)])))]
 
-        )))]
+
 
        stage))
 
