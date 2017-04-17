@@ -584,12 +584,17 @@ It must return a string (which may be wrapped to fit the width of the list."
     ([text] (Label. text)))
 
 
+(defn set-tooltip [control s]
+  (.setTooltip control (Tooltip. s))
+  control)
+
+
 (defn button [label & {:keys [onaction width minwidth tooltip]}]
     (let [b (Button. label)]
         (if width (. b setPrefWidth (double width)))
         (if minwidth (. b setMinWidth (double minwidth)))
         (if onaction (. b setOnAction (event-handler (onaction))))
-        (if tooltip (. b setTooltip (Tooltip. tooltip)))
+        (if tooltip (set-tooltip b tooltip))
         b))
 
 
@@ -662,12 +667,11 @@ It must return a string (which may be wrapped to fit the width of the list."
                     :insets 0
                     :padding 0
                     :alignment nil})]
-
         (doto (if vertical?
                   (VBox. (:spacing kwargs) (fxj/vargs-t* Node nodes))
                   (HBox. (:spacing kwargs) (fxj/vargs-t* Node nodes)))
             (BorderPane/setMargin (insets (:insets kwargs)))
-            (BorderPane/setAlignment (:alignment kwargs))
+            (.setAlignment  (:alignment kwargs))
             (.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))))
 
 
@@ -763,6 +767,10 @@ It must return a string (which may be wrapped to fit the width of the list."
     (.setOnHidden stage (ensure-handler fn-or-handler))
     stage)
 
+(defn scrollpane [& [node]]
+  (if node
+    (ScrollPane. node)
+    (ScrollPane.)))
 
 (defn stage [& args]
     (let [

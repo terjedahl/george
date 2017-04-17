@@ -40,6 +40,15 @@
 (declare output)
 
 
+(defonce ^:private input-vertical-offset (atom 0))
+
+(defonce ^:private input-horizontal-offset (atom 0))
+
+(defn next-input-vertical-offset [] (swap! input-vertical-offset inc))
+
+(defn next-input-horizontal-offset [] (swap! input-horizontal-offset inc))
+
+
 ;;;; input section ;;;;
 
 (def RT-state-atom (atom {}))
@@ -256,7 +265,7 @@ Solve this to make something more user-friendly: A more usable and beginner-fire
     (let [input (gcode/text code-area)]
         (if (s/blank? input)
             (println)
-            (fxj/thread
+            (fxj/daemon-thread
                 (let [new-ns (read-eval-print-in-ns input (.getText ns-textfield))]
                     (fx/thread (.setText ns-textfield new-ns)))))))
 
@@ -347,19 +356,27 @@ Solve this to make something more user-friendly: A more usable and beginner-fire
 
 
 
-(defn- do-run [code-area repl-uuid current-history-index-atom ns-textfield clear?]
+(defn- do-run [code-area repl-uuid current-history-index-atom ns-textfield clear? eval-button]
     (let [input (gcode/text code-area)]
         (if (s/blank? input)
             (println)
-            (fxj/thread
-                (let [new-ns (read-eval-print-in-ns input (.getText ns-textfield))]
-                    (when (not= new-ns (.getText ns-textfield))
-                        (fx/thread (.setText ns-textfield new-ns))
-                        (output-ns (str "-> " new-ns)))
-                    ;; handle history and clearing
-                    (hist/append-history repl-uuid input)
-                    (reset! current-history-index-atom -1)
-                    (when clear? (fx/later (.clear code-area))))))))
+            (fx/later  ;; GUI interatactions must be on a JavaFX render thread
+                (.setDisable eval-button true)
+                (fxj/daemon-thread
+                    ;; From within the JavaFX thread we can spin of a new Java thread.
+                    ;; But from within the Java-thread we must again place GUI interactions on
+                    ;; the JavaFX render thread using `fx/later`.
+                    (let [new-ns (read-eval-print-in-ns input (.getText ns-textfield))]
+                        (when (not= new-ns (.getText ns-textfield))
+                            (fx/later (.setText ns-textfield new-ns))
+                            (output-ns (str "-> " new-ns)))
+                        ;; handle history and clearing
+                        (hist/append-history repl-uuid input)
+                        (reset! current-history-index-atom -1)
+                        (when clear? (fx/later (.clear code-area)))
+                        ;; all state changes done, it is now safe to eval again
+                        (fx/later (.setDisable eval-button false))
+                        (fx/later (.requestFocus (-> code-area .getScene .getWindow)))))))))
 
 
 (defn- input-scene [ns]
@@ -397,6 +414,15 @@ Solve this to make something more user-friendly: A more usable and beginner-fire
           (fx/checkbox "Clear on 'Eval'"
             :tooltip "If selected, code is cleared when 'Eval' is  triggered (button or keyboard shortcut).")
 
+          run-button
+          (fx/button
+            "Eval"
+            :width 130
+            :tooltip (format
+                       "Run code, then clear if checkbox ckecked.          %s-ENTER
+    Run code, then do the inverse of checkbox selection.   SHIFT-%s-ENTER" SHORTCUT_KEY SHORTCUT_KEY))
+
+
           do-run-fn
           (fn [inverse-clear]  ;; do the oposite of clear-checkbox
               (let [clear-checked
@@ -406,7 +432,7 @@ Solve this to make something more user-friendly: A more usable and beginner-fire
                 ;(println "clear-checked:" clear-checked)
                 ;(println "inverse-clear:" inverse-clear)
                 ;(println "do-clear:" do-clear)
-                (do-run code-area repl-uuid current-history-index-atom ns-label do-clear)))
+                (do-run code-area repl-uuid current-history-index-atom ns-label do-clear run-button)))
 
           prev-button
           (doto
@@ -431,17 +457,6 @@ Previous 'global' history.   SHIFT-%s-LEFT" SHORTCUT_KEY SHORTCUT_KEY)))
 Next 'global' history.   SHIFT-%s-RIGHT" SHORTCUT_KEY SHORTCUT_KEY)))
           ; (-> .getStyleClass (.add "default-button"))
           ;(.setId "repl-next-button")
-
-
-
-          run-button
-          (fx/button
-              "Eval"
-              :width 130
-              :onaction #(do-run-fn false)
-              :tooltip (format
-                           "Run code, then clear if checkbox ckecked.          %s-ENTER
-Run code, then do the inverse of checkbox selection.   SHIFT-%s-ENTER" SHORTCUT_KEY SHORTCUT_KEY))
 
 
           button-box
@@ -480,7 +495,7 @@ Run code, then do the inverse of checkbox selection.   SHIFT-%s-ENTER" SHORTCUT_
                                   #{:CTRL :ENTER} #(do-run-fn false)
                                   #{:SHIFT :CTRL :ENTER} #(do-run-fn true)})]
 
-
+        (.setOnAction run-button (fx/event-handler (do-run-fn false)))
 
         (.addEventFilter border-pane KeyEvent/KEY_PRESSED key-pressed-handler)
         ;; TODO: ensure code-area alsways gets focus back when focus in window ...
@@ -494,28 +509,30 @@ Run code, then do the inverse of checkbox selection.   SHIFT-%s-ENTER" SHORTCUT_
     ;; TODO: consolidate/fix integrations/dependencies
     ;; TODO: add interupt-posibility (button) to/for run-thread
 
-    (let [
-          repl-nr
-          (hist/next-repl-nr)
+  (let [
+        repl-nr
+        (hist/next-repl-nr)
 
-          scene (input-scene ns)
+        scene (input-scene ns)
 
-          stage
-          (fx/now
-              (doto (fx/stage
-                        :title (format "Input %s" repl-nr)
-                        :scene scene
-                        :sizetoscene true
-                        ;(. centerOnScreen)
-                        :location [(- 1000 (.getWidth scene)) 200])))]
+        screen-WH (-> (fx/primary-screen) .getVisualBounds fx/WH)
+        ;screen-WH [1024 560]  ;; Uncomment (and change) to mock "tiny" screen bounds
+
+        horizontal-offset (* (next-input-horizontal-offset) 5)
+        vertical-offset (* (next-input-vertical-offset) 20)
+
+        stage
+        (fx/now
+          (doto (fx/stage
+                  :title (format "Input %s" repl-nr)
+                  :scene scene
+                  :sizetoscene true
+                  :location [ (- (first screen-WH) (.getWidth scene) 30 horizontal-offset)
+                             (+ 80  vertical-offset)])))]
 
 
-                  ;(.setX (-> (Screen/getPrimary) .getVisualBounds .getWidth (/ 2)))
-                  ;(.setY (-> (Screen/getPrimary) .getVisualBounds .getHeight (/ 2) (- 300)))
 
-
-
-        stage))
+       stage))
 
 
 ;;;; API ;;;;
