@@ -14,7 +14,8 @@
         [clojure.repl :refer [doc]]
         [clojure.pprint :refer [pp pprint]]
 
-        [clojure.java.io :as cio]))
+        [clojure.java.io :as cio])
+    (:import (clojure.lang LineNumberingPushbackReader)))
 
 
 
@@ -54,9 +55,7 @@
 
 (defn indexing-pushback-stringreader [s]
     (let [indx (atom 0) s-len (. s length)]
-        (proxy [
-                ;java.io.PushbackReader
-                clojure.lang.LineNumberingPushbackReader
+        (proxy [LineNumberingPushbackReader
                 IIndex] [(java.io.StringReader. s)]
             (read []
                 (if (< @indx s-len)
@@ -209,16 +208,19 @@
         c))
 
 
-(defn read-comment [rdr & _]
-    (skip-line rdr))
+(defn newline?
+    "Checks whether the character is a newline"
+    [c]
+    (or (identical? \newline c)
+        (nil? c)))
 
-#_(defn read-comment [rdr initch]
-    (let [start-index (dec (. rdr getIndex))]
+
+(defn read-comment [rdr initch]
+    (let [start-index (dec (.getIndex rdr))]
         (loop [sb (StringBuilder.) ch initch]
-            (if (= ch \newline)
-                (Token. start-index (. rdr getIndex) (Comment. (str sb)))
-                ;; TODO! fix Heap overflow
-                (recur (.append sb ch) (read-char rdr))))))
+            (if (newline? ch)
+                (Token. start-index (.getIndex rdr) (Comment. (str sb)))
+                (recur (doto sb (.append ch)) (read-char rdr))))))
 
 
 (def ^:dynamic *alias-map*
