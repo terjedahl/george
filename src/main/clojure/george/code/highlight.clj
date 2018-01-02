@@ -1,7 +1,7 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns george.code.highlight
     (:require
@@ -181,14 +181,16 @@ paired-tokens: seq of vectors of paired tokens: [[Token0 Token4][Token1 Token3]]
  ([codearea range ^String style]
   (set-style-on-range codearea range style true))
  ([codearea [start end :as range] ^String style add?]
-  ;(println "/set-style-on-range range:" range "style:" style "add?:" add?)
-  (let [old-styles (.getStyleSpans codearea start end)
-        new-styles
-        (map-styles old-styles
-                    #(if (empty? %)
-                         (if add? #{style} empty-set)
-                         ((if add? conj disj) % style)))]
-    (fx/later (.setStyleSpans codearea start new-styles)))))
+  (when (not= start end)
+    ;(println "/set-style-on-range range:" range "style:" style "add?:" add?)
+    (let [old-styles (.getStyleSpans codearea start end)
+          new-styles
+          (map-styles old-styles
+                      #(if (empty? %)
+                           (if add? #{style} empty-set)
+                           ((if add? conj disj) % style)))]
+      ;(println "  ## new-styles:" new-styles)
+      (fx/later (.setStyleSpans codearea start new-styles))))))
 
 
 (defn- color-and-index [codearea code token-indexes_]

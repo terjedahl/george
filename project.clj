@@ -1,5 +1,5 @@
 
-(defproject no.andante.george/george-application  "0.9.0.b45-SNAPSHOT"
+(defproject no.andante.george/george-application  "2018.0-b2-SNAPSHOT"
 
   :description "George - Application"
   :url "https://bitbucket.org/andante-george/george-application"
@@ -7,8 +7,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
 
-  :dependencies [
-                 [org.clojure/clojure "1.8.0"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
                  ;; https://github.com/clojure/core.async
                  [org.clojure/core.async "0.3.465"]
                  ;; https://github.com/clojure/tools.reader
@@ -40,7 +39,11 @@
                  ;; https://github.com/weavejester/environ
                  [environ "1.1.0"]
                  ;; https://github.com/ztellman/potemkin
-                 [potemkin "0.4.4"]]
+                 [potemkin "0.4.4"]
+                 ;; https://github.com/clj-time/clj-time
+                 [clj-time "0.13.0"]]
+                 ;; https://github.com/alexander-yakushev/defprecated]
+                 ; [defprecated "0.1.3"] :exclusions [org.clojure/clojure]]
 
   :plugins [
             ;; https://github.com/weavejester/environ
@@ -65,6 +68,7 @@
 
   :main no.andante.george.Main
   :aot [no.andante.george.Main]
+
   :jvm-opts ["-Dapple.awt.graphics.UseQuartz=true"]  ;; should give crisper text on Mac
   :target-path "target/%s"
 
@@ -72,6 +76,13 @@
   ;; https://clojure.github.io/clojure/branch-master/clojure.main-api.html#clojure.main/main
 
   :aliases {
+            "preloader"
+            ^{:doc "
+  Triggers the JavaFX preloader mechanism to run 'no.andante.george.MainPreloader'.
+  All args are passed through to main application.
+  Note: The preloader won't appear as fast as when triggered by a normal JAR launch."}
+            ["run" "-m" "no.andante.george.Main" "--with-preloader"]
+
             ;; starts turtle environement directly
             "turtle" ["run" "-m" "george.application.applet.turtle"]
             ;; starts general environment directly
@@ -100,9 +111,7 @@
           :html {:namespace-list :flat}}
 
   :profiles {:repl {:env {:repl? "true"}}
-
-             :dev {:resource-paths ["src/dev/resources"]}
-
              :uberjar {:aot :all
-                       :main no.andante.george.Main
-                       :manifest {}}}) ;"Main-Class" "no.andante.george.Main"
+                       :manifest {"Main-Class" "no.andante.george.Main"
+                                  "JavaFX-Preloader-Class" "no.andante.george.MainPreloader"
+                                  "JavaFX-Application-Class" "no.andante.george.Main"}}})

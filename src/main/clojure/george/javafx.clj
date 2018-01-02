@@ -1,84 +1,49 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns george.javafx
-    (:require
-        [clojure.java.io :as cio]
-        [clojure.string :as cs]
-        [george.javafx.java :as fxj]
-        [george.javafx.util :as fxu]
-        [george.util.javafx :as ufx])
-    (:import
-        [javafx.animation
-         Timeline KeyFrame KeyValue]
-
-        [javafx.application
-         Application Platform]
-
-        [javafx.beans.value
-         ChangeListener WritableValue]
-
-        [javafx.collections
-         FXCollections]
-
-        [javafx.embed.swing JFXPanel]
-
-        [javafx.event
-         EventHandler]
-
-        [javafx.geometry
-         Insets Pos VPos]
-
-        [javafx.scene
-         Group Node Parent Scene]
-
-        [javafx.scene.control
-         Alert Alert$AlertType
-         Button ButtonType ButtonBar$ButtonData
-         Label
-         ListView RadioButton
-         TextField TextArea
-         Tooltip
-         ScrollPane CheckBox]
-
-        [javafx.scene.image
-         Image ImageView]
-
-        [javafx.scene.input
-         MouseEvent]
-
-        [javafx.scene.layout
-         BorderPane HBox Priority Region StackPane VBox
-         Border
-         BorderStroke BorderStrokeStyle CornerRadii BorderWidths Background BackgroundFill]
-
-        [javafx.scene.paint
-         Color Paint]
-
-        [javafx.scene.text
-         Font Text]
-
-        [javafx.scene.shape
-         Line Rectangle Polygon]
-
-        [javafx.stage
-         FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle]
-
-        [javafx.util
-         Duration]))
+  (:require
+    [clojure.java.io :as cio]
+    [clojure
+     [string :as cs]
+     [pprint :refer [pprint]]]
+    [george.javafx
+     [java :as fxj]
+     [util :as fxu]]
+    [george.util.javafx :as ufx])
+  (:import
+    [javafx.animation Timeline KeyFrame KeyValue]
+    [javafx.application Application Platform]
+    [javafx.beans.value ChangeListener WritableValue]
+    [javafx.collections FXCollections]
+    [javafx.embed.swing JFXPanel]
+    [javafx.event EventHandler]
+    [javafx.geometry Insets Pos VPos Side]
+    [javafx.scene Group Node Parent Scene]
+    [javafx.scene.control
+     Alert Alert$AlertType
+     Button ButtonType ButtonBar$ButtonData
+     Label
+     ListView RadioButton
+     TextField TextArea
+     Tooltip
+     ScrollPane CheckBox]
+    [javafx.scene.image Image ImageView]
+    [javafx.scene.input MouseEvent]
+    [javafx.scene.layout
+     BorderPane HBox Priority Region StackPane VBox
+     Border
+     BorderStroke BorderStrokeStyle CornerRadii BorderWidths Background BackgroundFill]
+    [javafx.scene.paint Color Paint]
+    [javafx.scene.text Font Text FontPosture FontWeight]
+    [javafx.scene.shape Line Rectangle Polygon]
+    [javafx.stage FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle]
+    [javafx.util Duration]))
 
 
-
-
-(defn set-implicit-exit [b]
-    (Platform/setImplicitExit false))
-
-(defn ^:deprecated dont-exit! []
-    (set-implicit-exit false))
-
-(set-implicit-exit false)
+;(set! *warn-on-reflection* true)
 
 
 (defn init-toolkit
@@ -89,8 +54,18 @@ Has to be called before the first call to/on FxApplicationThread (javafx/later)"
   (println (str *ns*"/init-toolkit ..."))
   (JFXPanel.))
 
+;; Must be called here, else the rest of the file won't load!
 (init-toolkit)
 
+
+(defn set-implicit-exit [b]
+  (println (str *ns*"/set-implicit-exit " b))
+  (Platform/setImplicitExit false))
+
+(set-implicit-exit false)
+
+
+;;;;;;;;;
 
 
 (defn web-color [s & [opacity]]
@@ -111,10 +86,14 @@ Has to be called before the first call to/on FxApplicationThread (javafx/later)"
 (def GREY Color/GREY)
 
 
+
+(def Pos_TOP_LEFT Pos/TOP_LEFT)
 (def Pos_TOP_RIGHT Pos/TOP_RIGHT)
+(def Pos_TOP_CENTER Pos/TOP_CENTER)
 (def Pos_CENTER Pos/CENTER)
 (def VPos_TOP VPos/TOP)
 (def VPos_CENTER VPos/CENTER)
+
 (def MouseEvent_ANY MouseEvent/ANY)
 
 
@@ -158,6 +137,12 @@ Has to be called before the first call to/on FxApplicationThread (javafx/later)"
     `(later* (fn [] ~@body)))
 
 
+(defmacro thread-later
+  "Runs the body in a fn in a later* on a separate thread"
+  [& body]
+  `(.start (Thread. (later* (fn [] ~@body)))))
+
+
 (defn now*
     "Ensure running body in JavaFX thread: javafx.application.Platform/runLater, but returns result. Prefer using 'later'"
     [expr]
@@ -184,6 +169,7 @@ and the the body is called on 'handle' "
     [& body]
     `(reify EventHandler (~'handle [~'_ ~'_] ~@body)))
 
+
 (defmacro event-handler-2
     "Returns an instance of javafx.event.EventHander,
 where args-vec is a vector of 2 elements  - naming the bindings for 'this' and 'event',
@@ -194,8 +180,11 @@ and the body is called on 'handle'"
     `(reify EventHandler (~'handle ~args-vec ~@body)))
 
 
+(defn ensure-handler [f]
+  (if (instance? EventHandler f) f (event-handler (f))))
 
-(defmacro changelistener
+
+(defmacro ^ChangeListener changelistener
     "Returns an instance of javafx.beans.value.ChangeListener,
 where args-vec is a vector of 4 elements  - naming the bindings for 'this', 'observable', 'old', 'new',
 and the body is called on 'changed'"
@@ -242,11 +231,11 @@ and the body is called on 'changed'"
     (.setTranslateY y)))
 
 
-(defn make-border
+(defn new-border
     ([color]
-     (make-border color 1.))
+     (new-border color 1.))
     ([color width]
-     (make-border color width 0.))
+     (new-border color width 0.))
     ([color width rad]
      (Border. (fxj/vargs
                   (BorderStroke. color
@@ -257,12 +246,53 @@ and the body is called on 'changed'"
                                      (BorderWidths. width)))))))
 
 
-(defn add-stylesheets [^Scene scene & sheetpaths]
-    (-> scene .getStylesheets (.addAll (into-array sheetpaths))))
+(import
+  '[com.sun.javafx.css.parser CSSParser]
+  '[com.sun.javafx.css Stylesheet FontFace FontFace$FontFaceSrc]
+  '[com.sun.javafx.util Logging]
+  '[sun.util.logging PlatformLogger$Level])
 
 
-(defn add-stylesheet [^Scene scene ^String sheetpath]
-    (-> scene .getStylesheets (.add sheetpath)))
+(defn- load-fontface-src [^FontFace$FontFaceSrc ffsrc]
+  (-> ffsrc .getSrc (cs/replace "%20" " ") (Font/loadFont 10.)))
+
+(defn- load-fontface [^FontFace ff]
+  (map load-fontface-src (.getSources ff)))
+
+(defn- load-fonts [^Stylesheet stylesheet]
+  (vec (flatten (map load-fontface (.getFontFaces stylesheet))))) ;; 'vec' ensures the lazy seq is realized
+
+(defn stylesheet-parsed [path]
+  (.parse (CSSParser.) (cio/resource path)))
+
+
+(defn load-fonts-from-stylesheet
+  "This does not add the stylesheet to the scene.
+In stead it only parses the stylesheet and loads any font-faces found in it.
+That way one avoids warnings and errors, yet the fonts are available.
+
+Ensure that the passed-in stylesheet only contains font-info. Nothing else."
+  [path]
+  (println (format "%s/load-fonts-from-stylesheet '%s' ..." *ns* path))
+  (-> path stylesheet-parsed load-fonts)) ;; parse and load fonts
+
+
+;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
+(load-fonts-from-stylesheet "fonts/fonts.css")
+
+
+(defn add-stylesheet [^Scene scene path]
+  (let []
+        ;logger (Logging/getCSSLogger)
+        ;level (.level logger)]
+    ;(.setLevel logger PlatformLogger$Level/OFF)  ;; turn off logger. Doesn't work well.
+    (-> scene .getStylesheets (.add path))))  ;; set stylesheet
+    ;(.setLevel logger level))) ;; turn logger back to previous level
+    ;(load-fonts-from-stylesheet path)))
+
+
+(defn add-stylesheets [scene & paths]
+  (mapv #(add-stylesheet scene %) paths))
 
 
 (defn set-Modena []
@@ -276,20 +306,28 @@ and the body is called on 'changed'"
     (if (= option-index -1) nil option-index)))
 
 
+(def alert-types {
+                  :none Alert$AlertType/NONE
+                  :information Alert$AlertType/INFORMATION
+                  :warning Alert$AlertType/WARNING
+                  :confirmation Alert$AlertType/CONFIRMATION
+                  :error Alert$AlertType/ERROR})
+
 
 (defn alert [message & args]
   "returns index of selected option, else nil
 
   ex: (actions-dialog \"Message\" :title \"Title\" :options [\"A\" \"B\"] :cancel-option? true)
+
+  In this example \"A\" will return 0, \"B\" will return 1, cancel will return nil.
   "
-  (let [
-        default-kwargs {
-                        :title "Alert"
+  (let [default-kwargs {:title "Info"
                         :header nil
                         :options ["OK"]
                         :mode :show-and-wait ;; :show-and-wait or :show
                         :owner nil
-                        :cancel-option? false}
+                        :cancel-option? false
+                        :type :information}
 
         [_ {:keys [options] :as kwargs}] (fxu/partition-args args default-kwargs)
 
@@ -301,7 +339,7 @@ and the body is called on 'changed'"
             buttons)
 
         alert
-        (doto (Alert. Alert$AlertType/CONFIRMATION message (fxj/vargs* buttons))
+        (doto (Alert. (alert-types type) message (fxj/vargs* buttons))
           (.setTitle (:title kwargs))
           (.initOwner (:owner kwargs))
           (.setHeaderText (:header kwargs)))]
@@ -310,46 +348,6 @@ and the body is called on 'changed'"
          :show-and-wait (option-index (.showAndWait alert) options)
          :show (option-index (.show alert) options)
          alert))) ;default - simply return the dialog itself
-
-
-
-(defn SourceCodePro
-  ([size] (SourceCodePro size))
-  ([weight size]  ;; "Regular" / "Medium" - but actually only "Medium" is available
-   (-> (format "fonts/SourceCodePro-%s.ttf" (cs/capitalize weight))
-       cio/resource
-       str
-       (cs/replace "%20" " ")
-       (Font/loadFont (double size)))))
-
-
-;; This is a hack!
-;; loading fonts from CSS doesn't work now, if there is a space in the file path.
-;; So we pre-load them here, and they should then be available in css
-
-(def ^:private some-fonts
-  ["SourceCodePro-Medium.ttf"])
-
-(defn preload-fonts
- ([]
-  (preload-fonts some-fonts))
- ([fonts]
-  (println (str *ns* "/preload-fonts ..."))
-  (doseq [f fonts]
-    (-> (format "fonts/%s" f)
-        cio/resource
-        str
-        (cs/replace "%20" " ")
-        (Font/loadFont  12.)))))
-
-(preload-fonts)
-
-
-
-
-
-
-
 
 
 (defn keyframe*
@@ -398,8 +396,8 @@ and the body is called on 'changed'"
     60)
 
 
-;(set! *unchecked-math* :warn-on-boxed)
 ;(set! *warn-on-reflection* true)
+;(set! *unchecked-math* :warn-on-boxed)
 
 (defn synced-keyframe
     "same as 'keyframe', but runs immediately in current thread"
@@ -412,31 +410,32 @@ and the body is called on 'changed'"
                          (filter some? keyvalues))
 
               start-nano     ^long (System/nanoTime)
-              duration-nano  (* duration NANO_PR_MILLI)
+              duration-nano  (* ^int duration ^int NANO_PR_MILLI)
               end-nano       (+ start-nano duration-nano)
-              sleep-nano     ^long (/ NANO_PR_SEC DEFAULT_TICKS_PR_SEC)] ;; 60 fps
+              ^int sleep-nano     (/ ^int NANO_PR_SEC ^int DEFAULT_TICKS_PR_SEC)] ;; 60 fps
 
-          (when (> duration 0)
+          (when (> ^int duration 0)
             (loop [current-nano start-nano
                    next-nano (+ current-nano sleep-nano)]
               (when (<= current-nano end-nano)
                 (later
-                  (doseq [[^WritableValue prop start end] keyvalues]
-                    ;;  cDv (* (/ cDt Dt) Dv)
-                    ;; cDv  (* (/ (- current-time start-time) delta-time) (- e s))
+                  (doseq [[^WritableValue prop ^int start ^int end] keyvalues]
                     (.setValue prop
-                       (+ start (*
-                                  (/ (- current-nano start-nano) duration-nano)
-                                  (- end start))))))
+                       (+ start
+                          (* ^double (/ (- current-nano start-nano) duration-nano)
+                             (- end start))))))
 
-                (let [sleep-milli (int (/ (- next-nano current-nano) NANO_PR_MILLI))]
+                (let [sleep-milli (int (/ (- next-nano current-nano) ^int NANO_PR_MILLI))]
                   (if (> sleep-milli 0)
                     (Thread/sleep sleep-milli)))
 
                 (recur next-nano (+ current-nano sleep-nano))))
             ;; correct final value and "hold" until to ensure consistent state at end
             (now (doseq [[^WritableValue p _ e] keyvalues]
-                       (.setValue p  e)))))))
+                       (.setValue p e)))))))
+
+;(set! *warn-on-reflection* false)
+;(set! *unchecked-math* false)
 
 
 (defn observablearraylist-t [t & lst]
@@ -580,6 +579,9 @@ It must return a string (which may be wrapped to fit the width of the list."
              (.setStrokeWidth (:strokewidth kwargs)))))
 
 
+(defn node? [item]
+  (instance? Node item))
+
 (defn rectangle [& args]
     (let [default-kwargs
           {:location [0 0]
@@ -593,8 +595,6 @@ It must return a string (which may be wrapped to fit the width of the list."
           size (:size kwargs)
           arc (:arc kwargs)]
 
-
-
       (doto (Rectangle.
                 (first location)
                 (second location)
@@ -605,9 +605,10 @@ It must return a string (which may be wrapped to fit the width of the list."
           (.setArcHeight arc))))
 
 
-(defn label
+(defn ^Label label
     ([] (Label.))
-    ([text] (Label. text)))
+    ([text] (Label. text))
+    ([text node] (Label. text node)))
 
 
 (defn set-tooltip [control s]
@@ -615,22 +616,63 @@ It must return a string (which may be wrapped to fit the width of the list."
   control)
 
 
-(defn button [label & {:keys [onaction width minwidth tooltip]}]
+(defn set-onaction [buttonbase fn-or-handler]
+  (.setOnAction buttonbase (ensure-handler fn-or-handler))
+  buttonbase)
+
+
+(defn set-onmouseclicked [clickable fn-or-handler]
+  (.setOnMouseClicked clickable (ensure-handler fn-or-handler))
+  clickable)
+
+
+(defn ^Button button [label & {:keys [onaction width minwidth tooltip]}]
     (let [b (Button. label)]
         (if width (.setPrefWidth  b (double width)))
         (if minwidth (.setMinWidth b  (double minwidth)))
-        (if onaction (.setOnAction b  (event-handler (onaction))))
+        (if onaction (set-onaction b onaction))
         (if tooltip (set-tooltip b tooltip))
         b))
 
 
-(defn checkbox [label & {:keys [onaction tooltip]}]
+(defn ^CheckBox checkbox [label & {:keys [onaction tooltip]}]
   (let [cb (CheckBox. label)]
     (when onaction (.setOnAction cb (event-handler (onaction))))
     (when tooltip (.setTooltip cb (Tooltip. tooltip)))
     cb))
 
 
+(def font-postures
+  {:regular FontPosture/REGULAR
+   :italic  FontPosture/ITALIC})
+
+
+(def font-weights
+  {:normal  FontWeight/NORMAL
+   :medium FontWeight/MEDIUM
+   :semibold FontWeight/SEMI_BOLD})
+
+
+(defn new-font
+ ([family-or-size]
+  (if (string? family-or-size)
+     (Font/font ^String family-or-size)
+     (Font/font (double family-or-size))))
+ ([family size]
+  (Font/font family (double size)))
+ ([family weight size]
+  (Font/font ^String family ^FontWeight (font-weights weight) (double size)))
+ ([family weight posture size]
+  (Font/font family (font-weights weight) (font-postures posture) (double size))))
+
+
+(defn set-font
+ ([item font-or-family-or-size]
+  (if (instance? Font font-or-family-or-size)
+    (.setFont item font-or-family-or-size)
+    (set-font item (new-font font-or-family-or-size))))
+ ([item family size]
+  (set-font item (new-font family size))))
 
 
 (defn textfield
@@ -653,15 +695,16 @@ It must return a string (which may be wrapped to fit the width of the list."
     (let [ta
           (doto (TextArea. text)
             (.setPromptText prompt))]
-      (when font (.setFont ta font))
+      (when font (set-font ta font))
       ta))
 
 
-(defn text
-    [s & {:keys [font]
-          :or {}}]
-    (doto (Text. s)
-        (.setFont font)))
+(defn text [s & {:keys [font size color]
+                   :or {size  12
+                        color Color/BLACK}}]
+  (doto (Text. s)
+    (.setFill color)
+    (set-font (or font (new-font size)))))
 
 
 (defn insets* [[top right bottom left]]
@@ -684,7 +727,6 @@ It must return a string (which may be wrapped to fit the width of the list."
      (.setPadding pane (insets t r b l))))
 
 
-
 (defn box [vertical? & args]
     (let [
           [nodes kwargs]
@@ -703,17 +745,20 @@ It must return a string (which may be wrapped to fit the width of the list."
               (.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
 
       (when-let [b (:background kwargs)]
-          (.setBackground box b))
+          (set-background box b))
 
       box))
 
-(defn hbox [& args]
+
+(defn ^HBox hbox [& args]
     (apply box (cons false args)))
 
-(defn vbox [& args]
+
+(defn ^VBox vbox [& args]
     (apply box (cons true args)))
 
-(defn borderpane
+
+(defn ^BorderPane borderpane
     "args:  & :center :top :right :bottom :left :insets"
     [ & args]
     (let [
@@ -728,8 +773,7 @@ It must return a string (which may be wrapped to fit the width of the list."
           (.setPadding (insets (:insets kwargs))))))
 
 
-
-(defn scene [root & args]
+(defn ^Scene scene [root & args]
             (let [
                   default-kwargs
                   {:size         nil ;[300 300]
@@ -751,13 +795,6 @@ It must return a string (which may be wrapped to fit the width of the list."
                     (.setFill (:fill kwargs)))))
 
 
-
-
-
-(defn ensure-handler [f]
-    (if (instance? EventHandler f) f (event-handler (f))))
-
-
 (defn centering-point-on-primary
     "returns [x y] for centering (stage) no primary screen"
     [scene-or-stage]
@@ -773,7 +810,8 @@ It must return a string (which may be wrapped to fit the width of the list."
 (defn screens []
     (Screen/getScreens))
 
-(defn primary-screen []
+
+(defn ^Screen primary-screen []
     (Screen/getPrimary))
 
 
@@ -787,22 +825,35 @@ It must return a string (which may be wrapped to fit the width of the list."
          StageStyle/DECORATED))
 
 
+(defn side [side-kw]
+  (get {:top Side/TOP
+        :bottom Side/BOTTOM
+        :left Side/LEFT
+        :right Side/RIGHT}
+       side-kw
+       Side/BOTTOM))
+
+
 (defn setoncloserequest [stage fn-or-handler]
     (.setOnCloseRequest stage (ensure-handler fn-or-handler))
     stage)
+
 
 (defn setonhiding [stage fn-or-handler]
     (.setOnHiding stage (ensure-handler fn-or-handler))
     stage)
 
+
 (defn setonhidden [stage fn-or-handler]
     (.setOnHidden stage (ensure-handler fn-or-handler))
     stage)
+
 
 (defn scrollpane [& [node]]
   (if node
     (ScrollPane. node)
     (ScrollPane.)))
+
 
 (defn stage [& args]
     (let [
@@ -814,7 +865,7 @@ It must return a string (which may be wrapped to fit the width of the list."
            :location nil ;[100 100]
            :size nil ;[200 200]
            :show true
-           :ontop false
+           :alwaysontop false
            :tofront false
            :resizable true
            :oncloserequest #()  ;; good for preventing closing (consume event)
@@ -826,7 +877,7 @@ It must return a string (which may be wrapped to fit the width of the list."
       (let [stg (doto (Stage. (stagestyle (:style kwargs)))
                     (.setTitle (:title kwargs))
                     (.setScene (:scene kwargs))
-                    (.setAlwaysOnTop (:ontop kwargs))
+                    (.setAlwaysOnTop (:alwaysontop kwargs))
                     (.setResizable (:resizable kwargs))
 
                     (setoncloserequest (:oncloserequest kwargs))
@@ -861,13 +912,9 @@ It must return a string (which may be wrapped to fit the width of the list."
                                (filechooserfilter "All Files"   "*.*")])
 
 
-
-(defn filechooser [& filters]
+(defn ^FileChooser filechooser [& filters]
     (doto (FileChooser.)
-        (-> .getExtensionFilters
-            (.addAll
-               (fxj/vargs* filters)))))
-
+        (-> .getExtensionFilters (.addAll (fxj/vargs* filters)))))
 
 
 (def sample-codes-map {
@@ -879,12 +926,10 @@ It must return a string (which may be wrapped to fit the width of the list."
                        #{:SHORTCUT :ENTER} (event-handler-2 [_ event] (println "CTRL/CMD-ENTER") (.consume event))})
 
 
-
 (def sample-chars-map {
                        "a" #(println "a")
                        "A" #(println "A")
                        " " (event-handler-2 [_ e] (println "SPACE (consumed)") (.consume e))})
-
 
 
 ;; TODO make macro that does this:
@@ -892,9 +937,6 @@ It must return a string (which may be wrapped to fit the width of the list."
 ;;  => (fn [inst] (if true (.inst  (toUpperCase)) inst)
 ;; test:
 ;; (doto "A" .toLowerCase (fn [inst] (if (= 1 2) (.inst  (toUpperCase)) inst)))
-
-
-
 
 
 (defn key-pressed-handler

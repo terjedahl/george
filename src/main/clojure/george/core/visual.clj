@@ -1,7 +1,7 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns
   ^{:author "Terje Dahl"}
@@ -18,7 +18,8 @@
            (javafx.scene.transform Translate Rotate)
            (javafx.scene.paint Color PhongMaterial)
            (javafx.scene.shape Sphere)
-           (javafx.geometry Point3D)))
+           (javafx.geometry Point3D)
+           (javafx.scene.text Font)))
 
 
 
@@ -32,7 +33,7 @@
     (let [
           pane
           (fx/borderpane
-              :center (fx/textarea :font (fx/SourceCodePro "Regular" 16))
+              :center (fx/textarea :font (fx/new-font "Source Code Pro Medium" 16))
               :bottom (fx/button "Do" :onaction #(println "do")))]
 
         (doto pane

@@ -1,7 +1,7 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns
   ^{:doc "A deliberately short namespace. Loaded at startup. Making it easy to make calls (to George) from anywhere."}
@@ -40,10 +40,10 @@
             (slurp (cio/resource pth)))
           (catch IllegalArgumentException e
             (binding [*out* *err*]
-              (output/print-output :err (format "Resource not found for 'shared-key':  %s\n" shared-key))))))
+              (output/oprint :err (format "Resource not found for 'shared-key':  %s\n" shared-key))))))
       (catch Exception e
         (binding [*out* *err*]
-          (output/print-output :err (format "Exception: 'shared-key' not string or keyword:  %s\n" (if (nil? shared-key) "nil" shared-key))))))))
+          (output/oprint :err (format "Exception: 'shared-key' not string or keyword:  %s\n" (if (nil? shared-key) "nil" shared-key))))))))
 
 ;(println (slurp-shared :tree2))
 ;(println (slurp-shared :tree3))
@@ -52,6 +52,7 @@
 ;(println (slurp-shared 42 true))
 ;(println (slurp-shared nil true))
 ;(println (slurp-shared nil))
+
 
 (def ^:private shared-error-message-f
   ";; Nothing loaded!
@@ -64,10 +65,10 @@
   [shared-key & [throw-exception?]]
   (let [ns (str *ns*)]
     (fxj/thread
-      (let [r (slurp-shared shared-key throw-exception?)
-            [_ code-area] (input/new-input-stage ns)]
-        (fx/later
-          (george.editor.core/set-text code-area (if r r (format shared-error-message-f shared-key)))))))
+      (let [r   (slurp-shared shared-key throw-exception?)
+            is  (input/new-input-stage ns)])))
+        ;(fx/later
+        ;  (george.editor.core/set-text code-area (if r r (format shared-error-message-f shared-key)))))))
   nil)
 
 
@@ -88,4 +89,4 @@ Ex.: (user/doc g/shared)
 "))
 
 
-(println "Namespace 'g' gives you access to \"global\" commands to George.  For more info, do:  (g/help)")
+;(println "Namespace 'g' gives you access to \"global\" commands to George.  For more info, do:  (g/help)")
