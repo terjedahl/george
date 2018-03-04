@@ -2,11 +2,107 @@
 
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
-## [Unreleased]
+
+## [2018.5] - 2018-02-18
+
+## Added
+- A basic DnD filetree, though not activated.
+
+## Fixed
+- Metadata was being stripped before evaluation.
+
+### Turtle API
+- Reworked and extended "screen" implementation.
+- New commands: set/get-screen-size, set/is-screen-visible, with-screen, get-screen, new-screen
+
+
+## [2018.4.1] - 2018-02-03
+
+### Turtle API
+- Fixed a deadlock-issue between move-to and ticker.
+- Renamed assoc-/dissoc-onkey to set-/unset-onkey.
+- Added namespaces 'george.turtle.tom' and 'george.turtle.adhoc.jf4k'
+
+
+## [2018.4] - 2018-01-31
+
+### Turtle API
+- Added support for animation, and for keyboard-input.
+- Implemented a long list of new commands:
+is-overlap, get-overlappers, set-/get-/reset-/start-/stop-ticker/is-ticker-started, assoc-/dissoc-/get-/get-all/reset-onkey, to-front
+- And a new demo: samples/asteroids
+
+## [2018.3] - 2018-01-25
+
+### Added
+- Better handling of prep-ing of default turtle-namespace, using macros.
+- 2 special macros: `g/turtle-ns` and `g/create-turtle-ns` which behave pretty much like their counterparts in clojure.core. 
+
+### Changed
+- Reorganized some namespaces.
+
+### Turtle API
+- `screen` is now thread-safe.
+- Improvements to `filled` and `filled-with-turtle`
+- Implemented "fencing" of screen - with :wrap/:stop/:none/functions
+- Implemented 'move', 'move-to', 'turn', 'turn-to', 'distance-to', 'heading-to'
+- Implemented 'arc-left', 'arc-right'
+- Added a color palette to the help-window
+
+
+## [2018.2] - 2018-01-16
+
+### Added
+- 'Load' command in editor, similar to 'Run' but less chatty.
+
+### Changed
+- Output now has left margin which shows the chars and colors that used to be printed, making copying from output easier, and the output tidier. 
+- Rewrote a large part of the turtle API, and extended it considerably.
+
+### Turtle API
+- Pen shape control: 'set-round', 'is-round'
+- Working with multiple turtles: 'new-turtle', 'clone-turtle', 'with-turtle'
+- Filled figures: 'filled', 'filled-with-turtle', 'set-fill', 'get-fill'
+- Writing on-screen: 'write', 'set-font', 'get-font'
+- Running multiple turtles concurrently (in threads): Use 'future'
+
+
+## [2018.1] - 2018-01-11
 
 ### Fixed
-- Line comments ';' are now rendered gray consistently.  
-- A single paren at end of text after line comment is now matched correctly.
+- Regression: CTRL-C now is "copy" in editor again, not "close tab"
+- \*err\* messages from nrepl now also get printed.
+- A nagging JavaFX Toolkit load/repl issue.
+
+### Added
+- Extensive master/detail "Turtle API" window, pulling content from docs and other texts in turtle API.
+- Markdown parsing and HTML rendering of/for Turtle API. 
+- New turtle commands: 'set-width'/'get-width', 'set-visible', 'set-pen-down'.
+- Enhanced color handling in Turtle API.
+- Library "defprecated" now prints warning when deprecated "turtle commands" are used.
+
+### Changed
+- Altered name of certain turtle "getter" commands.  
+- Moved previous minimal embedded command list into a separate "Turtle API" tool window with link.
+- Select color in editor now becomes gray when editor loose focus.
+- Clojure 1.8 -> 1.9
+- Sensible defaults: 1 editor and 1 input open, and input's "clear" not checked.
+- Moved namespace 'george.application.turtle.turtle' to 'george.turtle'
+
+### Removed
+- Unused modules from code - including Paredit and cider-nrepl.
+
+
+## [2018.0] - 2018-01-04
+
+This is a major upgrade, with many changes.  
+A few highlight:
+
+- Single window application
+- New custom text-editor with Parinfer and "blocks"
+- Editor in tabs with robust file handling
+- Enhanced REPL usage, error handling, nREPL server control
+- Improved L&F
 
 
 ## [0.8.2] - 2017-10-11

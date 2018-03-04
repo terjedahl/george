@@ -1,7 +1,7 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns george.editor.view
   (:require
@@ -24,12 +24,12 @@
 
 
 ;(set! *warn-on-reflection* true)
-(set! *unchecked-math* :warn-on-boxed)
+;(set! *unchecked-math* :warn-on-boxed)
 ;(set! *unchecked-math* true)
 
 
-(def ^:const DEFAULT_FONT_SIZE 18)
-(def DEFAULT_FONT (fx/SourceCodePro "medium" DEFAULT_FONT_SIZE))
+(def ^:const DEFAULT_FONT_SIZE 16)
+(def DEFAULT_FONT (fx/new-font "Source Code Pro Medium" DEFAULT_FONT_SIZE))
 
 (def ^:const DEFAULT_LINE_HEIGHT 28.0)
 (def DEFAULT_LINE_INSETS (fx/insets 0.0, 24.0, 0.0, 12.0))
@@ -46,12 +46,6 @@
 
 
 ;; https://www.sessions.edu/color-calculator/
-(def DEFAULT_BLOCK_COLORS
-  (mapv (fn [[r g]] (Color/rgb r g 255))
-        (reverse
-          (map vector
-            (range 180 260 8)
-            (range 140 240 10)))))
 
 (def DEFAULT_BLOCK_BORDER_COLOR (fx/web-color "#0080ff"))
 
@@ -77,20 +71,21 @@
 
 (def DEFAULT_GUTTER_INSETS (fx/insets 0.0, 14.0, 0.0, 14.0))
 (def DEFAULT_GUTTER_TEXT_FILL (fx/web-color "#999"))
-(def DEFAULT_GUTTER_FONT (fx/SourceCodePro "medium" 14))
+(def DEFAULT_GUTTER_FONT (fx/new-font "Source Code Pro" 14))
 (def DEFAULT_GUTTER_BACKGROUND (fx/color-background DEFAULT_LINE_BACKGROUND_COLOR));(fx/web-color "#ddd")))
-(def DEFAULT_GUTTER_BORDER (fx/make-border DEFAULT_CURRENT_LINE_BORDER_COLOR [0 1 0 0]))
+(def DEFAULT_GUTTER_BORDER (fx/new-border DEFAULT_CURRENT_LINE_BORDER_COLOR [0 1 0 0]))
 
 
 (defn- ^Node selection-background-factory [^double w ^double h c]
-  (let [rect (fx/rectangle :size [(inc w) h] :fill DEFAULT_TEXT_SELECTION_COLOR)]
+  (let [rect (fx/rectangle :size [(inc w) h])]
+    (-> rect .getStyleClass (.add "selection"))
     (cond
       (= c \newline)
       (doto
         ^StackPane
         (fx/stackpane
            (doto (Ellipse. w (/ h 2))
-             (.setFill DEFAULT_TEXT_SELECTION_COLOR))
+             (-> .getStyleClass (.add "selection")))
            rect)
         (.setAlignment Pos/CENTER_LEFT))
 
@@ -99,13 +94,15 @@
 
 
 (defn- ^Rectangle anchor-factory [height]
-  (let [rect (fx/rectangle :size [0.5 height] :fill DEFAULT_CARET_COLOR)]
-    rect))
+  (doto (fx/rectangle :size [0.5 height])
+        (-> .getStyleClass (.add "caret"))))
+        
 
 
 (defn- cursor-factory [height]
-  (let [rect (fx/rectangle :size [3 height ] :fill DEFAULT_CARET_COLOR)]
-    rect))
+  (doto (fx/rectangle :size [3 height])
+        (-> .getStyleClass (.add "caret"))))
+
 
 
 (def DEFAULT_CURSOR_FACTORY cursor-factory)
@@ -144,14 +141,19 @@
           (.setPrefHeight (+ 2.0 ^double DEFAULT_LINE_HEIGHT))
           (.setTextFill DEFAULT_GUTTER_TEXT_FILL)
           (.setPadding DEFAULT_GUTTER_INSETS)
-          (.setBorder DEFAULT_GUTTER_BORDER))]
+          (.setBorder DEFAULT_GUTTER_BORDER))
+        root
+        (proxy [Group IGutter] [(fxj/vargs nr-label)]
+          (getWidth []
+            (.layout this)
+            (.getWidth nr-label))
+          (setText [s]
+            (.setText nr-label s)))]
+       
+    (-> root .getStyleClass (.add "gutter"))
+    (-> nr-label .getStyleClass (.add "nr-label"))
 
-       (proxy [Group IGutter] [(fxj/vargs nr-label)]
-         (getWidth []
-           (.layout this)
-           (.getWidth nr-label))
-         (setText [s]
-           (.setText nr-label s)))))
+    root))
 
 
 (def paren-chars #{\( \) \[ \] \{ \}})
@@ -287,7 +289,7 @@
                       (fx/set-translate-XY [x y])
                       (fx/set-background background)
                       (.setBorder
-                        (fx/make-border
+                        (fx/new-border
                           (DEFAULT_BLOCK_BORDERS (mod i DBCC)) ;; color
                           [(if first? b 0) b (if last? b 0) b] ;; widths
                           corner-radii)))]
@@ -329,11 +331,11 @@
 (defn- highlight-row [^StackPane pane current-row?]
   (if current-row?
     (doto pane
-      (.setBorder (fx/make-border  DEFAULT_CURRENT_LINE_BORDER_COLOR [1 0 1 0]))
+      (.setBorder (fx/new-border  DEFAULT_CURRENT_LINE_BORDER_COLOR [1 0 1 0]))
       (.setBackground (fx/color-background DEFAULT_CURRENT_LINE_BACKGROUND_COLOR))
       (.setMaxHeight (dec DEFAULT_LINE_HEIGHT)))
     (doto pane
-      (.setBorder (fx/make-border  DEFAULT_LINE_BACKGROUND_COLOR [1 0 1 0]))
+      (.setBorder (fx/new-border  DEFAULT_LINE_BACKGROUND_COLOR [1 0 1 0]))
       (fx/set-background DEFAULT_LINE_BACKGROUND_COLOR)
       (.setMaxHeight (dec DEFAULT_LINE_HEIGHT)))))
 
@@ -477,7 +479,7 @@
 
           scrolling-part
           (new-scrolling-part gutter text-pane marks-pane blocks-pane  scroll-offset_ chars texts)
-
+          
           node
           (proxy [Region] []
             ;; @override

@@ -1,7 +1,7 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns
   ^{:author "Terje Dahl"}
@@ -210,9 +210,9 @@ It there a need / purpose for for this, though, as long as whatever data they ar
     (when (not= o n)
        ; (println "selected-MID-watcher MID changed:" n)
         (doseq [pane @selected-input-panes-atom]
-            (fx/set! pane
-                     (doto (create-monitor-pane n)
-                         (set-active))))))
+            (fx/set-all pane
+                       (doto (create-monitor-pane n)
+                           (set-active))))))
 
 
 
@@ -562,7 +562,7 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 (defn selected-input-pane []
     (let [pane (fx/group)]
         (refresh-MIDs)
-        (fx/set! pane (create-monitor-pane (get-selected-MID)))
+        (fx/set-all pane (create-monitor-pane (get-selected-MID)))
         ;; FIX: Memory leak: The panes aren't removed again when disposed of
         (swap! selected-input-panes-atom conj pane)
         pane))
