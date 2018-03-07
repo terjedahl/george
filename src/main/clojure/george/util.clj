@@ -7,14 +7,15 @@
   george.util
   (:require
     [clojure.pprint :refer [pprint]]
-    [clojure.core.rrb-vector :as fv]
+    [clojure.core.rrb-vector :as fv] 
     [clj-diff.core :as diff]
     [clojure.pprint :as cpp])
-  (:import (java.util UUID Collection)
-           (java.io File)
-           (clojure.lang PersistentVector)
-           (clojure.core.rrb_vector.rrbt Vector)
-           (javafx.collections ObservableList)))
+  (:import 
+    [java.util UUID Collection]
+    [java.io File]
+    [clojure.lang PersistentVector]
+    [clojure.core.rrb_vector.rrbt Vector]  ;; Java package/class must be with underscore
+    [javafx.collections ObservableList]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -222,7 +223,8 @@
 
 ;; Used as a marker for elements to be deleted.
 ;; Must be seq of chars, so as not to cause trouble in case it is temporarily rendered.
-(def DEL_OBJ (seq "DEL_OBJ"))
+(def ^:dynamic *DEL_OBJ* (seq "DEL_OBJ"))
+
 
 
 (defmethod diff/patch Vector [v edit-script]
@@ -233,8 +235,8 @@
         ;; the previous insertion offsets what follows.
         ;; By starting at the back, it has no effect on the indexes before.
 
-        v ;;apply deletions  (Mark elements to delete with DEL_OBJ)
-        (reduce (fn [v i] (replace-at v i (fv/vector DEL_OBJ))) v dels)
+        v ;;apply deletions  (Mark elements to delete with *DEL_OBJ*)
+        (reduce (fn [v i] (replace-at v i (fv/vector *DEL_OBJ*))) v dels)
         v ;; apply additions
         (reduce (fn [v add]
                     (insert-at v
@@ -244,7 +246,7 @@
         v  ;; clean up (remove DEL_OBJs)
         (if (empty? dels)  ;; Optimization: Don't bother looking.
             v
-            (let [find-start (first dels) ;; Optimization: Start at index of first DEL_OBJ.
+            (let [find-start (first dels) ;; Optimization: Start at index of first *DEL_OBJ*.
                   find-limit (count dels)] ;; Optimization: Stop once all DEL_OBJs are found.
               (loop [v v
                      [i & ix] (range find-start (count v)) ;; We need an index for getting elements
@@ -252,7 +254,7 @@
                 (if (= find-cnt find-limit)  ;; We found them all. We're done!
                   v
                   (let [item (get v i)]
-                    (if (= item DEL_OBJ)
+                    (if (= item *DEL_OBJ*)
                       (recur (remove-at v i) (cons i ix) (inc find-cnt))
                       (recur v ix find-cnt)))))))]
 
@@ -300,7 +302,7 @@
 
     (let []
       ;; apply deletions
-      (doseq [^int i dels] (.set olist i DEL_OBJ))
+      (doseq [^int i dels] (.set olist i *DEL_OBJ*))
       ;; apply additions
       (doseq [[^int i & ^Collection items] (reverse adds)] (.addAll olist (inc i) items))
       ;; clean up
@@ -310,7 +312,7 @@
           (loop [ix (range find-start (count olist))
                  find-cnt 0]
             (when-not (= find-cnt find-limit)
-              (if (identical? (.get olist (int (first ix))) DEL_OBJ)
+              (if (identical? (.get olist (int (first ix))) *DEL_OBJ*)
                 (do (.remove olist (int (first ix)))
                     (recur ix (inc find-cnt)))
                 (recur (rest ix) find-cnt))))))))
@@ -329,3 +331,9 @@
 ;        _ (prn "  ## r:" r)]
 ;    r))
 ;(prn (apply str (time (olist-diffpatch-test))))
+
+
+(defrecord Labeled [label value])
+
+(defn labeled? [inst]
+  (instance? Labeled inst))  

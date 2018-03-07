@@ -5,39 +5,58 @@
 
 (ns george.files.filetree
   (:require
+    [clojure.string :as cs]
     [clojure.pprint :refer [pprint]]
     [environ.core :refer [env]]
     [george.javafx :as fx]
     [george.javafx.java :as fxj]
-    [clojure.string :as cs])
+    [clj-diff.core :as diff]
+    [george.util :refer [->Labeled labeled?] :as gu] ;; This also loads defmethod diff/patch
+    [george.application.ui.layout :as layout]
+    [george.application.ui.styled :as styled])
   (:import
-    [javafx.scene.control TreeView TreeItem TreeCell ScrollBar]
-    [java.nio.file FileSystems FileSystem Files Paths Path FileVisitOption LinkOption StandardCopyOption]
-    (java.net URI)
-    (javafx.scene.paint Color)
-    (javafx.util Callback)
-    (javafx.scene.input TransferMode ClipboardContent)
-    (javafx.scene Cursor SnapshotParameters)
-    (java.io IOException)
-    (javafx.collections ObservableList)
-    (javafx.geometry Orientation)))
+    [java.io IOException]
+    [java.nio.file Files Paths Path LinkOption StandardCopyOption]
+    [javafx.collections ObservableList]
+    [javafx.geometry Orientation Pos]
+    [javafx.scene Cursor SnapshotParameters]
+    [javafx.scene.control TreeView TreeItem TreeCell ScrollBar MenuItem ContextMenu]
+    [javafx.scene.input TransferMode ClipboardContent]
+    [javafx.scene.paint Color]
+    [javafx.util Callback]
+    [java.nio.file.attribute FileAttribute]))
+
+
+(def ILLEGAL_CHARS
+  (set "<>*?:`'\"/|\\"))
+
+
+(defn illegal-chars [s]
+  (filter ILLEGAL_CHARS (seq s)))
 
 
 (defn ^String filename [path]
   (str (.getFileName path)))
 
 
-(defrecord StringablePath [path]
-  Object
-  (toString [_]
-    (filename path)))
-
-
 (defn to-path [s & args]
   (Paths/get s (into-array String args)))
 
+
 (defn to-string [path]
   (-> path .toAbsolutePath str))
+
+
+(defn is-dir [path]
+  (Files/isDirectory path (make-array LinkOption 0)))
+
+
+(defn- item->path->string [item]
+  (-> item .getValue to-string))
+
+
+(defn- treecell->path [treecell]
+  (-> treecell .getTreeItem .getValue))
 
 
 ;; TODO: better icons?
@@ -46,13 +65,6 @@
 (defn  folder-image [] 
   (fx/imageview "graphics/folder-16.png"))
 
-
-
-(defn is-dir [path]
-  (Files/isDirectory path (make-array LinkOption 0)))
-
-(defn- treecell->path [treecell]
-  (-> treecell .getTreeItem .getValue))
 
 (declare lazy-filetreeitem)
 
@@ -179,7 +191,8 @@
           (.setOpacity treecell 1.0)
           (.setCursor treecell Cursor/DEFAULT)
           (when (.getTransferMode me)
-            (.refresh (.getParent treeitem)))
+            (try (.refresh (.getParent treeitem)) 
+                 (catch NullPointerException _)))
           (.consume me))))))
 
 
@@ -192,6 +205,24 @@
         (when (and  (not (is-dir path)) 
                     (= (.getClickCount e) 2))
               (println "FILE double-click:" (filename path)))))))
+
+
+(defn- set-context-menu [treecell]
+  (let [cm-dir
+        (ContextMenu.
+          (into-array
+            [(doto (MenuItem. "Refresh")
+                   (fx/set-onaction
+                     #(-> treecell .getTreeItem .refresh)))]))             
+        
+        cm-handler
+        (fx/event-handler-2 [_ e]
+                            (.show cm-dir treecell
+                                   (.getScreenX e)
+                                   (.getScreenY e)))]
+    
+    (if (is-dir (-> treecell .getTreeItem .getValue))
+        (.setOnContextMenuRequested treecell cm-handler))))
 
 
 (defn path-treecell
@@ -214,8 +245,8 @@
             (fx/set-tooltip (to-string path))
             (make-doubleclickable)
             (make-draggable)
-            (make-droppable (.getTreeItem this))))))))
-
+            (make-droppable (.getTreeItem this))
+            (set-context-menu)))))))
 
 (defn path-treecell-factory
   "Returns a custom Callback."
@@ -224,9 +255,6 @@
     (call [_ _]
       (path-treecell))))
 
-
-(definterface Refreshable
-  (refresh []))
 
 
 (defn- filename-lowercased [p]
@@ -237,74 +265,84 @@
   (sort-by filename-lowercased paths))
 
 
+(defn exists [path]
+  (Files/exists path (into-array [LinkOption/NOFOLLOW_LINKS])))
+
+
 (defn not-hidden [paths]
   (filter #(not (Files/isHidden %)) paths))
 
 
-(defn- get-paths [parent-path]
+(defn- get-paths [parent-path & include-hidden?]
   (->  parent-path
        Files/newDirectoryStream
        vec
-       not-hidden
+       (#(if include-hidden? (identity %) (not-hidden %)))
        alphabetized))
 
 
-(defn- update-children [treeitem path]
-  (let [children ^ObservableList (.getChildren treeitem)
-        paths (get-paths path)
-        c-cnt (count children)       
-        p-cnt (count paths)]
-    (when (not= c-cnt p-cnt)
-      ;; if children-cnt > paths-count, figure out which child to remove, else figure out which path to add
-      (let [remove? (> c-cnt p-cnt)]
-        (loop [ix 0 paths paths]
-          (if remove?
-            (when (< ix (count children))
-              (let [shown-p (.getValue ^TreeItem (.get children ix))]
-                  (if (Files/exists shown-p (into-array [LinkOption/NOFOLLOW_LINKS]))
-                      (recur (inc ix) (rest paths))
-                      (do
-                        (.remove children ix)
-                        (recur ix (rest paths))))))
-
-            (let [shown-p (when (< ix (count children)) (.getValue ^TreeItem (.get children ix)))
-                  real-p (first paths)]
-              (if (and shown-p real-p (Files/isSameFile shown-p real-p))
-                  (recur (inc ix) (rest paths))
-                  (when (and real-p (or (nil? shown-p) (not (Files/isSameFile shown-p real-p)))) 
-                    ;(println "adding path at" ix (to-string real-p))
-                    (.add children ix (lazy-filetreeitem real-p))
-                    (recur (inc ix) (rest paths)))))))))))
+(defn- refresh-item 
+  "Can be called directly. It is also called from lazy-filetreeitem, which implements Refreshable.
+  Extracts the path from the filetreeitem, and if it is a dir, 
+  then first the child items are syncronizes with the underlying paths, and 'refresh' is called on each of them, 
+  making it in effect recursive (depth first)."
+  [filetreeitem]
+  (let [path (.getValue filetreeitem)
+        dir? (is-dir path)]
+    (when dir?
+      (prn 'refresh-item filetreeitem)
+      (let [old-paths-str (map item->path->string (.getChildren filetreeitem))
+            new-paths-str (map to-string (get-paths path))
+            ;; diff/diff only works on seqs of Strings
+            edit-script (diff/diff old-paths-str new-paths-str)
+            ;; We need to replace "add" strings with filetreeitems before passing it to diff/patch
+            edit-script1 
+            (update-in edit-script [:+] 
+                       (fn [v] 
+                         (mapv (fn [[i s]] [i (lazy-filetreeitem (to-path s))])
+                               v)))]
+        ;; The "del-object" needs to be compatible with TreeView, as it will be temporarily inserted before being removed.
+        (binding [gu/*DEL_OBJ* (lazy-filetreeitem (to-path "DEL_OBJ"))]
+          (diff/patch (.getChildren filetreeitem) edit-script1))
+        ;; Call refresh on all children. They will sort out if they need to do the same on theirs.
+        (doseq [c (.getChildren filetreeitem)]
+          (.refresh c))))))
 
 
 (defn- set-children [treeitem path]
   (let [children (.getChildren treeitem)
         paths (get-paths path)]
     (.setAll  children (fxj/vargs* (map #(lazy-filetreeitem %) paths)))))
-                             
+
+
+(definterface IRefreshable
+  (refresh []))
 
 
 (defn lazy-filetreeitem [path]
   (let [dir?  (is-dir path)
-        first-children-call_  (atom true)     
+        get-children-called_  (atom false)     
         item
-        (proxy [TreeItem Refreshable] [path (if dir? (folder-image) (file-image))]
-          (isLeaf [] (not dir?))
-          (refresh []
-              (when (not @first-children-call_)
-                (update-children this path)))
-          (getChildren [] 
-            (when @first-children-call_
-              (reset! first-children-call_ false)
-              ;(println "first call:" (filename path))
+        (proxy [TreeItem IRefreshable] [path (if dir? (folder-image) (file-image))]
+          ;; Override
+          (isLeaf [] 
+            (not dir?))
+          ;; Override
+          (getChildren []
+            (when-not @get-children-called_
+              (reset! get-children-called_ true)
               (set-children this path))
-            (proxy-super getChildren)))]
+            (proxy-super getChildren))
+          ;; implement IRefreshable
+          (refresh []
+            ;(prn 'refresh (to-string path))
+            (when (and dir? @get-children-called_)
+                  (refresh-item this))))]
     item))
 
 ;; TODO: implement tooltip for files (path mod-date, etc.)
 ;; TODO: implement context-menu on items (open/open in tab (for folders), edit, delete.
 ;; TODO: detect action - i.e. double-click or CTRL-O or CTRL-ENTER
-;; TODO: Maybe detect and handle file edit (ENTER or long click?)
 ;; TODO: detect and handle filesystem changes ...
 
 
@@ -313,14 +351,15 @@
         (.setExpanded true)))
 
 
-(defn- tree-listener []
+(defn- tree-listener [current-item_]
   (fx/changelistener [_ _ _ item]
      (when item
        (let [path (-> item .getValue)]
+         (reset! current-item_ item)
          (if (is-dir path)
            (println "DIR:" (filename path))
-           (println "FILE:" (filename path)))))))
-       
+           (println "FILE:" (filename path))))))) 
+
 
 (defn- get-scrollbar [treeview]
   (let [nodes (.lookupAll treeview ".scroll-bar")]
@@ -344,46 +383,219 @@
                     (.increment scrollbar))))))))
 
 
-(defn- file-tree [^Path path]
-    (doto (TreeView. (tree-root path))
+(defn- file-tree [^Path path current-item_]
+  (let [root (tree-root path)]
+    (reset! current-item_ root)
+    (doto (TreeView. root)
           (.setCellFactory (path-treecell-factory))
           (make-autoscrolling)
           (-> .getSelectionModel 
               .selectedItemProperty 
-              (.addListener (tree-listener)))))
+              (.addListener (tree-listener current-item_))))))
 
 
-(defn- set-filetree [borderpane path]
-  (.setCenter borderpane (file-tree path)))
+(defn- set-filetree [borderpane path current-item_]
+  (.setCenter borderpane (file-tree path current-item_)))
 
 
-(defn- panel-folder [label path borderpane]
+(defn- panel-folder [{:keys [label value]} borderpane current-item_]
+  ;(reset! current-item_ value)
   (fx/new-label
     label
     :graphic (folder-image)
-    :mouseclicked #(set-filetree borderpane path)))
+    :mouseclicked #(set-filetree borderpane value current-item_)))
+
+
+(defn delete-path 
+  "Deletes files and folders recursively."
+  [path]
+  (when (is-dir path)  
+    (doseq [p (get-paths path)]
+      (delete-path p)))
+  (prn 'deleting-path (to-string path))
+  (Files/deleteIfExists path))
+
+
+(defn- delete-dialog [current-item_]
+  (let [
+        path (.getValue @current-item_)
+        dir? (is-dir path)
+        
+        res
+        (fx/alert 
+          :type :confirmation 
+          :title (format "Delete %s?" (if dir? "folder" "file"))
+          :options ["No. Don't delete." "Yes. Delete!"]
+          ;:cancel-option? true
+          :text 
+          (format "Do you want to delete %s:  \n\n  \"%s\"%s  \n\nDeleting can not be reversed!\n\n"
+            (if dir? "folder" "file")
+            (filename path)
+            (if-not dir? "" (format "\n\n  It contains at least %s items." (count (get-paths path true))))))]
+            
+    (println res)    
+    (when (= res 1)
+      (delete-path path)
+      (Thread/sleep 200)  ;; Allow current-item_ to be updated
+      (-> @current-item_ .getParent .refresh))))
+      ;; TODO: In Java 9, we would prefer to use: moveToTrash(File f)
+      ;; https://docs.oracle.com/javase/9/docs/api/java/awt/Desktop.html#moveToTrash-java.io.File-
+
+
+(defn new-rename-dialog [current-item_ new?]
+  (let [path
+        (.getValue @current-item_)
+        
+        name
+        (if new? "" (filename path))
+        
+        parent-path
+        (if new?
+            (if (is-dir path) path (.getParent path))
+            (.getParent path))
+        
+        parent-str
+        (str (to-string parent-path) "/")
+
+        len (if new? 15 (.length name))
+        len (if (< len 15) 15 len)
+              
+        name-field
+        (doto (fx/textfield :text name) 
+              (.setPrefColumnCount len))
+        
+        error-label
+        (fx/new-label " " 
+           :font (fx/new-font "Roboto" 14) 
+           :color Color/RED)
+
+        folder-checkbox
+        (doto
+          (fx/checkbox "Folder")
+          (.setGraphic (folder-image))
+          (fx/set-tooltip "If checked, a folder is created.\nOtherwise a file is created."))
+
+        form
+        (fx/vbox
+          (fx/hbox
+            (styled/new-label parent-str :size 14)
+            name-field
+            (when new? folder-checkbox)
+            :alignment Pos/CENTER_LEFT
+            :spacing 10)
+          error-label
+          :spacing 10
+          :padding 10)
+        options [(if new? "Create" "Rename")]
+
+        alert
+        (fx/alert
+          :type :none
+          :title (if new? "New file or folder" "Rename file or folder")
+          :content form
+          :options options
+          :cancel-option? true
+          :mode nil)
+
+        save-button
+        (doto
+          (-> alert .getDialogPane (.lookupButton (-> alert .getButtonTypes first)))
+          (.setDisable true))
+
+        do-checks
+        (fn []
+          (let [n (.trim (.getText name-field))
+                changed? (not= n name)
+                has-content? (not (empty? n))]
+            (if-not (and changed? has-content?)
+              (fx/set-enable save-button false)
+              (let [p (to-path parent-str n)
+                    ;; Does an existing file/folder exist?
+                    new? (not (exists p))
+                    ;; Is the path legal?  (no bad chars etc)
+                    illegals (illegal-chars n)
+                    legal? (nil? (first illegals))]
+                (if-not new?
+                  (.setText error-label "File or folder with this name already exists!")
+                  (if-not legal?
+                    (.setText error-label 
+                              (str "Name may not contain " (apply str (interpose " or " (map #(str \' % \') illegals)))))
+                    (.setText error-label " ")))
+
+                (fx/set-enable save-button (and new? legal?))))))]
+    
+    (doto name-field   
+      (.requestFocus)
+      (.selectAll)
+      (-> .textProperty (.addListener (fx/changelistener [_ _ _ v] (do-checks)))))
+
+    (when (fx/option-index (.showAndWait alert) options)
+      (println "new-rename-dialog res:" (.getText name-field))
+      (let [p (to-path parent-str (.trim (.getText name-field)))]
+        (if new?
+          (if (.isSelected folder-checkbox)
+            (Files/createDirectory p (make-array FileAttribute 0))
+            (Files/createFile p (make-array FileAttribute 0)))
+          ;; TODO: move file if not new?
+          (move-file path p))
+        ;; TODO: refresh folder in tree-view!
+        (-> @current-item_ .getParent .refresh)))))
 
 
 (defn- file-nav []
   (let [
+        current-item_ 
+        (atom nil)
+
         root
         (fx/borderpane)
+        
+        specials 
+        [
+         (->Labeled "George" (to-path (env :user-home) "Documents" "George"))
+         (->Labeled "Desktop" (to-path (env :user-home) "Desktop"))
+         (->Labeled "Documents" (to-path (env :user-home) "Documents"))
+         (->Labeled "Home" (to-path (env :user-home)))]
 
-        George-path
-        (to-path (env :user-home) "Documents" "George")
-   
         panel
-        (fx/vbox
-          (panel-folder "George" George-path root)
-          (panel-folder "Desktop" (to-path (env :user-home) "Desktop") root)
-          (panel-folder "Documents" (to-path (env :user-home) "Documents") root)
-          (panel-folder "Home" (to-path (env :user-home) ) root)
-          :spacing 5          
-          :insets [5 20 5 20])]    
-    
+        (apply 
+          fx/vbox
+          (concat
+            (map #(panel-folder % root current-item_) specials)
+            [:spacing 5          
+             :insets [5 20 5 20]]))    
+        
+        new-button
+        (fx/button "New ..."
+                   :tooltip "Create a new file or folder in current folder"
+                   :onaction #(new-rename-dialog current-item_ true))
+
+        rename-button
+        (fx/button "Rename ..."
+               :tooltip "Rename selected file or folder"
+               :onaction #(new-rename-dialog current-item_ false))
+        
+        delete-button
+        (fx/button "Delete ..."
+                   :tooltip "Delete selected file or folder"
+                   :onaction #(delete-dialog current-item_))
+        menubar
+        (layout/menubar 
+          true
+          new-button rename-button delete-button)
+
+        paths-set (set (map :value specials))]
+
+    (add-watch current-item_ :file-nav 
+               #(do 
+                  (prn 'current-item_ (to-string (.getValue %4)))
+                  (doseq [b [rename-button delete-button]] 
+                    (.setDisable b (boolean (paths-set (.getValue %4)))))))
+                                    
     (doto root
+      (.setTop menubar)
       (.setLeft panel)
-      (set-filetree George-path))))
+      (set-filetree (-> specials first :value) current-item_))))
      
 
 (defn stage [root]
@@ -398,6 +610,6 @@
 
 ;;; 
 
-; (when (env :repl?) (stage (file-nav))) 
+;(when (env :repl?) (stage (file-nav))) 
 
 

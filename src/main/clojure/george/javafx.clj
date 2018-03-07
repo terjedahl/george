@@ -669,6 +669,11 @@ It must return a string (which may be wrapped to fit the width of the list."
         (if tooltip (set-tooltip b tooltip))
         b))
 
+(defn set-enable 
+  "A simple tool that is easier to reason about."
+  [^Button button enable?]
+  (.setDisable button (not enable?)))
+
 
 (defn ^CheckBox checkbox [label & {:keys [onaction tooltip]}]
   (let [cb (CheckBox. label)]
@@ -799,7 +804,7 @@ It must return a string (which may be wrapped to fit the width of the list."
 
 
 (defn ^HBox hbox [& args]
-    (apply box (cons false args)))
+    (apply box (cons false (filter some? args))))
 
 
 (defn ^VBox vbox [& args]
@@ -844,18 +849,18 @@ It must return a string (which may be wrapped to fit the width of the list."
 
 
 (defn option-index
-  "returns the index of the selected option, or nil"
+  "Returns the index of the selected option, or nil"
   [result options]
   (let [index (.indexOf options (-> result .get .getText))]
     (when (not= index -1)
       index)))
 
 
-(def alert-types {:none Alert$AlertType/NONE
-                  :information Alert$AlertType/INFORMATION
-                  :warning Alert$AlertType/WARNING
+(def alert-types {:none         Alert$AlertType/NONE
+                  :information  Alert$AlertType/INFORMATION
+                  :warning      Alert$AlertType/WARNING
                   :confirmation Alert$AlertType/CONFIRMATION
-                  :error Alert$AlertType/ERROR})
+                  :error        Alert$AlertType/ERROR})
 
 
 (defn expandable-content [expand-prompt content & [font pref-width]]
@@ -877,7 +882,8 @@ It must return a string (which may be wrapped to fit the width of the list."
 
 
 (defn alert [& args]
-  "returns index of selected option, else nil
+  "Returns index of selected option, else nil.
+  If :mode is nil, then returns the pre-shown dialog. You must then show it yourself, and process the results.
 
   ex: (actions-dialog \"Message\" :title \"Title\" :options [\"A\" \"B\"] :cancel-option? true)
 
@@ -885,12 +891,14 @@ It must return a string (which may be wrapped to fit the width of the list."
   "
   (let [default-kwargs {:title "Info"
                         :header nil
+                        :text nil
                         :content nil
                         :expandable-content nil
+                        :expanded? false
                         :options ["OK"]
                         :cancel-option? false
                         :owner nil
-                        :mode :show-and-wait ;; :show-and-wait or :show
+                        :mode :show-and-wait ;; :show-and-wait or :show or nil
                         :type :information}
 
         [_ {:keys [options] :as kwargs}] (fxu/partition-args args default-kwargs)
@@ -903,22 +911,27 @@ It must return a string (which may be wrapped to fit the width of the list."
           buttons)
 
         alert
-        (doto (Alert. (alert-types type))
+        (doto (Alert. (alert-types (:type kwargs)))
           (.setTitle (:title kwargs))
           (.initOwner (:owner kwargs))
           (.setHeaderText (:header kwargs))
           (-> .getButtonTypes (.setAll (fxj/vargs* buttons))))]
 
+    (when-let [t (:text kwargs)]
+      (.setContentText alert t))
+
     (when-let [c (:content kwargs)]
-      (.setContentText alert c))
+      (-> alert .getDialogPane (.setContent c)))
 
     (when-let [ec (:expandable-content kwargs)]
       (-> alert .getDialogPane (.setExpandableContent ec)))
 
-    (condp :mode kwargs
+    (-> alert .getDialogPane (.setExpanded (:expanded? kwargs)))
+
+    (condp = (:mode kwargs)
       :show-and-wait (option-index (.showAndWait alert) options)
       :show (option-index (.show alert) options)
-      ;; default - simply return the dialog itself
+      ;; default (nil) - simply return the dialog itself (unshown)
       alert)))
 
 

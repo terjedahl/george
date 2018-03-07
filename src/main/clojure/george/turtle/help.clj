@@ -16,6 +16,7 @@
     [george.application.ui.styled :as styled]
     [george.javafx :as fx]
     [george.javafx.java :as fxj]
+    [george.util :refer [->Labeled labeled?]]
     [george.application.ui.layout :as layout])
   (:import
     [javafx.stage Stage]
@@ -216,12 +217,6 @@ You can get a list containing all registered turtles with the command [``]
 
    "clojure.core"
    "# clojure.core\n\nA few of the most used basic Clojure functions. See [Clojure](:Clojure) for more information."})
-
-
-(defrecord Labeled [label value])
-
-(defn- labeled? [inst]
-  (instance? Labeled inst))  
 
 
 (def turtle-API-list
