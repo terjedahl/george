@@ -13,11 +13,12 @@
     [clj-diff.core :as diff]
     [george.util :refer [->Labeled labeled?] :as gu] ;; This also loads defmethod diff/patch
     [george.application.ui.layout :as layout]
-    [george.application.ui.styled :as styled])
+    [george.application.ui.styled :as styled]
+    [hara.io.watch]
+    [hara.common.watch :as watch])
   (:import
     [java.io IOException]
-    [java.nio.file Files Paths Path LinkOption StandardCopyOption]
-    [javafx.collections ObservableList]
+    [java.nio.file Files Paths Path LinkOption StandardCopyOption NoSuchFileException]
     [javafx.geometry Orientation Pos]
     [javafx.scene Cursor SnapshotParameters]
     [javafx.scene.control TreeView TreeItem TreeCell ScrollBar MenuItem ContextMenu]
@@ -25,7 +26,6 @@
     [javafx.scene.paint Color]
     [javafx.util Callback]
     [java.nio.file.attribute FileAttribute]))
-
 
 (def ILLEGAL_CHARS
   (set "<>*?:`'\"/|\\"))
@@ -51,6 +51,38 @@
   (Files/isDirectory path (make-array LinkOption 0)))
 
 
+(defn- filename-lowercased [p]
+  (cs/lower-case (filename p)))
+
+
+(defn alphabetized [paths]
+  (sort-by filename-lowercased paths))
+
+
+(defn exists [path]
+  (Files/exists path (into-array [LinkOption/NOFOLLOW_LINKS])))
+
+
+(defn not-hidden [paths]
+  (filter #(not (Files/isHidden %)) paths))
+
+
+(defn not-special-hidden [paths]
+  (filter #(not= ".DS_Store" (filename %) ) paths))
+
+
+(defn- get-child-paths [parent-path & [include-hidden? include-special?]]
+  (->  parent-path
+       Files/newDirectoryStream
+       vec
+       (#(if include-hidden? 
+           (if include-special? 
+             (identity %)
+             (not-special-hidden %)) 
+           (not-hidden %)))
+       alphabetized))
+
+
 (defn- item->path->string [item]
   (-> item .getValue to-string))
 
@@ -62,6 +94,8 @@
 ;; TODO: better icons?
 (defn file-image [] 
   (fx/imageview "graphics/file-16.png"))
+(defn file-clj-image []
+  (fx/imageview "graphics/file-clj-16.png"))
 (defn  folder-image [] 
   (fx/imageview "graphics/folder-16.png"))
 
@@ -77,15 +111,16 @@
     (catch IOException e (.printStackTrace e))))
 
 
-(defn- get-that-path [event]
-  (to-path (.getString (.getDragboard event))))
-
+(defn- get-those-paths [event]
+  ;(to-path (.getString (.getDragboard event))))
+  (map #(.toPath %) 
+       (-> event .getDragboard .getFiles)))
 
 (defn- will-receive? [this-path that-path]
   (let [dir? (is-dir this-path)
         that-parent (.getParent that-path)
-        same-parent? (Files/isSameFile this-path that-parent)
-        same? (Files/isSameFile this-path that-path)]
+        same-parent? (try (Files/isSameFile this-path that-parent) (catch NoSuchFileException _ false))
+        same? (try (Files/isSameFile this-path that-path) (catch NoSuchFileException _ false))]
     ;(println "  ##    this-path:" (to-string this-path))
     ;(println "  ##         dir?:" dir?)
     ;(println "  ##    that-path:" (to-string that-path))
@@ -95,46 +130,91 @@
     (and dir? (not same-parent?) (not same?))))
 
 
-(defn mark-droppable [treecell receiving?]
+(defn- colliding-path 
+  "Returns the child-path that collides with that-path by filename, else nil"
+  [that-path this-path]
+  (let [child-paths (get-child-paths this-path)]
+    (when-let [p (get (set (map filename child-paths)) (filename that-path))]
+      (to-path (to-string this-path) p))))
+
+
+(defn warn-of-existing [path]
+  (let [nam (filename path)
+        par (to-string (.getParent path))
+        dir? (is-dir path)]
+    (fx/alert 
+      :type :error
+      :title "File/folder name collision"
+      :header "Move aborted"
+      :text 
+      (format "A %s '%s' already exists in %s" 
+              (if dir? "folder" "file")
+              nam
+              par))))
+
+
+(defn- will-receive-or-warn? [this-path that-path]
+  (if (will-receive? this-path that-path)
+      (if-let [p (colliding-path that-path this-path)]
+        (do (warn-of-existing p) false)
+        true)
+      false))
+
+
+(defn- will-receive-all? [this-path those-paths]
+    (every? true? (map #(will-receive? this-path %) those-paths)))
+
+
+(defn- will-receive-all-or-warn? [this-path those-paths]
+  (every? true? (map #(will-receive-or-warn? this-path %) those-paths)))
+
+
+(defn mark-dropspot [treecell receiving?]
   (let [w [1 0 1 0]]
     (doto treecell
       (.setBorder 
         (fx/new-border (if receiving? Color/BLUE Color/TRANSPARENT) w)))))
 
 
-(defn make-droppable [treecell treeitem]
+(defn make-dropspot [treecell treeitem]
   ;; TODO: Ensure that children are also "ghosted" when dragging
-  (mark-droppable treecell false)
+  (mark-dropspot treecell false)
 
   (.setOnDragOver treecell
     (fx/event-handler-2 [_ event] ;; DragEvent
       (let [this-path (.getValue treeitem)
-            that-path (get-that-path event)]
-        (when (will-receive? this-path that-path)
+            ;that-path (get-that-path event)
+            those-paths (get-those-paths event)]
+        (when (will-receive-all? this-path those-paths)
           (.acceptTransferModes event (fxj/vargs TransferMode/MOVE))))))
           ;(.consume event)))))
   
   (.setOnDragEntered treecell
     (fx/event-handler-2 [_ event] ;; DragEvent
+      
+      ;(prn 'db-ct (-> event .getDragboard .getContentTypes (.contains DataFormat/FILES)))
+      ;(doseq [f (-> event .getDragboard .getFiles)]
+      ;  (prn 'f f))
       ;(println " drag-entered:" (to-string (.getValue treeitem)))
-      (when (will-receive? (.getValue treeitem) (get-that-path event))
+      (when (will-receive-all? (.getValue treeitem) (get-those-paths event))
             ;(println "marking dir" (.getValue treeitem))
-            (mark-droppable treecell true))
+            (mark-dropspot treecell true))
       (.consume event)))
 
   (.setOnDragExited treecell
     (fx/event-handler-2 [_ event] ;; DragEvent
        ;(println "un-marking dir" (.getValue treeitem))
-       (mark-droppable treecell false)
+       (mark-dropspot treecell false)
        (.consume event)))
 
   ;; TODO: make receiving folder selected in view
   (.setOnDragDropped treecell
     (fx/event-handler-2 [_ event]
        (let [this-path (.getValue treeitem)
-             that-path (get-that-path event)]
-         (when (will-receive? this-path that-path)
-           (move-file that-path (to-path (to-string this-path) (filename that-path)))
+             those-paths (get-those-paths event)]
+         (when (will-receive-all-or-warn? this-path those-paths)
+           (doseq [that-path those-paths]
+             (move-file that-path (to-path (to-string this-path) (filename that-path))))
            (.refresh treeitem)
            (.setDropCompleted event true)
            (-> treecell .getTreeView .getSelectionModel 
@@ -161,7 +241,9 @@
            (let [db
                  (.startDragAndDrop treecell (fxj/vargs TransferMode/MOVE))
                  cc
-                 (doto (ClipboardContent.) (.putString (to-string path)))
+                 (doto (ClipboardContent.) 
+                       ;(.putString (to-string path))
+                       (.putFiles [(.toFile path)]))
 
                  [x y] @press-XY
                  [w h] (fx/WH treecell)
@@ -190,6 +272,8 @@
           [_ me]
           (.setOpacity treecell 1.0)
           (.setCursor treecell Cursor/DEFAULT)
+          ;(prn 'onDragDone me)
+          ;(prn 'mode (.getTransferMode me))
           (when (.getTransferMode me)
             (try (.refresh (.getParent treeitem)) 
                  (catch NullPointerException _)))
@@ -240,12 +324,15 @@
         ;; else
         (let [dir? (is-dir path)]
           (doto this
-            (.setGraphic (if dir? (folder-image) (file-image)))
+            (.setGraphic (if dir? (folder-image) 
+                                  (if (.endsWith (filename path) ".clj")
+                                      (file-clj-image)
+                                      (file-image))))
             (.setText (filename path))
             (fx/set-tooltip (to-string path))
             (make-doubleclickable)
             (make-draggable)
-            (make-droppable (.getTreeItem this))
+            (make-dropspot (.getTreeItem this))
             (set-context-menu)))))))
 
 (defn path-treecell-factory
@@ -254,31 +341,6 @@
   (reify Callback
     (call [_ _]
       (path-treecell))))
-
-
-
-(defn- filename-lowercased [p]
-  (cs/lower-case (filename p)))
-
-
-(defn alphabetized [paths]
-  (sort-by filename-lowercased paths))
-
-
-(defn exists [path]
-  (Files/exists path (into-array [LinkOption/NOFOLLOW_LINKS])))
-
-
-(defn not-hidden [paths]
-  (filter #(not (Files/isHidden %)) paths))
-
-
-(defn- get-paths [parent-path & include-hidden?]
-  (->  parent-path
-       Files/newDirectoryStream
-       vec
-       (#(if include-hidden? (identity %) (not-hidden %)))
-       alphabetized))
 
 
 (defn- refresh-item 
@@ -290,9 +352,9 @@
   (let [path (.getValue filetreeitem)
         dir? (is-dir path)]
     (when dir?
-      (prn 'refresh-item filetreeitem)
+      ;(prn 'refresh-item filetreeitem)
       (let [old-paths-str (map item->path->string (.getChildren filetreeitem))
-            new-paths-str (map to-string (get-paths path))
+            new-paths-str (map to-string (get-child-paths path))
             ;; diff/diff only works on seqs of Strings
             edit-script (diff/diff old-paths-str new-paths-str)
             ;; We need to replace "add" strings with filetreeitems before passing it to diff/patch
@@ -311,7 +373,7 @@
 
 (defn- set-children [treeitem path]
   (let [children (.getChildren treeitem)
-        paths (get-paths path)]
+        paths (get-child-paths path)]
     (.setAll  children (fxj/vargs* (map #(lazy-filetreeitem %) paths)))))
 
 
@@ -343,7 +405,6 @@
 ;; TODO: implement tooltip for files (path mod-date, etc.)
 ;; TODO: implement context-menu on items (open/open in tab (for folders), edit, delete.
 ;; TODO: detect action - i.e. double-click or CTRL-O or CTRL-ENTER
-;; TODO: detect and handle filesystem changes ...
 
 
 (defn tree-root [^Path path]
@@ -383,9 +444,26 @@
                     (.increment scrollbar))))))))
 
 
-(defn- file-tree [^Path path current-item_]
+(defn- set-watch [path current-watch_ root]
+  (when-let [f @current-watch_]
+    (watch/remove f f))
+  (reset! current-watch_ (.toFile path))
+  (watch/add
+    @current-watch_ ;; file
+    current-watch_ ;; use the atom itself as watch-key
+    (fn [_ _ _ v]
+      ;(prn 'v v)
+      (.refresh root))
+    {:types #{:create :modify :delete}
+     :recursive true
+     :exclude [".DS_Store"]}))
+
+
+(defn- file-tree [^Path path current-item_ current-watch_]
   (let [root (tree-root path)]
     (reset! current-item_ root)
+    (set-watch path current-watch_ root)
+    
     (doto (TreeView. root)
           (.setCellFactory (path-treecell-factory))
           (make-autoscrolling)
@@ -394,33 +472,44 @@
               (.addListener (tree-listener current-item_))))))
 
 
-(defn- set-filetree [borderpane path current-item_]
-  (.setCenter borderpane (file-tree path current-item_)))
+(defn- set-filetree [borderpane path current-item_ current-watch_]
+  (.setCenter borderpane (file-tree path current-item_ current-watch_)))
 
 
-(defn- panel-folder [{:keys [label value]} borderpane current-item_]
+(defn- panel-folder [{:keys [label value]} borderpane current-item_ current-watch_]
   ;(reset! current-item_ value)
   (fx/new-label
     label
     :graphic (folder-image)
-    :mouseclicked #(set-filetree borderpane value current-item_)))
+    :mouseclicked #(set-filetree borderpane value current-item_ current-watch_)))
 
 
 (defn delete-path 
   "Deletes files and folders recursively."
   [path]
   (when (is-dir path)  
-    (doseq [p (get-paths path)]
+    (doseq [p (get-child-paths path true true)]
       (delete-path p)))
   (prn 'deleting-path (to-string path))
   (Files/deleteIfExists path))
+
+
+(defn- count-paths-recursively 
+  "Counts files and folders, including the passed-in path itself"
+  [path]
+  (if (is-dir path)
+      (reduce + 1 (map count-paths-recursively (get-child-paths path true)))
+      1))
 
 
 (defn- delete-dialog [current-item_]
   (let [
         path (.getValue @current-item_)
         dir? (is-dir path)
-        
+        cnt (if dir? (dec (count-paths-recursively path)) 0)
+        xff (if (= cnt 1) 
+              "1 file or folder" 
+              (format "%s files and folders" cnt))
         res
         (fx/alert 
           :type :confirmation 
@@ -431,12 +520,12 @@
           (format "Do you want to delete %s:  \n\n  \"%s\"%s  \n\nDeleting can not be reversed!\n\n"
             (if dir? "folder" "file")
             (filename path)
-            (if-not dir? "" (format "\n\n  It contains at least %s items." (count (get-paths path true))))))]
+            (if-not dir? "" (format "\n\n  It contains %s." xff))))]
             
     (println res)    
     (when (= res 1)
       (delete-path path)
-      (Thread/sleep 200)  ;; Allow current-item_ to be updated
+      ;(Thread/sleep 200)  ;; Allow current-item_ to be updated
       (-> @current-item_ .getParent .refresh))))
       ;; TODO: In Java 9, we would prefer to use: moveToTrash(File f)
       ;; https://docs.oracle.com/javase/9/docs/api/java/awt/Desktop.html#moveToTrash-java.io.File-
@@ -546,6 +635,8 @@
   (let [
         current-item_ 
         (atom nil)
+        current-watch_
+        (atom nil)
 
         root
         (fx/borderpane)
@@ -561,7 +652,7 @@
         (apply 
           fx/vbox
           (concat
-            (map #(panel-folder % root current-item_) specials)
+            (map #(panel-folder % root current-item_ current-watch_) specials)
             [:spacing 5          
              :insets [5 20 5 20]]))    
         
@@ -588,14 +679,14 @@
 
     (add-watch current-item_ :file-nav 
                #(do 
-                  (prn 'current-item_ (to-string (.getValue %4)))
+                  ;(prn 'current-item_ (to-string (.getValue %4)))
                   (doseq [b [rename-button delete-button]] 
                     (.setDisable b (boolean (paths-set (.getValue %4)))))))
                                     
     (doto root
       (.setTop menubar)
       (.setLeft panel)
-      (set-filetree (-> specials first :value) current-item_))))
+      (set-filetree (-> specials first :value) current-item_ current-watch_))))
      
 
 (defn stage [root]

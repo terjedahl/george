@@ -43,7 +43,11 @@
                  ;; https://github.com/alexander-yakushev/defprecated
                  [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                  ;; https://github.com/amalloy/ordered
-                 [org.flatland/ordered "1.5.6"]]
+                 [org.flatland/ordered "1.5.6"]
+                 ;; https://github.com/zcaudate/hara
+                 ;; http://docs.caudate.me/hara/hara-io-watch.html
+                 [zcaudate/hara.common.watch "2.8.2"]
+                 [zcaudate/hara.io.watch "2.8.2"]]
   
   :plugins [
             ;; https://github.com/weavejester/environ
