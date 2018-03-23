@@ -1,7 +1,7 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 ;; impementation of: http://blog.netopyr.com/2012/06/14/using-the-javafx-animationtimer/
 
@@ -21,10 +21,10 @@
 
 
 ;; primitive math is faster
-(set! *unchecked-math* :warn-on-boxed)
+;(set! *unchecked-math* :warn-on-boxed)
 
 ;; avoiding reflection is A LOT faster!
-(set! *warn-on-reflection* true)
+;(set! *warn-on-reflection* true)
 
 
 
@@ -64,10 +64,9 @@
     (vec (repeatedly STAR_COUNT #(fx/rectangle :size [1 1] :fill Color/WHITE))))
 
 
-(def fps-label
-    (doto ^Label (fx/label "FPS")
-        (. setTextFill Color/RED)
-        ))
+(def fps-label ^Label 
+  (fx/new-label "FPS" :color Color/RED))
+        
 
 
 (def scene ^Scene (fx/scene

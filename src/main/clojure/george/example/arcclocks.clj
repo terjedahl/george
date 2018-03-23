@@ -1,7 +1,7 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns george.example.arcclocks
     "A Clojure implementation of
@@ -22,7 +22,7 @@
 ;(set! *unchecked-math* :warn-on-boxed)
 
 ;; avoiding reflection can make your code A LOT faster and animations smoother!
-(set! *warn-on-reflection* true)
+;(set! *warn-on-reflection* true)
 
 
 (def BLUE1 (Color/rgb 126, 166, 212, 0.6))
@@ -33,8 +33,8 @@
 (def DIAMETER (int  200))
 (def SPACE 20)
 
-(def ^Font Calibri40 (Font/font "Calibri" 40))
-(def ^Font Calibri20 (Font/font "Calibri" 20))
+(def ^Font Calibri40 (fx/new-font "Calibri" 40))
+(def ^Font Calibri20 (fx/new-font "Calibri" 20))
 
 (def MILLION 1000000)
 (def ^SimpleDateFormat DATE_FORMAT (SimpleDateFormat. "yyyyMMddkkmmssX"))
