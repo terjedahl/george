@@ -24,8 +24,8 @@
     [java.awt Toolkit]))
 
 
-;(set! *warn-on-reflection* true)
-;(set! *unchecked-math* :warn-on-boxed)
+(set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
 ;(set! *unchecked-math* true)
 
 
@@ -143,17 +143,17 @@
 (def ^:private HISTORY_LIMIT 100)  ;; very short while testing. Should maybe be 100 or 1000?
 
 
-(defn- append-history_* [{:keys [items pointer]} new-item]
+(defn- append-history_* [{:keys [items pointer] :as history} new-item]
   (let [;; first append
-        pointer1 (inc pointer)
+        pointer1 (inc ^int pointer)
         items1 (conj (subvec items 0 pointer1) new-item)
         len (count items1)
-        diff (max 0 (- len HISTORY_LIMIT))
+        diff (max 0 (- len ^int HISTORY_LIMIT))
         ;_ (prn 'diff diff)
         ;; then crop (0 or more)
         pointer2 (- pointer1 diff)
         items2 (subvec items1 diff len)]     
-    {:items items2 :pointer pointer2}))
+    (assoc history :items items2 :pointer pointer2)))
 
 
 (defn- append-history_ 
@@ -161,66 +161,57 @@
   If the pointer points to the last item in the list, then the new version will be appended to the end and the pointer incremented.
   Else, everything after the pointer will be cropped, before an append-and-increment.
   
+  If 'potential?' is truth-y, then the passed-in state is held temporarily, 
+  and appended only before the next actual append.
+  (This is to preserve the last marks before an edit.)
+  
   Returns the state unaltered, as the history is in an atom."
   
-  [{:keys [buffer caret anchor prefcol history_] :as state}]
-  (let [state-data {:buffer buffer :caret caret :anchor anchor :prefcol prefcol}]    
-    (swap! history_ append-history_* state-data))
-    ;(pprint @history_))
+  [{:keys [history_] :as state} & [potential?]]
+  (if potential?
+    (reset! (:potential_ @history_) state)
+    (let [state-data (select-keys state [:buffer :caret :anchor :prefcol])]
+      (when-let [st (first (reset-vals! (@history_ :potential_) nil))]
+        (append-history_ st))
+      (swap! history_ append-history_* state-data)))
   state)    
 
 
-(defn- pop-history 
-  "Returns the previous item in history and steps the pointer back one, else nil"
-  [history_]
-  (let [{:keys [items pointer]} @history_]
-    (when (> pointer 0)
-      (let [item (items (dec pointer))]
-        (swap! history_ update-in [:pointer] dec)
+(defn- pop-unpop-history_
+  "Returns the previous or next item in history and steps the pointer back or forward one, else nil"
+  [{:keys [history_]} backward?]
+  (let [{:keys [items pointer]} @history_
+        dec-inc (if backward? dec inc)
+        can? (if backward? (> ^int pointer 0) (< ^int pointer (dec (count items))))]
+    (when can?
+      (let [item (items (dec-inc pointer))]
+        (swap! history_ update-in [:pointer] dec-inc)
         item))))
 
 
-(defn- unpop-history 
-  "Returns the next item in history  and steps the pointer forward one, else nil"
-  [history_]
-  (let [{:keys [items pointer]} @history_]
-    (when (< pointer (dec (count items)))
-      (let [item (items (inc pointer))]
-        (swap! history_ update-in [:pointer] inc)
-        item))))
-
-
-(defn- apply-history-item_ [state {:keys [buffer caret anchor prefcol] :as item}]
-  (-> (assoc state :buffer buffer :caret caret :anchor anchor :prefcol prefcol)
+(defn- apply-history-item_ [state item]
+  (-> (conj state item)
       invalidate-lines_
       (apply-formatter_ false)
       do-update-list_))
   
 
 (defn- undo_ [state]
-  ;(println "/undo_")
-  (if-let [history-item (pop-history (:history_ state))]
-    (let [;_ (println "  undo-ing ...")
-          state1 (apply-history-item_ state history-item)]
-      ;(pprint (:history_ state))
+  (if-let [history-item (pop-unpop-history_ state true)]
+    (let [state1 (apply-history-item_ state history-item)]
       state1)
     ;; else
     (do
-      ;(println "  not undo-ing ...")        
       (.beep (Toolkit/getDefaultToolkit))
       state)))
 
 
 (defn- redo_ [state]
-  ;(println "/redo_")
-  (if-let [history-item (unpop-history (:history_ state))]
-    (let [;_ (println "  redo-ing ...")
-          state1 (apply-history-item_ state history-item)]
-      ;(pprint (:history_ state))
+  (if-let [history-item (pop-unpop-history_ state false)]
+    (let [state1 (apply-history-item_ state history-item)]
       state1)
     ;; else
     (do
-      ;(println "  not redo-ing ...")
       (.beep (Toolkit/getDefaultToolkit))
       state)))
 
@@ -240,9 +231,9 @@
          :prefcol  0  ;; used when up/down cause cursor to shift sideways.
 
          ;; history is in its own atom, so as not to trigger any state-watchers when updated.
-         :history_ (atom {:items []      ;; Holds the actual histories
-                          :pointer -1}) ;; Points to the current version
-         
+         :history_ (atom {:items []                ;; Holds the actual histories
+                          :pointer -1              ;; Points to the current version
+                          :potential_ (atom nil)}) ;; Holds a state which may potentially be appended before an actual append
          :content-type       nil ;; set/updated in 'set-content-type_'
          :content-formatter  nil ;; -''-
          :tabber             nil ;; -''-
@@ -783,7 +774,8 @@
               (do (println "  !! NO IMPL for" kw) state))
 
           (apply-formatter_ false)
-          ensure-derived_))))
+          ensure-derived_
+          (append-history_ true)))))
 
 
 (defn- mouse-loc->index [state loc]
@@ -833,7 +825,8 @@
        (-> state
            (set-marks_  c1 true move? a1)
            (apply-formatter_ false)
-           ensure-derived_)))
+           ensure-derived_
+           (append-history_ true))))
 
 
 (defn keypressed [^Atom state_ kw]
