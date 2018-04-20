@@ -15,14 +15,15 @@
     [george.application.ui.layout :as layout]
     [george.application.ui.styled :as styled]
     [hara.io.watch]
-    [hara.common.watch :as watch])
+    [hara.common.watch :as watch]
+    [george.application.editors :as editors])
   (:import
     [java.io IOException]
     [java.nio.file Files Paths Path LinkOption StandardCopyOption NoSuchFileException]
     [javafx.geometry Orientation Pos]
     [javafx.scene Cursor SnapshotParameters]
     [javafx.scene.control TreeView TreeItem TreeCell ScrollBar MenuItem ContextMenu]
-    [javafx.scene.input TransferMode ClipboardContent]
+    [javafx.scene.input TransferMode ClipboardContent KeyEvent]
     [javafx.scene.paint Color]
     [javafx.util Callback]
     [java.nio.file.attribute FileAttribute]))
@@ -100,6 +101,16 @@
   (fx/imageview "graphics/folder-16.png"))
 
 
+(defn- new-graphic [path]
+  (let [dir? (is-dir path)
+        clj? (.endsWith (filename path) ".clj")]
+    (cond
+      dir? (folder-image)
+      clj? (file-clj-image)
+      :default
+      (file-image))))
+        
+
 (declare lazy-filetreeitem)
 
 
@@ -108,6 +119,7 @@
     (Files/move source-path
                 target-path
                 (fxj/vargs StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE))
+    (editors/rename source-path target-path)
     (catch IOException e (.printStackTrace e))))
 
 
@@ -280,17 +292,6 @@
           (.consume me))))))
 
 
-(defn- make-doubleclickable [treecell]
-  (.setOnMouseClicked 
-    treecell
-    (fx/event-handler-2 
-      [_ e]
-      (let [path (treecell->path treecell)]
-        (when (and  (not (is-dir path)) 
-                    (= (.getClickCount e) 2))
-              (println "FILE double-click:" (filename path)))))))
-
-
 (defn- set-context-menu [treecell]
   (let [cm-dir
         (ContextMenu.
@@ -305,7 +306,7 @@
                                    (.getScreenX e)
                                    (.getScreenY e)))]
     
-    (if (is-dir (-> treecell .getTreeItem .getValue))
+    (when  (is-dir (treecell->path treecell))
         (.setOnContextMenuRequested treecell cm-handler))))
 
 
@@ -314,6 +315,16 @@
   '->str' is optional 1-arg function which takes at item and returns a String."
   []
   (proxy [TreeCell] []
+    ;; Override
+    (startEdit []
+      ;; Toggle start/cancel to allow for repeated triggers without leaving item.  (Trigger with)
+      (proxy-super startEdit)
+      (proxy-super cancelEdit)
+      (println "startEdit")
+      (let [path (treecell->path this)]
+        (when (-> path is-dir not)
+          (editors/open-or-reveal path))))
+    ;; Override
     (updateItem [^Path path empty?]
       (proxy-super updateItem path empty?)
       (if (or (nil? path) empty?)
@@ -322,18 +333,14 @@
           (.setText nil)
           (fx/set-tooltip nil))
         ;; else
-        (let [dir? (is-dir path)]
-          (doto this
-            (.setGraphic (if dir? (folder-image) 
-                                  (if (.endsWith (filename path) ".clj")
-                                      (file-clj-image)
-                                      (file-image))))
-            (.setText (filename path))
-            (fx/set-tooltip (to-string path))
-            (make-doubleclickable)
-            (make-draggable)
-            (make-dropspot (.getTreeItem this))
-            (set-context-menu)))))))
+        (doto this
+          (.setGraphic (new-graphic path))
+          (.setText (filename path))
+          (fx/set-tooltip (to-string path))
+          (make-draggable)
+          (make-dropspot (.getTreeItem this))
+          (set-context-menu))))))
+            
 
 (defn path-treecell-factory
   "Returns a custom Callback."
@@ -402,9 +409,9 @@
                   (refresh-item this))))]
     item))
 
+
 ;; TODO: implement tooltip for files (path mod-date, etc.)
 ;; TODO: implement context-menu on items (open/open in tab (for folders), edit, delete.
-;; TODO: detect action - i.e. double-click or CTRL-O or CTRL-ENTER
 
 
 (defn tree-root [^Path path]
@@ -422,13 +429,6 @@
            (println "FILE:" (filename path))))))) 
 
 
-(defn- get-scrollbar [treeview]
-  (let [nodes (.lookupAll treeview ".scroll-bar")]
-    (first (filter #(and (instance? ScrollBar %)
-                         (= (.getOrientation %) Orientation/VERTICAL))
-                    nodes))))
-
-
 (defn- make-autoscrolling [treeview]
   (.setOnDragOver treeview
     (fx/event-handler-2 [_ me]
@@ -438,7 +438,7 @@
             want-to-scroll? (not (< 50 y (- h 50)))
             up? (< y 50)]
         (when want-to-scroll?
-          (when-let [scrollbar (get-scrollbar treeview)]
+          (when-let [scrollbar (fx/find-scrollbar treeview)]
             (.setUnitIncrement scrollbar 1)
             (if up? (.decrement scrollbar)
                     (.increment scrollbar))))))))
@@ -459,7 +459,7 @@
      :exclude [".DS_Store"]}))
 
 
-(defn- file-tree [^Path path current-item_ current-watch_]
+(defn- filetree [^Path path current-item_ current-watch_]
   (let [root (tree-root path)]
     (reset! current-item_ root)
     (set-watch path current-watch_ root)
@@ -467,13 +467,14 @@
     (doto (TreeView. root)
           (.setCellFactory (path-treecell-factory))
           (make-autoscrolling)
+          (.setEditable true)
           (-> .getSelectionModel 
               .selectedItemProperty 
               (.addListener (tree-listener current-item_))))))
 
 
 (defn- set-filetree [borderpane path current-item_ current-watch_]
-  (.setCenter borderpane (file-tree path current-item_ current-watch_)))
+  (.setCenter borderpane (filetree path current-item_ current-watch_)))
 
 
 (defn- panel-folder [{:keys [label value]} borderpane current-item_ current-watch_]
@@ -524,6 +525,7 @@
             
     (println res)    
     (when (= res 1)
+      (editors/close path false)
       (delete-path path)
       ;(Thread/sleep 200)  ;; Allow current-item_ to be updated
       (-> @current-item_ .getParent .refresh))))
@@ -624,7 +626,9 @@
         (if new?
           (if (.isSelected folder-checkbox)
             (Files/createDirectory p (make-array FileAttribute 0))
-            (Files/createFile p (make-array FileAttribute 0)))
+            (do
+              (Files/createFile p (make-array FileAttribute 0))
+              (editors/open-or-reveal p)))
           ;; TODO: move file if not new?
           (move-file path p))
         ;; TODO: refresh folder in tree-view!
@@ -696,11 +700,20 @@
         :title "File navigator"
         :scene (fx/scene root)
         :tofront true
+        :alwaysontop true
         :size [500 500]
         :sizetoscene false))))
 
+
+
+(defn reveal 
+  "Makes file visible and marked in  tree-view"
+  [path]
+  (println "g.f.filetree/reveal (not!)" path))  
+
+
 ;;; 
 
-;(when (env :repl?) (stage (file-nav))) 
+; (when (env :repl?) (stage (file-nav))) 
 
 

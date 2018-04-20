@@ -21,7 +21,7 @@
     [javafx.beans.value ChangeListener WritableValue]
     [javafx.collections FXCollections]
     [javafx.event EventHandler]
-    [javafx.geometry Insets Pos VPos Side]
+    [javafx.geometry Insets Pos VPos Side Orientation]
     [javafx.scene Group Node Parent Scene]
     [javafx.scene.control
      Alert Alert$AlertType
@@ -30,7 +30,7 @@
      ListView RadioButton
      TextField TextArea
      Tooltip
-     ScrollPane CheckBox]
+     ScrollPane CheckBox ScrollBar]
     [javafx.scene.image ImageView]
     [javafx.scene.input MouseEvent]
     [javafx.scene.layout
@@ -86,6 +86,9 @@
 (def VPos_CENTER VPos/CENTER)
 
 (def MouseEvent_ANY MouseEvent/ANY)
+
+(def HORIZONTAL Orientation/HORIZONTAL)
+(def VERTICAL Orientation/VERTICAL)
 
 
 (defn corner-radii [rad]
@@ -175,6 +178,10 @@ and the body is called on 'handle'"
   (if (instance? EventHandler f) f (event-handler (f))))
 
 
+(defn ensure-handler2 [f]
+  (if (instance? EventHandler f) f (event-handler-2 [inst ev] (f inst ev))))
+
+
 (defmacro ^ChangeListener changelistener
     "Returns an instance of javafx.beans.value.ChangeListener,
 where args-vec is a vector of 4 elements  - naming the bindings for 'this', 'observable', 'old', 'new',
@@ -202,12 +209,14 @@ and the body is called on 'changed'"
 (defn children [^Parent parent]
   (.getChildren parent))
 
+
 (defn children-set-all [^Parent parent children]
   (.setAll (.getChildren parent) children))
 
 
 (defn XY [item]
     [(.getX item) (.getY item)])
+
 
 (defn WH [item]
     (if (instance? Node item)
@@ -289,11 +298,14 @@ and the body is called on 'changed'"
 (defn- load-fontface-src [^FontFace$FontFaceSrc ffsrc]
   (-> ffsrc .getSrc (cs/replace "%20" " ") (Font/loadFont 10.)))
 
+
 (defn- load-fontface [^FontFace ff]
   (map load-fontface-src (.getSources ff)))
 
+
 (defn- load-fonts [^Stylesheet stylesheet]
   (vec (flatten (map load-fontface (.getFontFaces stylesheet))))) ;; 'vec' ensures the lazy seq is realized
+
 
 (defn stylesheet-parsed [path]
   (.parse (CSSParser.) (cio/resource path)))
@@ -444,16 +456,22 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
     (FXCollections/observableArrayList (into-array lst)))
 
 
+(defn names-list []
+    ["Julia", "Ian", "Sue", "Matthew", "Hannah", "Stephan", "Denise"])
+
+
 (defn listview
-    ([]
-     (listview
-         (FXCollections/observableArrayList
-             (fxj/vargs
-                 "Julia", "Ian", "Sue", "Matthew", "Hannah", "Stephan", "Denise"))))
+ ([]
+  (listview (apply observablearraylist (names-list))))
+ ([observable-list]
+  (ListView. observable-list)))
 
-    ([observable-list]
-     (ListView. observable-list)))
 
+(defn find-scrollbar [view & [horizontal?]]
+  (let [nodes (.lookupAll view ".scroll-bar")]
+    (first (filter #(and (instance? ScrollBar %)
+                         (= (.getOrientation %) (if horizontal? HORIZONTAL VERTICAL)))
+                   nodes))))
 
 
 (defn multiline-listcell
@@ -472,7 +490,6 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
                        (-> .wrappingWidthProperty (.bind (-> listview .widthProperty (.subtract 35))))))))))
 
 
-
 (defn multiline-listcell-factory
   "Returns a new instance of multiline-listcell whenever called.
   See 'multiline-listview' and 'multiline-listcell'."
@@ -480,7 +497,6 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
   (reify javafx.util.Callback
     (call [_ listview]
       (multiline-listcell listview item->str-fn))))
-
 
 
 (defn multiline-listview
@@ -551,13 +567,14 @@ It must return a string (which may be wrapped to fit the width of the list."
     (RadioButton.))
 
 
-
 (defn ^StackPane stackpane* [nodes]
     (StackPane. (fxj/vargs-t* Node nodes)))
+
 
 (defn ^StackPane stackpane
     ([& nodes]
      (stackpane* nodes)))
+
 
 (defn ^Group group* [nodes]
     (Group. (fxj/vargs-t* Node nodes)))
@@ -570,6 +587,7 @@ It must return a string (which may be wrapped to fit the width of the list."
 
 (defn pane* [nodes]
   (Pane. (fxj/vargs-t* Node nodes)))
+
 
 (defn pane
   ([& nodes]
@@ -621,6 +639,7 @@ It must return a string (which may be wrapped to fit the width of the list."
 (defn node? [item]
   (instance? Node item))
 
+
 (defn ^Rectangle rectangle [& args]
     (let [default-kwargs
           {:location [0 0]
@@ -656,18 +675,25 @@ It must return a string (which may be wrapped to fit the width of the list."
   buttonbase)
 
 
+(defn set-onaction2 [buttonbase fn-or-handler]
+  (.setOnAction buttonbase (ensure-handler2 fn-or-handler))
+  buttonbase)
+
+
 (defn set-onmouseclicked [clickable fn-or-handler]
   (.setOnMouseClicked clickable (ensure-handler fn-or-handler))
   clickable)
 
 
-(defn ^Button button [label & {:keys [onaction width minwidth tooltip]}]
+(defn ^Button button [label & {:keys [onaction onaction2 width minwidth tooltip]}]
     (let [b (Button. label)]
-        (if width (.setPrefWidth  b (double width)))
-        (if minwidth (.setMinWidth b  (double minwidth)))
-        (if onaction (set-onaction b onaction))
-        (if tooltip (set-tooltip b tooltip))
-        b))
+      (when width (.setPrefWidth  b (double width)))
+      (when minwidth (.setMinWidth b  (double minwidth)))
+      (when onaction (set-onaction b onaction))
+      (when onaction2 (set-onaction2 b onaction2))
+      (when tooltip (set-tooltip b tooltip))
+      b))
+
 
 (defn set-enable 
   "A simple tool that is easier to reason about."
@@ -675,9 +701,10 @@ It must return a string (which may be wrapped to fit the width of the list."
   (.setDisable button (not enable?)))
 
 
-(defn ^CheckBox checkbox [label & {:keys [onaction tooltip]}]
+(defn ^CheckBox checkbox [label & {:keys [onaction onaction2 tooltip]}]
   (let [cb (CheckBox. label)]
-    (when onaction (.setOnAction cb (event-handler (onaction))))
+    (when onaction (set-onaction cb onaction))
+    (when onaction2 (set-onaction2 cb onaction2))
     (when tooltip (.setTooltip cb (Tooltip. tooltip)))
     cb))
 
@@ -1001,7 +1028,7 @@ It must return a string (which may be wrapped to fit the width of the list."
     stage)
 
 
-(defn scrollpane [& [node]]
+(defn ^ScrollPane scrollpane [& [node]]
   (if node
     (ScrollPane. node)
     (ScrollPane.)))
