@@ -700,7 +700,7 @@
         :title "File navigator"
         :scene (fx/scene root)
         :tofront true
-        :alwaysontop true
+        ;:alwaysontop true
         :size [500 500]
         :sizetoscene false))))
 
@@ -714,6 +714,6 @@
 
 ;;; 
 
-; (when (env :repl?) (stage (file-nav))) 
+;(when (env :repl?) (stage (file-nav))) 
 
 
