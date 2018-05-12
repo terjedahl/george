@@ -20,11 +20,12 @@
     [javafx.scene.input ClipboardContent Clipboard]
     [java.util List]
     [clojure.core.rrb_vector.rrbt Vector]
-    [clojure.lang PersistentVector Keyword Atom IPersistentMap]))
+    [clojure.lang PersistentVector Keyword Atom IPersistentMap]
+    [java.awt Toolkit]))
 
 
-;(set! *warn-on-reflection* true)
-;(set! *unchecked-math* :warn-on-boxed)
+(set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
 ;(set! *unchecked-math* true)
 
 
@@ -139,6 +140,82 @@
         update-blocks_)))
 
 
+(def ^:private HISTORY_LIMIT 100)  ;; very short while testing. Should maybe be 100 or 1000?
+
+
+(defn- append-history_* [{:keys [items pointer] :as history} new-item]
+  (let [;; first append
+        pointer1 (inc ^int pointer)
+        items1 (conj (subvec items 0 pointer1) new-item)
+        len (count items1)
+        diff (max 0 (- len ^int HISTORY_LIMIT))
+        ;_ (prn 'diff diff)
+        ;; then crop (0 or more)
+        pointer2 (- pointer1 diff)
+        items2 (subvec items1 diff len)]     
+    (assoc history :items items2 :pointer pointer2)))
+
+
+(defn- append-history_ 
+  "Appends a new state-version to the states history-list.
+  If the pointer points to the last item in the list, then the new version will be appended to the end and the pointer incremented.
+  Else, everything after the pointer will be cropped, before an append-and-increment.
+  
+  If 'potential?' is truth-y, then the passed-in state is held temporarily, 
+  and appended only before the next actual append.
+  (This is to preserve the last marks before an edit.)
+  
+  Returns the state unaltered, as the history is in an atom."
+  
+  [{:keys [history_] :as state} & [potential?]]
+  (if potential?
+    (reset! (:potential_ @history_) state)
+    (let [state-data (select-keys state [:buffer :caret :anchor :prefcol])]
+      (when-let [st (first (reset-vals! (@history_ :potential_) nil))]
+        (append-history_ st))
+      (swap! history_ append-history_* state-data)))
+  state)    
+
+
+(defn- pop-unpop-history_
+  "Returns the previous or next item in history and steps the pointer back or forward one, else nil"
+  [{:keys [history_]} backward?]
+  (let [{:keys [items pointer]} @history_
+        dec-inc (if backward? dec inc)
+        can? (if backward? (> ^int pointer 0) (< ^int pointer (dec (count items))))]
+    (when can?
+      (let [item (items (dec-inc pointer))]
+        (swap! history_ update-in [:pointer] dec-inc)
+        item))))
+
+
+(defn- apply-history-item_ [state item]
+  (-> (conj state item)
+      invalidate-lines_
+      (apply-formatter_ false)
+      do-update-list_))
+  
+
+(defn- undo_ [state]
+  (if-let [history-item (pop-unpop-history_ state true)]
+    (let [state1 (apply-history-item_ state history-item)]
+      state1)
+    ;; else
+    (do
+      (.beep (Toolkit/getDefaultToolkit))
+      state)))
+
+
+(defn- redo_ [state]
+  (if-let [history-item (pop-unpop-history_ state false)]
+    (let [state1 (apply-history-item_ state history-item)]
+      state1)
+    ;; else
+    (do
+      (.beep (Toolkit/getDefaultToolkit))
+      state)))
+
+
 (defn- new-state_ [^Vector buffer ^String line-sep content-type]
   (let [buf (or buffer (fv/vector))
         lines (b/split-buffer-lines buf)
@@ -153,9 +230,13 @@
          :anchor   0
          :prefcol  0  ;; used when up/down cause cursor to shift sideways.
 
+         ;; history is in its own atom, so as not to trigger any state-watchers when updated.
+         :history_ (atom {:items []                ;; Holds the actual histories
+                          :pointer -1              ;; Points to the current version
+                          :potential_ (atom nil)}) ;; Holds a state which may potentially be appended before an actual append
          :content-type       nil ;; set/updated in 'set-content-type_'
          :content-formatter  nil ;; -''-
-         :tabber             nil;; -''-
+         :tabber             nil ;; -''-
 
          ;; The following are derived values. They are initially nil.
          ;; They are "invalidated" by setting them back to nil.
@@ -174,7 +255,8 @@
         ;; TODO: Should be '(apply-formatter_ true)' - but only when colorcoding is in place - to show where the error is!
         (set-content-type_ content-type)
         (apply-formatter_ false)
-        ensure-derived_)))
+        ensure-derived_
+        append-history_)))
 
 
 (defn new-state-atom [^Vector buffer ^String line-sep ^Keyword content-type]
@@ -536,10 +618,11 @@
           (-> state
               (update-buffer_ insert-at car [ch])
               (set-marks_ (inc car) true true)))]
-
+ 
     (-> state
         (apply-formatter_ false)
-        do-update-list_)))
+        do-update-list_
+        append-history_)))
 
 
 (defn- delete_
@@ -573,21 +656,24 @@
 
        (-> state
            (apply-formatter_ false)
-           do-update-list_)))
+           do-update-list_
+           append-history_)))
 
 
 (defn tab_ [state]
   (let [[state first-row] ((:tabber state) state :tab)]
     (-> state
       (apply-formatter_ false first-row)
-      do-update-list_)))
+      do-update-list_
+      append-history_)))
 
 
 (defn untab_ [state]
   (let [[state first-row] ((:tabber state) state :untab)]
     (-> state
         (apply-formatter_ false first-row)
-        do-update-list_)))
+        do-update-list_
+        append-history_)))
 
 
 (def CB (fx/now (Clipboard/getSystemClipboard)))
@@ -630,7 +716,8 @@
           (update-buffer_ delete-range start end)
           (set-marks_ start true true)
           (apply-formatter_ false)
-          do-update-list_))))
+          do-update-list_
+          append-history_))))
 
 
 (defn- paste_ [state]
@@ -642,7 +729,8 @@
           (set-marks_ (+ start len) true true)
           ;; TODO: Should be '(apply-formatter_ true)' - but only when colorcoding is in place - to show where the error is!
           (apply-formatter_ false)
-          do-update-list_))))
+          do-update-list_
+          append-history_))))
 
 
 (defn- keypressed_ [state kw]
@@ -669,7 +757,11 @@
     (copy_ state)
     :paste
     (paste_ state)
-
+    :undo
+    (undo_ state)
+    :redo
+    (redo_ state)
+    
     ;; else pull apart the keyword for types of navigation/selection
     (let [[typ dir aux] (-> kw name (cs/split #"-") (#(mapv keyword %)))
           move? (= typ :move)]
@@ -682,7 +774,8 @@
               (do (println "  !! NO IMPL for" kw) state))
 
           (apply-formatter_ false)
-          ensure-derived_))))
+          ensure-derived_
+          (append-history_ true)))))
 
 
 (defn- mouse-loc->index [state loc]
@@ -732,7 +825,8 @@
        (-> state
            (set-marks_  c1 true move? a1)
            (apply-formatter_ false)
-           ensure-derived_)))
+           ensure-derived_
+           (append-history_ true))))
 
 
 (defn keypressed [^Atom state_ kw]
