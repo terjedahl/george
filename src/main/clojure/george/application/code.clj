@@ -1,7 +1,7 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns george.application.code
   (:require
@@ -9,23 +9,26 @@
     [george.javafx.java :as j]
     [george.javafx :as fx]
     [george.javafx.util :as fxu]
-    [george.code.core :as gcode]
-    [george.application.output :refer [output]]
-    [george.util :as u])
-
+    [george.application.output :refer [oprint oprintln]]
+    [george.util :as u]
+    [george.code.codearea :as ca]
+    [environ.core :refer [env]]
+    [george.application.eval :as eval])
 
   (:import [javafx.beans.property StringProperty]
-           [javafx.scene.control OverrunStyle]
+           [javafx.scene.control OverrunStyle Tab]
            [javafx.beans.value ChangeListener]
            (java.io File)))
 
 
 (defn load-from-file [file ns-str]
     ;(println "  ## load-from-file  ns:" ns-str)
+  (when (= ns-str "user.turtle")
+    (eval/ensure-ns-user-turtle))
   (binding [*ns* (create-ns (symbol ns-str))]
       ;(println "  ## *ns*:" *ns*)
       (println)
-      (output :system (format "(load-file \"%s\")\n" file))
+      (oprintln :system (format "(load-file \"%s\")" file))
       (println)
       (load-file (str file))))
 
@@ -104,27 +107,25 @@
 
 
 (defn code-editor-pane [^StringProperty chrome-title & args]
-    (println " ## args:" args)
+    ;(println " ## args:" args)
     (let [
           default-kwargs {:file nil :library nil :namespace "user"}
           [_ kwargs] (fxu/partition-args args default-kwargs)
           ;_ (println "code-editor-pane kwargs:" kwargs)
 
           codearea
-          (doto
-              (gcode/->codearea))
-
+          (ca/new-codearea-with-handlers)
 
           file-meta
           (atom {:file (:file kwargs) :changed false})
 
           file-label
           (doto
-              (fx/label "<unsaved file>")
+              (fx/new-label "<unsaved file>")
               (.setTextOverrun OverrunStyle/LEADING_ELLIPSIS))
 
           save-file-fn
-          #(save-file (gcode/text codearea) file-meta file-label chrome-title)
+          #(save-file (ca/text codearea) file-meta file-label chrome-title)
 
           set-file-fn
           (fn [file] (set-file file file-meta file-label chrome-title))
@@ -139,7 +140,7 @@
           #(when-let [f (select-file)]
               (save-file-fn)
               (set-file-fn f)
-              (gcode/set-text codearea (slurp f)))
+              (ca/set-text codearea (slurp f)))
 
           open-file-button
           (fx/button "Open ..."
@@ -167,7 +168,7 @@
               (println (if-let [f (:file @file-meta)]
                            (do (save-file-fn)
                                (load-from-file f (:namespace kwargs)))
-                           (load-via-tempfile (gcode/text codearea) (:namespace kwargs)))))
+                           (load-via-tempfile (ca/text codearea) (:namespace kwargs)))))
           load-button
           (fx/button
               "Load"
@@ -196,6 +197,48 @@
             (.addListener (codearea-changelistener save-chan file-meta file-label chrome-title)))
 
         [pane codearea load-fn open-file-fn save-file-as-fn save-file-fn]))
+
+
+
+
+
+(defn new-code-tab [& args]
+  (fx/now
+    (let [
+          ;scene
+          ;(doto
+          ;  (fx/scene (fx/group))  ;; temporary root
+          ;  (fx/add-stylesheets "styles/codearea.css"))
+
+          ;stage
+          ;(fx/stage
+          ;  :scene scene
+          ;  :title "<unsaved file>"
+          ;  :location [300 80]
+          ;  :size [800 600]
+          ;  :sizetoscene false)
+
+          tab
+          (Tab. "<unsaved file>")
+
+          [root codearea load-fn open-file-fn save-file-as-fn save-file-fn]
+          (apply code-editor-pane (cons (.textProperty tab) args))]
+
+      (doto root
+        (.setOnKeyPressed
+          (fx/key-pressed-handler {
+                                   #{:L :SHORTCUT} load-fn
+                                   #{:O :SHORTCUT} open-file-fn
+                                   #{:S :SHORTCUT :SHIFT} save-file-as-fn
+                                   #{:S :SHORTCUT} save-file-fn})))
+
+      ;(.setUserData stage {:codearea codearea})
+
+      (doto tab
+        (.setContent root)))))
+
+
+
 
 
 
@@ -239,5 +282,5 @@
 
 (def c (atom nil))
 
-;(println "WARNING: Running george.code/new-code-stage" (reset! c (new-code-stage)))
+;(when (env :repl?) (println "WARNING: Running george.code/new-code-stage" (reset! c (new-code-stage))))
 

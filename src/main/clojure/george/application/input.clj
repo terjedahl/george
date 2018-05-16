@@ -1,184 +1,306 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns george.application.input
   (:require
     [clojure.string :as cs]
+    [environ.core :refer [env]]
+    [george.javafx-init] ;; Important!
     [george.javafx :as fx]
     [george.core.history :as hist]
     [george.application.repl :as repl]
     [george.javafx.java :as fxj]
-    [george.code.core :as gcode]
     [george.util :as gu]
-    [george.application.output :as output]
+    [george.application.output :refer [oprintln]]
     [george.util :as u]
-    [george.application.eval :as eval])
-  (:import (javafx.scene.input KeyEvent)))
+    [george.application.eval :as eval]
+    [george.editor.core :as ed]
+    [george.application.ui.layout :as layout])
+  (:import
+    [javafx.scene.input KeyEvent MouseEvent]
+    [java.net SocketException]
+    [javafx.scene.control Tab Button TabPane]
+    [javafx.scene Node Scene]))
 
 
+;(set! *warn-on-reflection* true)
+;(set! *unchecked-math* :warn-on-boxed)
+;(set! *unchecked-math* true)
 
 
+(defn- request-focus [^Node focusable]
+  (try
+    (fxj/thread (Thread/sleep 300) (fx/later (.requestFocus focusable)))
+    ;; The focusable may be gone as the interrupt being a result of closing it.
+    (catch NullPointerException e nil)))
 
-(defn- do-run [code-area repl-uuid current-history-index-atom ns-textfield clear? eval-button interrupt-button source-file]
-  (let [input (gcode/text code-area)
-        update-ns-fn #(fx/later (.setText ns-textfield %))
+
+(defn do-eval [code-str ^Button run-button ^Button interrupt-button ns-fn update-ns-fn file-name focusable post-success-fn & [load?]]
+  (let [
         eval-id (gu/uuid)]
-    (if (cs/blank? input)
-      ;; then
-      (println)
-      ;; else
-      (fx/later  ;; GUI interatactions must be on a JavaFX render thread
-        (.setDisable eval-button true)
-
-        (doto interrupt-button
-          (.setDisable  false)
-          (.setOnAction
-            (fx/event-handler
-              ;(println "Interrupting:" eval-id)
-              (repl/eval-interrupt eval-id)
-              (output/output :system "Interrupted!\n"))))
-
+    (if(cs/blank? code-str)
+      (do
+        (println)
+        (request-focus focusable))
+      (do
+        ;; update UI
+        (fx/later
+          (.setDisable run-button true)
+          (doto interrupt-button
+                (.setDisable  false)
+                (fx/set-onaction
+                  #(do (repl/interrupt-eval eval-id)
+                       (oprintln :system-em "Interrupted!")))))
+        ;; do execution
         (fxj/daemon-thread
           (try
-            (eval/read-eval-print-in-ns
-              input
-              (.getText ns-textfield)
-              eval-id
-              source-file
-              update-ns-fn)
-
-
-            ;; handle history and clearing
-            (hist/append-history repl-uuid input)
-            (reset! current-history-index-atom -1)
-            (when clear? (fx/later (.clear code-area)))
-
+            (eval/read-eval-print-in-ns code-str (ns-fn) eval-id file-name update-ns-fn load?)
+            (when post-success-fn (post-success-fn))
+            ;; handle possible problems
+            (catch SocketException e
+              (oprintln :err (format "%s: %s" (.getClass e) (.getMessage e)))
+              (oprintln :err "  ... possibly due to session or server restart."))
             (catch Exception e
+              (println "ØØØØØØØØH")
               (.printStackTrace e))
+
             (finally
-              ;; No matter what, I need to be able to eval again
+              ;; Update UI
               (fx/later
                 (.setDisable interrupt-button true)
-                (.setDisable eval-button false)
-                (-> code-area .getScene .getWindow .requestFocus)))))))))
+                (.setDisable run-button false)
+                (request-focus focusable)))))))))
 
 
+(defn history-wrapper
+  "Handles history, then calls passed-in eval-fn"
+  [repl-uuid current-history-index_ code-str eval-fn]
+  (hist/append-history repl-uuid code-str)
+  (reset! current-history-index_ -1)
+  (eval-fn))
 
-(defn- input-scene [ns source-file]
-  (let [
-        repl-uuid (gu/uuid)
 
-        current-history-index-atom (atom -1)
+(defn- run-tooltip [clearable?]
+  (if clearable?
+    (format
+      "Run code, then clear if checkbox ckecked.                  %s-ENTER
+Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" u/SHORTCUT_KEY u/SHORTCUT_KEY)
+    (format "Run code.  %s-ENTER."  u/SHORTCUT_KEY)))
+
+
+(defn run-button [& [clearable?]]
+  (fx/button
+    "Run"
+    :width 130
+    :tooltip (run-tooltip clearable?)))
+
+
+(defn interrupt-button []
+  (doto
+    (fx/button "X"
+               :width 30
+               :tooltip "Interrupt current 'Run'")
+    (.setDisable true)))
+
+
+(defn ns-label []
+  (fx/new-label nil
+     :style "-fx-font: 14 'Source Code Pro Medium'; -fx-text-fill: gray; -fx-padding: 3;"))
+
+
+(defn set-ns-label-fn [label]
+  (fn [ns]
+    (fx/later
+      (doto label
+        (.setText ns)
+        (fx/set-tooltip (str "*ns* " ns))))))
+
+
+(defn new-input-root [file-name selected_ focused_ tab & {:keys [ns]}]
+  (let [repl-uuid (gu/uuid)
+        current-history-index_ (atom -1)
 
         ns-label
-        (doto
-          (fx/label (or ns "user"))
-          ( .setStyle "
-                    -fx-font: 12 'Source Code Pro Regular';
-                    -fx-text-fill: gray;"))
+        (ns-label)
+        update-ns-fn
+        (set-ns-label-fn ns-label)
+        _ (update-ns-fn (or ns "user"))
 
-        code-area
-        (doto (gcode/->codearea))
+        editor
+        (ed/editor-view "" "clj")
+
+        focusable
+        (.getFlow editor)
+
+        focus-on-editor
+        #(fxj/thread
+           (Thread/sleep 500)
+           ;(println "focus on Input editor")
+           (fx/later
+             (.requestFocus ^Node focusable)))
 
         do-history-fn
         (fn [direction global?]
-          (hist/do-history code-area repl-uuid current-history-index-atom direction global?))
-
-        clear-checkbox
-        (fx/checkbox "Clear on 'Eval'"
-                     :tooltip "If selected, code is cleared when 'Eval' is  triggered (button or keyboard shortcut).")
+          (hist/do-history editor repl-uuid current-history-index_ direction global?))
 
         interrupt-button
-        (doto
-          (fx/button "X"
-                     :width 30
-                     :tooltip "Interrupt current 'Eval'")
-          (.setDisable true))
-
+        (interrupt-button)
 
         run-button
-        (fx/button
-          "Eval"
-          :width 130
-          :tooltip (format
-                     "Run code, then clear if checkbox ckecked.          %s-ENTER
-  Run code, then do the inverse of checkbox selection.   SHIFT-%s-ENTER" u/SHORTCUT_KEY u/SHORTCUT_KEY))
+        (run-button true)
 
+        clear-checkbox
+        (doto
+          (fx/checkbox "Clear"
+                       :tooltip
+                       "Clear on 'Run'. Code is cleared after successful evaluation.")
+          (.setStyle "-fx-padding: 3px;"))
+          ;(.setSelected true))
 
-        do-run-fn
-        (fn [inverse-clear]  ;; do the oposite of clear-checkbox
+        do-clear-fn
+        (fn [inverse-clear]  ;; do the opposite of clear-checkbox
           (let [clear-checked
                 (.isSelected clear-checkbox)
                 do-clear
                 (if inverse-clear (not clear-checked) clear-checked)]
-            (do-run code-area repl-uuid current-history-index-atom ns-label do-clear run-button interrupt-button source-file)))
+            (when do-clear
+              (fx/later (ed/set-text editor "")))))
+
+        do-eval-fn
+        (fn [code-str inverse-clear]
+            (history-wrapper
+              repl-uuid
+              current-history-index_
+              code-str
+              (fn []
+                  (do-eval
+                    code-str
+                    run-button
+                    interrupt-button
+                    #(.getText ns-label)
+                    update-ns-fn
+                    file-name
+                    focusable
+                    #(do-clear-fn inverse-clear)))))
+
+        on-closed-fn
+        #(.fire interrupt-button)
 
         prev-button
-        (doto
-          (fx/button
-            (str  \u25B2)  ;; up: \u25B2,  left: \u25C0
-            :onaction #(do-history-fn hist/PREV false)
-            :tooltip (format
-                       "Previous 'local' history.          %s-LEFT
-Previous 'global' history.   SHIFT-%s-LEFT" u/SHORTCUT_KEY u/SHORTCUT_KEY)))
-
+        (doto (fx/button
+                (str  \u25C0)  ;; up: \u25B2,  left: \u25C0
+                :tooltip
+                "Previous local history.         CLICK
+Previous global history.  SHIFT-CLICK")
+          (.setOnMouseClicked
+              (fx/event-handler-2 [_  e]
+                (do-history-fn hist/PREV (.isShiftDown ^MouseEvent e))
+                (.consume e))))
 
         next-button
-        (doto
-          (fx/button
-            (str \u25BC)  ;; down: \u25BC,  right: \u25B6
-            :onaction #(do-history-fn hist/NEXT false)
-            :tooltip (format
-                       "Next 'local' history.          %s-RIGHT
-Next 'global' history.   SHIFT-%s-RIGHT" u/SHORTCUT_KEY u/SHORTCUT_KEY)))
+        (doto (fx/button
+                (str \u25B6)  ;; down: \u25BC,  right: \u25B6
+                :tooltip
+                "Next local history.         CLICK
+Next global history.  SHIFT-CLICK")
+         (.setOnMouseClicked
+             (fx/event-handler-2 [_ e]
+                (do-history-fn hist/NEXT (.isShiftDown ^MouseEvent e))
+                (.consume e))))
+        
+        top
+        (layout/menubar true
+          ns-label)
 
-        button-box
-        (fx/hbox
+        bottom
+        (layout/menubar false
+          ns-label
+          (fx/region :hgrow :always)
           prev-button
           next-button
-          (fx/region :hgrow :always)
+          (fx/region :hgrow :sometimes)
+          ;structural-combo
+          ;(fx/region :hgrow :always)
           clear-checkbox
-          (fx/region :hgrow :always)
+          ;(fx/region :hgrow :always)
           interrupt-button
-          run-button
-          :spacing 3
-          :alignment fx/Pos_TOP_RIGHT
-          :insets [5 0 0 0])
+          run-button)
 
         border-pane
         (fx/borderpane
-          :center code-area
-          :top ns-label
-          :bottom button-box
-          :insets 10)
+          ;:top top
+          :center editor
+          :bottom bottom
+          :insets [5 0 0 0])
 
-        scene
-        (doto
-          (fx/scene border-pane :size [500 200])
-          (fx/add-stylesheets "styles/codearea.css"))
+        get-code-fn
+        #(ed/text editor)
 
         key-pressed-handler
         (fx/key-pressed-handler {
-                                 #{:SHORTCUT :UP} #(do-history-fn hist/PREV false)
-                                 #{:SHIFT :SHORTCUT :UP} #(do-history-fn hist/PREV true)
+                                 #{:SHORTCUT :ENTER}
+                                 #(.fire run-button)
 
-                                 #{:SHORTCUT :DOWN} #(do-history-fn hist/NEXT false)
-                                 #{:SHIFT :SHORTCUT :DOWN} #(do-history-fn hist/NEXT true)
+                                 #{:SHIFT :SHORTCUT :ENTER}
+                                 #(when-not (.isDisabled run-button)
+                                    (do-eval-fn (get-code-fn) true))
 
-                                 #{:SHORTCUT :ENTER} #(do-run-fn false)
-                                 #{:SHIFT :SHORTCUT :ENTER} #(do-run-fn true)})]
+                                 #{:SHORTCUT :ESCAPE}
+                                 #(.fire interrupt-button)})]
 
-    (.setOnAction run-button (fx/event-handler (do-run-fn false)))
+    (fx/set-onaction run-button #(do-eval-fn (get-code-fn) false))
 
     (.addEventFilter border-pane KeyEvent/KEY_PRESSED key-pressed-handler)
-    ;; TODO: ensure code-area alsways gets focus back when focus in window ...
+    ;; TODO: ensure editor always gets focus back when focus in window ...
     ;; TODO: colorcode also when history is the same
     ;; TODO: nicer tooltips.  (monospace and better colors)
 
-    scene))
+    (add-watch selected_ tab
+               #(when (= %4 tab)  (focus-on-editor)))
 
+    (add-watch focused_ tab
+               #(when (and %4 (= @selected_ tab))  (focus-on-editor)))
+
+    [border-pane on-closed-fn]))
+
+
+(defn new-input-tab [selected_ focused_ & {:keys [ns]}]
+  (let [nr (hist/next-repl-nr)
+        file-name (format "Input %s" nr)
+        tab (Tab. file-name)
+        [root on-closed-fn] (new-input-root file-name selected_ focused_ tab :ns ns)]
+
+    (reset! selected_ tab)
+    (reset! focused_ true)
+
+    (doto tab
+      (.setContent root)
+      (.setOnClosed (fx/event-handler (on-closed-fn))))))
+
+
+
+(defn new-tabbed-input-root [& {:keys [ns]}]
+  (let [selected_ (atom nil)
+        focused_ (atom false)
+        [root ^TabPane tabpane] (layout/tabpane "Inputs" "New Input"
+                                                #(new-input-tab selected_ focused_ :ns ns)
+                                                true)]
+    (layout/set-listeners tabpane selected_ focused_)
+
+    (fxj/thread
+      (Thread/sleep 500)
+      ;(println "focus on Inputs"
+      (fx/later (.requestFocus tabpane)))
+
+    root))
+
+
+(defn- input-scene [root]
+  (doto
+    (fx/scene root :size [600 300])
+    (fx/add-stylesheets "styles/codearea.css")))
 
 
 ;; For Input stage layout
@@ -192,17 +314,19 @@ Next 'global' history.   SHIFT-%s-RIGHT" u/SHORTCUT_KEY u/SHORTCUT_KEY)))
   ;; TODO: consolidate/fix integrations/dependencies
   ;; TODO: add interupt-posibility (button) to/for run-thread
 
-  (fxj/thread (repl/session-ensured! true))
+  (fxj/thread (repl/session-ensure! true))
   (let [
         repl-nr
         (hist/next-repl-nr)
 
-        scene (input-scene ns (str \" "Input " repl-nr \"))
+        root (new-tabbed-input-root  :ns ns)
+
+        scene ^Scene (input-scene root)
 
         screen-WH (-> (fx/primary-screen) .getVisualBounds fx/WH)
 
-        horizontal-offset (* (next-input-horizontal-offset) 5)
-        vertical-offset (* (next-input-vertical-offset) 20)
+        horizontal-offset (* ^int (next-input-horizontal-offset) 5)
+        vertical-offset (* ^int (next-input-vertical-offset) 20)
 
         stage
         (fx/now
@@ -210,9 +334,15 @@ Next 'global' history.   SHIFT-%s-RIGHT" u/SHORTCUT_KEY u/SHORTCUT_KEY)))
                   :title (format "Input %s" repl-nr)
                   :scene scene
                   :sizetoscene true
-                  :location [(- (first screen-WH) (.getWidth scene) 30 horizontal-offset)
+
+                  :location [(- ^double (first screen-WH) (.getWidth scene) 30 horizontal-offset)
                              (+ 80 vertical-offset)])))]
 
     stage))
 
+
+;;; DEV ;;;
+
+
+;(when (env :repl?) (println "WARNING: Running george.application.input/new-input-stage") (new-input-stage))
 

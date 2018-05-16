@@ -1,22 +1,22 @@
-;  Copyright (c) 2017 Terje Dahl. All rights reserved.
-; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
-;  By using this software in any fashion, you are agreeing to be bound by the terms of this license.
-;  You must not remove this notice, or any other, from this software.
+;; Copyright (c) 2016-2018 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
 
 (ns
   ^{:author "Terje Dahl"}
   george.core.history
-    (:require [clojure.java.io :as cio]
-              [clojure.edn :as edn]
+  (:require [clojure.java.io :as cio]
+            [clojure.edn :as edn]
 
-              [george.javafx.java :as j])
+            [george.javafx.java :as j]
+            [george.util :as u]
+            [george.editor.core :as ed])
 
   (:import (george.application Versions)
            (java.util Date UUID)
            (java.sql Timestamp)))
 
-
-(def SHORTCUT_KEY (if Versions/IS_MAC "CMD" "CTRL"))
 
 (def HISTORY_FILE (cio/file Versions/APPDATA_DIR "repl" "history.edn"))
 (.mkdirs (.getParentFile HISTORY_FILE))
@@ -96,17 +96,12 @@
           (if (< i 0)
             ""
             (if (= (count items) (count items-global))
-              "; No more (global) history.\n"
-              (format
-                "; No more 'local' history.
-; To access 'global' history use:
-;    SHIFT-%s-up/down.
-" SHORTCUT_KEY))))]
+              ";; No more global history."
+              ";; No more local history.\n;; To access global history use SHIFT-CLICK.")))]
+
 
     (reset! current-history-index-atom i)
     (doto code-area
-        (.replaceText content))))
-        ;(.selectRange 0 0)
-        ;(.setStyleSpans 0 (compute-highlighting content))
+      (ed/set-text content))))
 
 
