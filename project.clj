@@ -19,7 +19,7 @@
                  ;; https://github.com/clojure/tools.namespace
                  [org.clojure/tools.namespace "0.3.0-alpha4"]
                  ;; https://github.com/clojure/java.classpath
-                 [org.clojure/java.classpath "0.2.3"]
+                 [org.clojure/java.classpath "0.3.0"]
                  ;; https://github.com/cemerick/nREPL
                  [com.cemerick/nrepl "0.3.0-RC1"]
                  ;; https://github.com/FXMisc/RichTextFX
@@ -62,7 +62,7 @@
 
   :source-paths      ["src/main/clojure"]
   :java-source-paths ["src/main/java"]
-  :javac-options     ["-target" "1.8" "-source" "1.8"]
+  :javac-options     ["-target" "10" "-source" "10"]
                       ;"-Xlint:unchecked"]
 
   :test-paths ["src/test/clojure"]
