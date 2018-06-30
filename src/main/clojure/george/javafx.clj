@@ -108,12 +108,16 @@
                (format "Don't know how to convert %s to javafx.scene.layout.Background" paint-or-background))))))
 
 
+(defn fxthread? []
+  (Platform/isFxApplicationThread))
+
+
 (defn later*
     "Utility function for 'thread'."
     [expr]
-    (if (Platform/isFxApplicationThread)
-        (expr)
-        (Platform/runLater expr)))
+    (if (fxthread?)
+        (try (expr) (catch Throwable e e (println e)))
+        (Platform/runLater #(try (expr) (catch Throwable e e (println e))))))
 
 
 (defmacro ^:deprecated thread
@@ -137,7 +141,7 @@
 (defn now*
     "Ensure running body in JavaFX thread: javafx.application.Platform/runLater, but returns result. Prefer using 'later'"
     [expr]
-    (if (Platform/isFxApplicationThread)
+    (if (fxthread?)
         (expr)
         (let [result (promise)]
             (later
@@ -506,6 +510,11 @@ It must return a string (which may be wrapped to fit the width of the list."
 
 (defn add-at [parent index node]
   (-> parent .getChildren (.add index node))
+  parent)
+
+
+(defn set-all* [parent nodes]
+  (-> parent .getChildren (.setAll (into-array Node nodes)))
   parent)
 
 

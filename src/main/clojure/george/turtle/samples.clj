@@ -4,8 +4,8 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns george.turtle.samples
-  (:require 
-    [george.turtle :refer :all]
+  (:require
+    [george.turtle :refer :all] :reload
     [george.turtle.aux :as aux]))
 
 
@@ -102,7 +102,7 @@
     (new-turtle
       :name :rock
       :down false 
-      :node (rock-shape size)
+      :shape (rock-shape size)
       :position loc
       :heading (if three?
                    (+ ^int (rand-nth [0 90 180 280]) (* ^int (rand-int 30) ^int (rand+-)))
@@ -135,7 +135,7 @@
                 :down false 
                 :speed nil 
                 :heading 90 
-                :node (spaceship-shape))
+                :shape (spaceship-shape))
     (move-to (let [[^int x ^int y] SCORE_LIFE_POS]
                [(+ x 8 (* life-index 16))
                 (- y 32)]))))
@@ -219,7 +219,7 @@
       :speed    nil
       :position (get-position physics)
       :heading  (get-heading spaceship)
-      :node     (shot-shape)
+      :shape     (shot-shape)
       :props    {:step 10})))
 
 
@@ -322,7 +322,7 @@
         (new-turtle
           :name :spaceship
           :down false
-          :node (spaceship-shape)
+          :shape (spaceship-shape)
           :heading 90
           :visible false)
         
@@ -446,4 +446,216 @@
   (pedals)
   (center))
 ;(flower)
+
+
+;;;;
+
+
+(def SIZE 20)
+(def HALF (/ SIZE 2))
+(def BEEDS1[:crimson :gold :green :blue])
+(def BEEDS2[:indigo :slateblue "#f3f3f3"  :blueviolet])
+(def POS1 [-100 -60])
+(def POS2 [-70 -60])
+
+
+(defn segments1 [start end]
+  [
+   [forward (- 150 start)]
+   [arc-right 20 90] 
+   [forward 20]
+   [arc-right 20 90] 
+   [forward 30]
+   [arc-left 20 90]
+   [forward 30]
+   [arc-left 30 360]  ;; loop
+   [forward 30]
+   [arc-left 20 90]
+   [forward 100]
+   [arc-right 20 180] ;; top
+   [forward (- 220 end)]])
+
+
+(defn segments2 [start end]
+  [
+   [forward (- 180 start)]
+   [arc-right 20 90] 
+   [forward 170]
+
+   [arc-right 100 20]
+   [arc-right 20 140]
+   [arc-right 100 20]
+
+   [arc-right 100 20]
+   [arc-right 10 140]
+   [arc-right 100 20]
+
+   [arc-right 100 20]
+   [arc-right 20 140]
+   [arc-right 100 20]
+
+   [forward 100]
+
+   [arc-left 20 90]
+   [forward 20]
+
+   [forward (- 92 end)]])
+
+
+(defn- path [segments-fn start end forward?]
+  ;(prn 'path start end)
+  (let [segs (segments-fn start end)]
+    (if forward?
+      (doseq [[f & args] segs]           (apply f args))
+      (doseq [[f & args] (reverse segs)] (apply f (map - args))))))
+
+
+(defn- path1 [start end forward?]
+  (path segments1 start end forward?)) 
+
+
+(defn- path2 [start end forward?]
+  (path segments2 start end forward?))
+
+
+;; path-fn path-start-pos rail-color beed-colors
+(def RAILS [[path1 POS1 :red BEEDS1]
+            [path2 POS2 :darkblue BEEDS2]])
+
+
+(defn- ahead-of-me []
+  "Returns the turtle ahead of me, if any, else nil"
+  (let [index (get-prop :index)
+        state (get-prop :state)
+        others_ (get-prop :others_)  
+        filter-fn 
+        #(let [index-2 (get-prop % :index)
+               state-2 (get-prop % :state)]
+           (and (not= state-2 :running)
+                (= state-2 state) 
+                (= index-2 (if (= state-2 :start) (inc index) (dec index)))))]
+    (first (filter filter-fn @others_))))
+
+
+(defn offset 
+  "index 0 is the first at start, and the last at end."
+  [at-start?]
+  (let [index (get-prop :index)
+        others_ (get-prop :others_)
+        tot (dec (count @others_))]
+    (+ 
+      (* 
+        (if at-start? index (- tot index))
+        SIZE)
+      HALF)))
+
+
+(defn- run-rail 
+  "figures out what the offset is based on :prop :nr, and updates the prop :state to one of :running and then to :end or :start"
+  [path-fn]
+  (let [state (get-prop  :state)]
+    (when-not (= state :running)
+      (when-let  [ahead (ahead-of-me)]
+        (future (with-turtle ahead (run-rail path-fn))))
+      (let [at-start? (= state :start)
+            start-offset (offset true)
+            end-offset (offset false)]
+        
+        (set-prop :state :running)
+        (path-fn start-offset end-offset at-start?)
+        (set-prop :state (if at-start? :end :start))))))
+
+
+(defn- new-beed [index color others_ path-fn [xp yp :as pos]]
+  (sleep 200)
+  (let [turt 
+        (new-turtle :heading 90
+                    :speed 4 
+                    :color :saddlebrown :fill color :down true
+                    :props {:index index :others_ others_ :state :start})]
+  
+    (with-turtle turt
+      (set-position [xp (+ (offset true) yp)])
+      (let [circ (shapes (filled turt (arc-right HALF 360)))]
+        (set-center circ)
+        (with-turtle turt
+          (set-shape circ)
+          (set-speed 1)
+          (set-down false)
+          (set-onclick #(with-turtle turt  (run-rail path-fn))))))
+    turt))
+      
+
+(defn- draw-path [path-fn pos color]
+  (with-turtle (new-turtle :position pos :heading 90 :round true :color color :width 5 :speed 4)
+    (path-fn 0 0 true)
+    (delete-turtle)))
+
+
+(defn- draw-base [[x y]]
+  (let [arc-segments [[10 50] [50 20] [300 40] [50 20] [10 50]]]
+    (with-turtle (new-turtle :position [(- x 20) y] :heading 90 :speed 4 :round true :width 2 :color :sienna :fill :burlywood)
+      (filled
+        (rep 2
+          (doseq [seg arc-segments] (apply arc-right seg))
+          (forward 30)))
+      (right 180)
+      (doseq [seg arc-segments] (apply arc-left seg))
+      (delete-turtle))))
+
+
+(defn- write-info [pos text remove-after]
+  (with-turtle (new-turtle :position pos :visible false  :undo 1 :down false)
+    (write text)  
+    (when remove-after
+      (sleep remove-after)
+      (undo))
+    (delete-turtle)))
+
+
+(defn- usage []
+  (sleep 4000)
+  (write-info [-90 -140] "(Click beeds to play.)" 2000)
+  (write-info [-140 -160] "(Click screen to toggle auto-play.)" 2000))
+
+
+(defn- screen-onclick [beeds_]
+  (if (is-ticker-running)
+      (do
+        (stop-ticker)
+        (write-info [-80 -200] "Auto-play stopped" 1000))
+      (do
+        (set-ticker 2000 #(-> @beeds_ rand-nth do-onclick))
+        (start-ticker)
+        (write-info [-80 -180] "Auto-play started ..." 1000))))
+
+
+(defn rail-maze 
+  "
+  https://duckduckgo.com/?q=bead+rail+maze&iar=images  
+  "
+  [& [auto-play?]]
+  (reset false)
+  (set-background :oldlace)
+  (draw-base POS1)
+  (let [all-beeds_ (atom [])]
+    (doseq [[path-fn pos rail-color beed-colors] RAILS]
+      (sleep 500)
+      (future
+        (draw-path path-fn pos rail-color)
+        (let [others_ (atom [])
+              beeds (vec (map-indexed #(new-beed %1 %2 others_ path-fn pos) beed-colors))]
+          (reset! others_ beeds)
+          ;; reset! returns the new value. 
+          ;; If you run 'rail-maze' at a REPL, the repl may try to print out this.
+          ;; This will cause a stack-overflow, as the beed contains a reference to all beeds (in other_) which in turn contains reference to all beeds etc.
+          ;; Therefore, make sure to return 'nil' or some other value.
+          ;nil
+          (swap! all-beeds_ concat beeds))))
+    (set-screen-onclick #(screen-onclick all-beeds_))
+    (usage)
+    (when auto-play? (do-screen-onclick))))
+
+;(rail-maze)
+;(rail-maze true)
 

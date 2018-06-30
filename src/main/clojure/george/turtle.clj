@@ -33,6 +33,7 @@
     [flatland.ordered.map :refer [ordered-map]]
     [george.javafx :as fx]
     [george.javafx.util :as fxu]
+    [george.util :as gu]
     [george.application.output :as output]
     [clojure.string :as cs]
     [george.turtle.aux :as aux])
@@ -149,8 +150,8 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   heading-to
   get-state
   get-undo
-  set-node_
-  get-node
+  set-shape_
+  get-shape
   un-parent_
   set-parent_
   get-parent
@@ -171,7 +172,9 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   get-screen
   is-screen-visible
   set-screen-visible
+  set-screen-onclick
   new-screen)
+  
   
 ;; Is re-declared later
 (def ^:dynamic *screen*)
@@ -224,6 +227,14 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   [x (- y)])
 
 
+(defn flip-Y-XYXY [[x1 y1 x2 y2]]
+  [x1 (- y1) x2 (- y2)])
+
+
+(defn flip-Y-XYWH [[x y w h]]
+  [x (- y) w h])
+
+
 (defn get-root
   "Returns the top-level parent for all turtle rendering."
   []
@@ -272,6 +283,13 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
 ;; If set to `(atom [])`, then append-undo-maybe will simply append new-nodes to the atom, and not append to the turtles undo, knowing it will be handled later from some other spot, like from `arc`.
 (def ^:dynamic *undo-nodes* nil)
+
+(def ^:dynamic *grouped-group* nil)
+
+
+(defn append-grouped-maybe [new-nodes]
+  (when-let [g_ *grouped-group*] 
+    (swap! g_ concat new-nodes)))    
 
 
 (defn append-undo-maybe [turtle prev-state & [new-nodes]]
@@ -598,10 +616,19 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
         res-nodes1 (if line (conj res-nodes line) res-nodes)
       
-        ;; prevent deadlock in animation - i.e. if ticker is running, speed will be automatically nil
-        speed 
-        (when-not (is-ticker-running) (get-speed turtle))
-
+        ;; prevent deadlock in animation - i.e. if on fx-thhead, speed will be automatically nil
+        speed0 
+        (get-speed turtle)
+        
+        speed
+        (if (and speed0 (fx/fxthread?))
+            (binding [*out* *err*]
+              (println "Warning! using speed 'nil'")
+              (println "  (Animated movements not allowed on FX application thread.
+  Wrap movement in 'future' or Thread, or set turtle's speed to 'nil')")
+              nil)
+            speed0)
+            
         duration
         (when speed
           (let [
@@ -614,17 +641,17 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
              1000.)))
 
         ;; A duration less than 1.0 may result in no rendering, so we set it to nil.
-        duration (if (and duration (< ^double duration 1.)) nil duration)
-        
-        timeline-synchronizer (promise)]
-
+        duration (if (and duration (< ^double duration 1.)) nil duration)]
+    
     (when line
       (fx/now
         (fx/add parent line)
         (.toFront node)))
-      
+    
     (if duration
-      (do
+      (let [timeline-synchronizer (promise)]
+        (when (fx/fxthread?) 
+          (throw (IllegalStateException. "Animated movements may not be called from within FX application thread. Wrap call in 'future' or Thread.")))
         (fx/later
           (.play ^Timeline
             (fx/simple-timeline
@@ -635,6 +662,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
               (when line [(.endXProperty ^Line line) stop-x])
               (when line [(.endYProperty ^Line line) (- stop-y)]))))
         @timeline-synchronizer)  ;; we wait here til the timeline is done
+    
       (fx/now
         (doto node
           (.setTranslateX stop-x)
@@ -653,7 +681,9 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
         (do
           (set-position turtle continue-pos)
           (recur turtle new-target-pos [prev-state res-nodes1]))
-        (append-undo-maybe turtle prev-state res-nodes1)))))
+        (do
+          (append-undo-maybe turtle prev-state res-nodes1)
+          (append-grouped-maybe res-nodes1))))))        
 
 
 (defn move-to
@@ -755,10 +785,10 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
        :heading  (get-heading turtle)
        :parent   (get-parent turtle)
        :visible  (is-visible turtle)
-       :node     (get-node turtle)})))
+       :shape     (get-shape turtle)})))
 
 
-;(def member-keys #{:position :heading :visible :node :parent})
+;(def member-keys #{:position :heading :visible :shape :parent})
 (def attribute-keys #{:name :speed :color :width :down :round :fill :font :props :undo})
 
 
@@ -783,7 +813,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
     (when-let [v (:position state)] (set-position_ turt v))
     (when-let [v (:heading state)]  (set-heading_ turt v))
     (when-let [v (:visible state)]  (set-visible_ turt v))
-    (when-let [v (:node state)]     (set-node_ turt v))
+    (when-let [v (:shape state)]     (set-shape_ turt v))
     (when-let [v (:parent state)]   (set-parent_ turt v))))
 
 
@@ -815,11 +845,11 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   This and any other attribute of the turtle can be overridden on creation - and most manipulated any time later also.
     "
   ;; TODO: Turtle should take its defaults in a short-and-sweet command
-  [& {:keys [position heading visible node parent name speed color width round down fill font undo props]
+  [& {:keys [position heading visible shape parent name speed color width round down fill font undo props onclick]
       :or {position (get-default :position)
            heading (get-default :heading)
            visible (get-default :visible)
-           node (clone (get-default :node))
+           shape (clone (get-default :shape))
            parent (get-default :parent)
            name (get-default :name)
            speed (get-default :speed)
@@ -830,7 +860,8 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
            down (get-default :down)
            font (get-default :font)
            undo (get-default :undo)
-           props (get-default :props)}
+           props (get-default :props)
+           onclick nil}
       :as args}]
   ;(user/pprint ["  ## args:" args])
 
@@ -853,8 +884,20 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
              :undo undo
              :undo-buffer (get-default :undo-buffer)
              :props props
-             :group (fx/group node)}))]
+             :group (fx/group shape)
+             :onclick onclick}))]
+       (-> @turtle 
+           :group 
+           (.setOnMouseClicked 
+             (fx/event-handler-2 [_ e]
+               (when-let [f (:onclick @turtle)]
+                 ;; 'future' both ensures that the gui remains responsive 
+                 ;; and that turtle-commands are initially off the fxthread (for animation issues)
+                 (future (f))
+                 (.consume e))))) 
+                   
 
+       
        (register-turtle turtle)
        (fx/now
          (doto @turtle
@@ -862,7 +905,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
            (set-heading_ heading)
            (set-visible_ visible))
          (when parent (set-parent_ @turtle parent)))
-    
+         
     turtle))
  
 
@@ -872,16 +915,18 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   All parameters are taken from the passed-in turtle, any overrides are applied, an then `new-turtle` is called.
   See [`new-turtle`](var:new-turtle) for more.
 "
-  [turtle & {:as args}] 
-  (let [state 
-        (get-state turtle) 
-        new-state 
-        (conj state args)
-        new-state1 
-        (if (.getParent ^Node (:node new-state))
-            (update new-state :node clone)  ;; Important to replace the node with a clone.
-            new-state)]
-    (apply new-turtle (reduce concat (seq new-state1)))))
+  ([]
+   (clone-turtle (turtle)))
+  ([turtle & {:as args}] 
+   (let [state 
+         (get-state turtle) 
+         new-state 
+         (conj state args)
+         new-state1 
+         (if (.getParent ^Node (:shape new-state))
+             (update new-state :shape clone)  ;; Important to replace the node with a clone.
+             new-state)]
+     (apply new-turtle (reduce concat (seq new-state1))))))
 
 
 (defn get-all-turtles
@@ -916,10 +961,12 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   
   **Warning:** Deleting a turtle while it is still being moved has unknown consequences.
   "
-  [turtle]
+ ([]
+  (delete-turtle (turtle)))
+ ([turtle]
   (unregister-turtle turtle)
   (un-parent_ @turtle)
-  nil)
+  nil))
 
 
 (defn delete-all-turtles 
@@ -987,7 +1034,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
   Uses dynamic binding for turtle which means that the specified must be bound lexically if to be used inside a thread inside the body.
 
-  See topic [Turtles](:Turtles) for mor information.
+  See topic [Turtles](:Turtles) for more information.
 
   **WARNING!** `with-turtle` cannot be used within the body of `filled`. (Not sure why...)\n
 
@@ -1002,11 +1049,11 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
                              ;;   and therefore the default turtle.
 ```"
   [turtle & body]
-  `(do
-     (binding [*turtle* ~turtle]
-       ~@body)))
+  `(binding [*turtle* ~turtle]
+     ~@body))
 
-;(pprint (macroexpand-1 '(with-turtle (make-turtle) (forward 100))))
+
+;(user/pprint (macroexpand-1 '(with-turtle (make-turtle) (forward 100))))
 ;(with-turtle (make-turtle) (forward 100))
 
 
@@ -1057,6 +1104,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 ```"
  ([]
   (clear true))
+  
  ([keep-1-turtle?]
   (let [{:keys [stage root axis]} @(get-screen)
         
@@ -1236,23 +1284,53 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
    (-> turtle get-props key)))
 
 
-(defn- set-node_
-  "Applied to deref-ed turtle."
-  [turt node]
-  (set-now (:group turt) node))
+(defn- remove-parent [node]
+  (let [p (.getParent node)]
+    (when p
+      (-> p .getChildren (.remove node)))
+    node))
 
 
-(defn set-node
+;(defn- set-node_
+;  "Applied to deref-ed turtle."
+;  [turt node  & [[off-x off-y]]]
+;  (let [g
+;        (:group turt)
+;        n 
+;        (cond 
+;          (sequential? node)    (fx/now (fx/group* (map remove-parent node)))
+;          (instance? Node node) (remove-parent g))]
+;    (when (and off-x off-y)
+;      (fx/set-translate-XY n [off-x (- off-y)]))
+;    (set-now g n)))
+
+
+
+
+
+;(defn- set-node_
+;  "Applied to deref-ed turtle."
+;  [turt node]
+;  (let [g (:group turt)]
+;    (cond
+;      (sequential? node)    
+;      (fx/now (fx/set-all* g (map remove-parent node)))
+;      
+;      (instance? Node node)
+;      (set-now g (remove-parent node)))))
+
+
+(defn set-shape
   "Sets the \"node\" for the turtle. 'node' can be any JavaFX Node."
-  ([node]
-   (set-node (turtle) node))
-  ([turtle node]
-   (set-node_ @turtle node)))
+ ([node-or-shapes]
+  (set-shape (turtle) node-or-shapes))
+ ([turtle node-or-shapes]
+  (set-shape_ @turtle node-or-shapes)))
 
 
-(defn get-node
+(defn get-shape
   ([]
-   (get-node (turtle)))
+   (get-shape (turtle)))
   ([turtle]
    (-> @turtle :group (#(.getChildren ^Group %)) first)))
 
@@ -1302,7 +1380,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
    :heading 0
    :visible true
    :parent (get-root)
-   :node (turtle-polygon)
+   :shape (turtle-polygon)
 
    :name "<John Doe>"
    :speed 1
@@ -1351,22 +1429,33 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
         orig-heading (get-heading turtle)
         orig-pos (get-position turtle)]
 
-    (if (< radius 1.5) ;; if the radius is to small, then simply turn on the spot
+    (if (< -1.5 radius 1.5) ;; if the radius is to small, then simply turn on the spot
       (turn turtle degrees)
-      (let [step-len (min 1.5 (max (/ radius 5.) 15.))  ;; a 5th of radius is pretty good, min 1, max 5
+      (let [step-len0 (/ radius 5.)
+            step-len 
+            (if (pos? step-len0)  ;; a 5th of radius is pretty good, min 1, max 5
+              (gu/clamp-double 1.5 step-len0 15.)
+              (gu/clamp-double -15. step-len0 -1.5))
             circumference (* 2 radius Math/PI)  ;; if 360 degrees
             travel (* circumference (/ (Math/abs degrees) 360.)) ;; how much of the circ. we will travel
             step-cnt (/ travel step-len) ;; break travel into tiny (hardly visible steps).
+            step-cnt-rem (- step-cnt (long step-cnt))
             step-turn (/ degrees step-cnt) ;; turn per step
             round? (is-round turtle)
             speed (get-speed)]
         (set-round turtle true)
-        (when speed (set-speed turtle (* 5. ^double speed))) ;; lets move faster through the turn
+        ;(when speed (set-speed turtle (* 5. ^double speed))) ;; lets move faster through the turn
         (binding [*undo-nodes* undo-nodes_]
           (turn turtle (/ step-turn 2.))  ;; get the tilt right by starting with a half-turn
+          
           (dotimes [_ step-cnt]
             (move turtle step-len)
             (turn turtle step-turn))
+          ;; account for the last "bit of step"  i.e. step-count 10.47 results in 10 reps. Now handle the .47.
+          (when (not= step-cnt-rem 0.0)
+            (move turtle (* step-len step-cnt-rem))
+            (turn turtle (* step-turn step-cnt-rem)))
+          
           (turn turtle (- (/ step-turn 2.))) ;; then subtract a final half-turn
           ;; return 'round' and 'speed' to their original
           (set-round turtle round?)
@@ -1376,8 +1465,6 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
           ;; heading - only needed if we did an arc
           (set-heading turtle (+ ^double orig-heading degrees)))
   
-          ;; position - maybe needed also if we "cheated"
-      
           ;; https://math.stackexchange.com/questions/332743/calculating-the-coordinates-of-a-point-on-a-circles-circumference-from-the-radiu#432155
           ; xP2 = xP1 + r sin θ
           ; yP2 = yP1 − r (1− cos θ)
@@ -1386,7 +1473,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
         ;; Do this outside the binding, so that it will actually be appended.
         (append-undo-maybe turtle prev-state @undo-nodes_)))
-
+    
     nil))
 
 
@@ -2091,7 +2178,9 @@ There are a number of optional ways to set font:
           (set-down false) 
           (forward (-> txt .getBoundsInLocal .getWidth))
           (set-down down?))))
-    (append-undo-maybe turtle prev-state [txt]))))
+    (append-undo-maybe turtle prev-state [txt])
+    (append-grouped-maybe [txt]))))
+
 ;; TEST
 "
 (reset)\n(left 30)\n(forward 30)\n(write \"HelloW\" true)\n(set-font 30)\n(set-fill [255 0 0 0.5])\n(println (get-color))\n(write \"World!\\n ... not\" true)\n(forward 30)\n(set-color :green)\n(set-font [\"Geneva\" 36])\n(write \"Done!\")\n
@@ -2119,7 +2208,7 @@ There are a number of optional ways to set font:
   1. You will need to move the turtle at least 2 steps, so the fill can form a polygon of at least points.
   "
   [t & body]
-  ;; Make a not of the current layer of the turtle.
+  ;; Note the turtle's current layer.
   `(let [layer# (-> (get-parent ~t) .getChildren (.indexOf (-> ~t deref :group)))]
      ;; This will cause move to "log" positions using `log-position-maybe`
      (swap! ~t assoc :positions [(get-position ~t)])
@@ -2139,7 +2228,8 @@ There are a number of optional ways to set font:
                            (flatten [positions# :fill (aux/to-color fill#) :stroke nil]))]
              (append-undo-maybe ~t (get-state ~t) [p#])
              ;; We insert the polygon at the layer the turtle was at start.
-             (fx/now (fx/add-at (get-parent ~t) layer# p#)))))
+             (fx/now (fx/add-at (get-parent ~t) layer# p#))
+             (append-grouped-maybe [p#]))))
        ;; Stop further logging of positions
        (swap! ~t dissoc :positions)
        nil)))
@@ -2159,6 +2249,83 @@ There are a number of optional ways to set font:
   [& body]
   `(let [t# (turtle)]
      (filled-with-turtle t# ~@body)))
+
+
+(defprotocol Bounds
+  (XYXY* [this] "[x-min y-min x-max y-max] y down")
+  (XYXY [this] "[x-min y-min x-max y-max]")
+  (XYWH* [this] "[x y w h] y down")
+  (XYWH [this] "[x y w h] "))
+
+(extend-protocol Bounds
+  ;Line
+  ;(XYXY* [l]
+  ;  [(.getStartX l) (.getStartY l) (.getEndX l) (.getEndY l)])
+  ;(XYXY [l]
+  ;  (flip-Y-XYXY (XYXY* l)))
+  ;(XYWH* [l]
+  ;  (let [[x1 y1 x2 y2] (XYXY* l)
+  ;        [x-min x-max] (sort [x1 x2]) 
+  ;        [y-min y-max] (sort [y1 y2])]
+  ;    [x-min y-min (- x-max x-min) (- y-max y-min)]))
+  ;(XYWH [l]
+  ;  (flip-Y-XYWH (XYWH* l)))
+  Node
+  (XYXY* [n]
+    (let [b (.getBoundsInParent n)]
+      [(.getMinX b) (.getMinY b) (.getMaxX b) (.getMaxY b)]))
+  (XYXY [n]
+    (flip-Y-XYXY (XYXY* n)))
+  (XYWH* [n]
+    (let [b (.getBoundsInParent n)]
+      [(.getMinX b) (.getMinY b) (.getWidth b) (.getHeight b)]))
+  (XYWH [n]
+    (let [b (.getBoundsInParent n)]
+      [(.getMinX b) (.getMaxY b) (.getWidth b) (.getHeight b)])))
+  
+
+(defn XYXY->XYWH [[x1 y1 x2 y2]]
+  [x1 y1 (- x2 x1) (- y2 y1)])
+
+;(defn XYXY [^Line l]
+;  [(.getStartX l) (.getStartY l) (.getEndX l) (.getEndY l)])
+
+
+
+
+(defn set-XYXY* [^Line l [x1 y1 x2 y2]]
+  (doto l
+    (.setStartX x1)
+    (.setStartY y1)
+    (.setEndX x2)
+    (.setEndY y2)))
+
+
+;(defn- shift-line [^Line l [off-x off-y]]
+;  (let [[x1 y1 x2 y2] (XYXY* l)]
+;    (set-XYXY* l [(- x1 off-x) (- y1 off-y) (- x2 off-x) (- y2 off-y)])))
+
+
+;(defn- shift-node [n [off-x off-y :as offsets]]
+;  (if (instance? Line n)
+;    (shift-line n offsets)
+;    (let [[x y] (fx/translate-XY n)]
+;      (fx/set-translate-XY n [(- x off-x) (- y off-y)]))))
+
+
+;(defn shift-grouped 
+; ([nodes]
+;  (if (empty? nodes)
+;    nodes
+;    (let [n0 (first nodes)
+;          pos 
+;          (if (instance? Line n0)
+;            (subvec (XYXY n0) 0 2)
+;            (fx/translate-XY n0))]
+;      (shift-grouped nodes pos)))) 
+; ([nodes offsets]
+;  (prn 'shift-grouped offsets)
+;  (mapv #(shift-node % offsets) nodes)))
 
 
 (defn set-name
@@ -2244,7 +2411,7 @@ There are a number of optional ways to set font:
         (show) (set-speed :default) (pen-up) (home) (pen-down)
         (set-color :default) (set-fill :default) (set-font :default) (set-width :default) (set-round :default) (set-undo 0)) 
   
-  (set-background :default)  (reset-onkey)
+  (set-background :default)  (reset-onkey) (set-fence :default) (set-screen-onclick nil)
 
   nil))
 
@@ -2331,7 +2498,7 @@ See topic [Clojure](:Clojure) for more information."
    (set-ticker (/ 1000. 30) function))
   ([interval-in-milliseconds function]
    (when-let [t (get-ticker)]
-     (println "/set-ticker - stopping ticker")
+     ;(println "/set-ticker - stopping ticker")
      (.stop t))  ;; to avoid memory leak!
    (let [screen_ (get-screen)
          t (new-ticker interval-in-milliseconds #(binding [*screen* screen_] (function)))]
@@ -2339,12 +2506,19 @@ See topic [Clojure](:Clojure) for more information."
      nil)))
 
 
+(defn is-ticker-running
+  "Returns true/false if a ticker has been set, else nil"
+  []
+  (when-let [t (get-ticker)]
+    (= (.getStatus t) Animation$Status/RUNNING)))
+
+
 (defn start-ticker 
   "Starts the ticker. 
   See [`set-ticker`](var:set-ticker) for more."
   []
   (when-let [t (get-ticker)]
-    (fx/later (.play t))))
+    (fx/later (.stop t) (.play t))))
 
 
 (defn stop-ticker
@@ -2357,12 +2531,6 @@ See topic [Clojure](:Clojure) for more information."
       (when verbose?
         (println "ticker stopped")))))
 
-
-(defn is-ticker-running
-  "Returns true/false if a ticker has been set, else nil"
-  []
-  (when-let [t (get-ticker)]
-    (= (.getStatus t) Animation$Status/RUNNING)))
 
 ;(let [t (new-ticker #(println "ticker1"))]
 ;  (.play t)
@@ -2467,6 +2635,51 @@ See topic [Clojure](:Clojure) for more information."
 ;((get-onkey [:up]))
 
 
+(defn set-onclick
+ ([function]
+  (set-onclick (turtle) function))
+ ([turtle function]
+  (swap! turtle assoc :onclick function)
+  turtle))
+
+
+(defn get-onclick
+  ([]
+   (get-onclick (turtle)))
+  ([turtle]
+   (-> @turtle :onclick)))
+
+
+(defn do-onclick 
+ ([] (do-onclick (turtle)))
+ ([turtle]
+  (when-let [f (get-onclick turtle)]
+    (future (f))  ;; in future to ensure an animations. (same as when called in .setOnMouseClicked)
+    true)))
+
+
+(defn get-screen-onclick
+  ([]
+   (get-screen-onclick (get-screen)))
+  ([screen]
+   (-> @screen :onclick)))
+
+
+(defn set-screen-onclick
+  ([function]
+   (set-screen-onclick (get-screen) function))
+  ([screen function]
+   (swap! screen assoc :onclick function)
+   screen))
+
+
+(defn do-screen-onclick
+  ([] (do-screen-onclick (get-screen)))
+  ([screen]
+   (when-let [f (get-screen-onclick screen)]
+     (future (f))  ;; in future to ensure an animations. (same as when called in .setOnMouseClicked) 
+     true)))
+
 (defn new-screen
   ;; TODO: Implement support for mounting screen in alternative layout.
   "Returns a new screen object.
@@ -2513,24 +2726,37 @@ See topic [Clojure](:Clojure) for more information."
         pane
         (doto
           (fx/pane border root)
-          (fx/set-background (aux/to-color background)))]
+          (fx/set-background (aux/to-color background)))
+        
+        screen
+        (atom
+          (map->Screen
+            {:stage nil
+             :scene nil
+             :pane pane  ;; This is the part that is root on scene.
+             :root root   ;; This is the root of all turtle artifacts. It is centered on the scene.
+             :axis axis
+             :border border
+             :size size
+             :background background
+             :fence fence
+             :turtles (ordered-map)
+             :ticker nil
+             ;; onkey is an atom as key-handlers can read from an atom directly
+             :onkey (atom {})
+             :onclick nil}))]
+        
+       (-> @screen
+           :pane
+           (.setOnMouseClicked
+             (fx/event-handler-2 [_ e]
+               (when-let [f (:onclick @screen)]
+                 ;; 'future' both ensures that the gui remains responsive 
+                 ;; and that turtle-commands are initially off the fxthread (for animation issues)
+                 (future (f))
+                 (.consume e)))))
 
-    (atom
-      (map->Screen
-        {:stage nil
-         :scene nil
-         :pane pane  ;; This is the part that is root on scene.
-         :root root   ;; This is the root of all turtle artifacts. It is scentered on the scene.
-         :axis axis
-         :border border
-         :size size
-         :background background
-         :fence fence
-         :turtles (ordered-map)
-         :ticker nil
-         ;; onkey is an atom as key-handlers can read from an atom directly
-         :onkey (atom {})})))))
-
+       screen)))
 
 
 (defonce ^:dynamic *screen* (new-screen))
@@ -2691,3 +2917,220 @@ See topic [Clojure](:Clojure) for more information."
     (set-screen-visible screen true)
     (de-iconify-maybe (:stage @screen))
     nil)))
+
+
+(defn is-group [group]
+  (instance? Group group))
+
+
+(defn is-node [node]
+  (instance? Node node))
+
+
+(defn is-shapes [shapes]
+  (and (vector? shapes)
+       (every? is-node shapes)))
+
+
+(defn to-group
+  "Diss-associates nodes from current parent, creates and returns a new group."
+  [shapes]
+  (assert (is-shapes shapes) (format "'shapes' should be a vector of Nodes. Got '%s'" shapes))
+  ;(doseq [s shapes] (prn 's (str s)))
+  (fx/now (apply fx/group (map remove-parent shapes))))
+
+
+(defmacro shapes
+  "Returns a vector with references to any graphic elements (Nodes or sub-classes thereof) that were added to the created/added to the screen.
+  The position of all nodes are shifted by as much as is required for the first node drawn to be at [0 0].
+  
+  This vector (of nodes) can be then: 
+  - Be set as node on a turtle, or
+  - be cloned before being set as a node, and/or
+  - be set to visible (true/false) using `set-visible`
+  
+  TODO: examples
+  "
+  [& body]
+  `(binding [*grouped-group* (atom [])]
+     ~@body
+     ;(prn '@*grouped-group* @*grouped-group*)
+     (vec @*grouped-group*)))
+     ;(shift-grouped @*grouped-group*)))
+
+
+;; TODO: decide whether to use 'grouped' or 'shapes' (or both?)
+(defmacro grouped
+  "Returns a vector of references to instances of javafx.scene.Node that were added to the screen within the body.
+   "
+  [& body]
+  `(to-group (shapes ~@body)))
+
+
+(defn get-shapes 
+  "Returns a vector of references to the children of the group. Does not diss-associate them."
+  [group]
+  (assert (is-group group) (format "'group' should be an instance of Group. Got '%s'" group))
+  (-> group fx/children vec))
+
+
+(defn- set-shape_
+  "Applied to deref-ed turtle."
+  [turt shapes-or-node]
+  (let [turtle-group
+        (:group turt)
+        
+        node
+        (cond
+          (is-shapes shapes-or-node)  (to-group shapes-or-node)  
+          (is-node shapes-or-node)  (remove-parent shapes-or-node))]
+    (set-now turtle-group node)))
+
+
+(defn- union-XYXY-
+
+ ([[x1 y1 x2 y2] [x3 y3 x4 y4]]
+  [(min x1 x3) (min y1 y3) (max x2 x4) (max y2 y4)])
+ ([b] 
+  b)
+ ([] 
+  nil))
+
+
+(defn- union-XYXY [shapes]
+  (assert (is-shapes shapes))
+  ;(doseq [s shapes] (prn (XYXY s)))
+  (reduce union-XYXY- (map XYXY shapes)))
+
+
+(defn get-bounds 
+  "Returns '[x y w h]'. 
+  'x' and 'y' are Cartesian cartesian coordinates (not JavaFX graphics)."
+  [node-or-shapes]
+  (cond 
+    (is-node node-or-shapes)   (do (XYWH node-or-shapes))
+    (is-shapes node-or-shapes) (XYXY->XYWH (union-XYXY node-or-shapes))))
+
+
+;(defmulti set-center
+;          "Offsets the Node(s)"
+;          (fn [obj _]
+;            (cond
+;              (sequential? obj) :sequential
+;              (instance? Node obj) :node
+;              :else (class obj))))
+
+;(defmethod set-center :sequential [obj [off-x off-y]]
+;  (mapv #(shift-grouped)))
+
+;(defmethod set-center :default [obj]
+;  (throw (IllegalArgumentException. (format "Don't know how to set-center for type '%s'" (.getName (class obj))))))
+
+
+;(defn set-center
+; ([node-or-shapes]
+;  (set-center node-or-shapes nil))
+;
+; ([node-or-shapes [cx cy :as center]]
+;  (if (is-shapes node-or-shapes)
+;    (doseq [shape node-or-shapes]
+;      (set-center shape center))    
+;    (let [[x y w h]
+;          (get-bounds node-or-shapes)
+;          [xc yc] 
+;          (if center center [(/ w 2) (/ h 2)])]
+;      ;(prn 'y y)
+;      ;(prn 'yc yc)
+;      (fx/set-translate-XY node-or-shapes  [(- (- xc) x) (- yc y)])))))
+
+
+(defn set-center
+
+ ([node-or-shapes]
+  (set-center node-or-shapes nil))
+
+ ([node-or-shapes [xc yc :as center]]
+  (let [bounds (get-bounds node-or-shapes)]
+    (set-center node-or-shapes center bounds)))
+
+ ([node-or-shapes [xc yc :as center] [x y w h :as bounds]]
+  (assert (every? number? [x y w h]) (format "'bounds' malformed or missing. Got '%s'" bounds))
+  (when center (assert (every? number? [xc yc]) (format "'center' malformed. Got '%s'" center)))
+  (let [[xc yc :as center]
+        (if center center [(/ w 2) (/ h 2)])]
+        ;(prn 'yc yc)
+      (if (is-node node-or-shapes)
+        (do
+          (fx/set-translate-XY node-or-shapes [(- (- xc) x) 
+                                               (- yc (- y))])
+          node-or-shapes)
+        (doseq [shape node-or-shapes]
+          (set-center shape center bounds))))))
+
+
+
+;(defn grouped-test []
+; (reset false)
+; ;(right 45)
+; (forward 100)
+; (set-speed 0.3)
+; (let  [sh
+;        (shapes
+;          (filled
+;            (set-speed 2)
+;            (rep 4 (forward 30) (left 90))))
+;        _ (prn 'sh sh)
+;        _ (sleep 1000)
+;        g (to-group sh)]
+;   (prn 'bounds-sh (get-bounds sh))
+;   (prn 'bounds-g (get-bounds g))
+;   (prn 'g g)
+;   (set-shape (turtle) g)
+;   (sleep 1000)
+;   (set-center g)
+;   ;(set-center g [0 0])
+;   (sleep 1000)
+;   (set-color :red)
+;   (set-width 5)
+;   (set-speed 0.1)
+;   (rep 5
+;     (left 45)
+;     (sleep 1000)
+;     (forward 50)
+;     (sleep 2000))))
+;(grouped-test)
+
+
+;(defn- dev1 []
+;  (reset false)
+;  (let [ss (shapes
+;             (filled
+;               (arc-right 25 360)))]
+;    ;g (to-group ss)]
+;    (prn 'ss (get-bounds ss))
+;    ;(prn 'g (get-bounds g))))
+;    ;(set-shape ss)
+;    (set-center ss)))
+;(dev1)
+
+
+;"
+;`(defmacro grouped [& body])` ... or 'get-shapes'?
+;  returns a vector with references to Nodes added to the screen.
+;
+;`(defn set-shape [turtle node-or-shapes])` 
+;  sets the 'shape' on the turtle - be it a Node or a vector of Nodes
+;
+;`(defn get-shape [turtle])` 
+;  returns a vector of one or more Nodes.
+;
+;`(defn clone [node-or-shapes])`
+;  returns a cloned node or a vector of cloned nodes.
+;
+;`(defn get-bounds [node-or-shapes])`
+;  returns a vector [x y w h] of the total bounds of the node or nodes.
+;
+;`(defn set-center [node-or-shapes xy-or-keyword])`
+;  translates the coordinates such that center is redefined relative to the outer bounds of the total of the Nodes.
+;  
+;"
