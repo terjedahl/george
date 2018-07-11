@@ -11,8 +11,8 @@
   (:require
     [clojure
      [pprint :refer [pprint]]]
-    [clojure.tools.nrepl :as nrepl]
-    [clojure.tools.nrepl.server :refer [start-server stop-server]]
+    [nrepl.core :as nrepl]
+    [nrepl.server :refer [start-server stop-server]]
     [george.util :refer [pprint-str]]))
 
 
@@ -35,7 +35,7 @@
             nrepl/response-values
             first
             (= :ping)))
-    (catch AssertionError e  ;; AssertionError Assert failed: port  clojure.tools.nrepl/connect (nrepl.clj:174)
+    (catch AssertionError e  ;; AssertionError Assert failed: port  nrepl.core/connect (nrepl.clj:174) ?!?
       false)))
 
 

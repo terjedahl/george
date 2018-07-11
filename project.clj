@@ -15,19 +15,19 @@
                  ;; https://github.com/mmcgrana/clj-stacktrace
                  [clj-stacktrace "0.2.8"]
                  ;[leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
-                 [org.apache.directory.studio/org.apache.commons.io "2.4"]
+                 [org.apache.directory.studio/org.apache.commons.io "2.4"]  ;; WriterOutputStream in output.clj 
                  ;; https://github.com/clojure/tools.namespace
                  [org.clojure/tools.namespace "0.3.0-alpha4"]
                  ;; https://github.com/clojure/java.classpath
                  [org.clojure/java.classpath "0.2.3"]
                  ;; https://github.com/cemerick/nREPL
-                 [com.cemerick/nrepl "0.3.0-RC1"]
+                 [nrepl "0.4.1"]
                  ;; https://github.com/FXMisc/RichTextFX
-                 [org.fxmisc.richtext/richtextfx "0.8.1"]
+                 [org.fxmisc.richtext/richtextfx "0.9.0"]
                  ;; https://github.com/TomasMikula/Flowless
-                 [org.fxmisc.flowless/flowless  "0.6"]
-                 ;; https://github.com/brentonashworth/clj-diff
-                 [clj-diff "1.0.0-SNAPSHOT"]
+                 [org.fxmisc.flowless/flowless  "0.6.1"]
+                 ;; https://github.com/droitfintech/clj-diff
+                 [tech.droit/clj-diff "1.0.0"]
                  ;; https://github.com/clojure/core.rrb-vector
                  [org.clojure/core.rrb-vector "0.0.11"]
                  ;; https://github.com/clojure/data.json

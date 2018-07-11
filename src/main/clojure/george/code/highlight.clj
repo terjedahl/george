@@ -16,7 +16,8 @@
     (:import
         [java.time Duration]
         [clojure.lang Keyword Symbol]
-        [org.fxmisc.richtext MouseOverTextEvent StyleClassedTextArea]
+        ;[org.fxmisc.richtext  StyleClassedTextArea]
+        [org.fxmisc.richtext.event MouseOverTextEvent]
         [org.fxmisc.richtext.model StyleSpansBuilder]
         [george.code.tokenizer TokenError Arg DelimChar Comment MacroChar MacroDispatchChar]))
 
