@@ -134,7 +134,7 @@
   "Same as 'slurp-shared', but opens the resource in a file-browser."
   [shared-key & [throw-exception?]]
   (let [ns (str *ns*)]
-    (fxj/thread
+    (future
       (let [r   (slurp-shared shared-key throw-exception?)
             is  (input/new-input-stage ns)])))
         ;(fx/later

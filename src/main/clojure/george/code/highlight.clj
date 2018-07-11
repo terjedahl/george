@@ -212,7 +212,7 @@ paired-tokens: seq of vectors of paired tokens: [[Token0 Token4][Token1 Token3]]
     (-> codearea .errorlines (.setValue (into #{} (map :line unpaired))))
 
     (doseq [t unpaired]
-      (fx/thread
+      (future
         (try
           (set-style-on-range codearea [(:start t) (:end t)] (cssclass t))
           (catch IllegalArgumentException e (.printStackTrace e)))))
