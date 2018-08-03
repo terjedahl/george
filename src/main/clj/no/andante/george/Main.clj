@@ -46,7 +46,7 @@
 
 
 (defn -start [this ^javafx.stage.Stage stage]
-  ;(println "no.andante.george.Main/-start args:" (-> this .getParameters .getRaw seq))
+  (println "no.andante.george.Main/-start args:" (-> this .getParameters .getRaw seq))
   ;(println "  ## @state_:" @state_)
 
   (when-not (:handover-done? @state_)

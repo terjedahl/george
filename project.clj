@@ -1,3 +1,65 @@
+(defmacro defstr
+  "defs name to have the root value of the body wrapped as an unavaluated set of expressions wrapped in a do.
+  Makes it easy to write functionality which can then be evaluated in leiningen aliases."
+  {:added "1.0"}
+  [name & body]
+  `(def ~name (prn-str (quote (do ~@body)))))
+
+;(prn (macroexpand-1 '(defstr x (+ 4 5))))
+;(prn (defstr y (+ 6 7)))
+;(prn 'y y)
+
+
+(defstr mkdirs
+  (doseq [d ["target/runtime/classes" "target/runtime/jar" "target/runtime/mod"]]
+    (.mkdirs (java.io.File. d))))
+
+
+(defstr spit-javac-options
+  (let [src "src/main/java"
+        trg "target/runtime/classes"
+        file "javac-options.txt"
+        p (.toPath (java.io.File. src))
+        files 
+        (->>
+          (.toArray (java.nio.file.Files/walk p (make-array java.nio.file.FileVisitOption 0)))
+          (map str)
+          (filter #(.endsWith % ".java")))
+        out 
+        (format "-d %s -s %s %s" trg src  (apply str (interpose " " files)))]
+    (spit (str trg "/" file) out)))
+
+
+(def modules
+  (apply str 
+    (interpose ","
+      (map name
+        [
+         ;; These modules are currently needed by George:
+         :java.sql
+         :javafx.controls
+         :javafx.graphics
+         :javafx.swing  ;; used in current javafx-init
+         :javafx.web
+         :java.scripting
+         :jdk.scripting.nashorn
+
+         ;; These module may be needed by George later:
+         :java.desktop
+         :java.logging
+         :javafx.media
+         
+         ;; This module is needed by Clojure:
+         :jdk.unsupported
+         ;; Needed by Leiningen
+         :java.compiler]))))
+         ;; These modules are included so users may have access to them from the custom runtime (none yet):
+
+
+(def xjava "target/runtime/jre/bin/java")
+
+
+
 
 (defproject no.andante.george/george-application  "2018.6-SNAPSHOT"
 
@@ -5,8 +67,8 @@
   :url "https://bitbucket.org/andante-george/george-application"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-
-
+  
+    
   :dependencies [[org.clojure/clojure "1.9.0"]
                  ;; https://github.com/clojure/core.async
                  [org.clojure/core.async "0.4.474"]
@@ -44,65 +106,101 @@
                  [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                  ;; https://github.com/amalloy/ordered
                  [org.flatland/ordered "1.5.6"]]
-  
+
   :plugins [
             ;; https://github.com/weavejester/environ
             [lein-environ "1.1.0"]
             ;; https://github.com/weavejester/codox
             [lein-codox "0.10.3"]
             ;; https://github.com/technomancy/leiningen/tree/stable/lein-pprint
-            [lein-pprint "1.1.2"]]
+            [lein-pprint "1.1.2"]
+            ;; https://github.com/pallet/lein-aot-filter
+            [lein-aot-filter "0.1.0"]
+            ;; https://github.com/hyPiRion/lein-shell 
+            [lein-shell "0.5.0"]
+            ;; https://github.com/kumarshantanu/lein-exec
+            [lein-exec "0.3.7"]]
 
   :repositories [
-                 ["jcenter" "https://jcenter.bintray.com"]] ;; apache.commons.io
-
+                 ;; apache.commons.io
+                 ["jcenter" "https://jcenter.bintray.com"]]
+                  
   :deploy-repositories [
                         ["snapshots" :clojars]
                         ["releases" :clojars]]
 
-  :source-paths      ["src/main/clojure"]
+  :source-paths      ["src/main/clj"]
   :java-source-paths ["src/main/java"]
+  :resource-paths    ["src/main/rsc"]
+  :test-paths        ["src/test/clj"]
+  
   :javac-options     ["-target" "10" "-source" "10"]
-                      ;"-Xlint:unchecked"]
-
-  :test-paths ["src/test/clojure"]
-  :resource-paths ["src/main/resources"]
-
-  :main no.andante.george.Main
+  
+  :prep-task ["javac" "compile"]
+  
   :aot [no.andante.george.Main]
+  :main no.andante.george.Main
 
-  :jvm-opts ["-Dapple.awt.graphics.UseQuartz=true"]  ;; should give crisper text on Mac
-  :target-path "target/%s"
+  :jvm-opts [
+             ;; should give crisper text on Mac
+             "-Dapple.awt.graphics.UseQuartz=true"]
+             
+  :target-path "target/build/%s/"
+  :clean-targets [:target-path]
 
-  ;; http://www.flyingmachinestudios.com/programming/how-clojure-babies-are-made-lein-run/
-  ;; https://clojure.github.io/clojure/branch-master/clojure.main-api.html#clojure.main/main
 
+  ;; Custom keys - used in aliases and profiles
+  :java-home         ~(System/getenv "JAVA_HOME")
+  :uberjar-path      "target/build/uberjar/george-application-${:version}-standalone.jar"
+  
+  
   :aliases {
-            "preloader"
-            ^{:doc "
-  Triggers the JavaFX preloader mechanism to run 'no.andante.george.MainPreloader'.
-  All args are passed through to main application.
-  Note: The preloader won't appear as fast as when triggered by a normal JAR launch."}
-            ["run" "-m" "no.andante.george.Main" "--with-preloader"]
+            "assert10" ^{:doc "Asserts Java 10"}
+            ["exec" "-e" "(assert (.startsWith (System/getProperty \"java.version\") \"10\") \"This project requires Java 10.  See docs/java10.md for more.\")"]
+            
+            "java" ^:pass-through-help
+            ["do" ["assert10"] "shell" "${:java-home}/bin/java"]
+            
+            "jlink" ^:pass-through-help
+            ["do" ["assert10"] "shell" "${:java-home}/bin/jlink"]
 
-            ;; starts turtle environement directly
-            "turtle" ["run" "-m" "george.application.applet.turtle"]
-            ;; starts general environment directly
-            "general" ["run" "-m" "george.application.applet.general"]
+            "xjava" ^:pass-through-help
+            ["shell" ~xjava]
+            
+            "build-jre"
+            ["do"
+             ["exec" "-e" "(prn 'build-jre '...)"]
+             ["with-profile" "jre" "clean"]
+             ["jlink"
+              "--output" "target/runtime/jre"
+              "--compress=2"
+              "--no-header-files"
+              "--add-modules" ~modules]]            
+            
+            "build-jar"
+            ["do"
+             ["exec" "-e" "(prn 'build-jar '...)"]
+             "uberjar"]
+             
+             
+            "build-all" ;; TODO: docstring
+            ["do"
+             ["exec" "-e" "(prn 'build-all '...)"]
+             "build-jre" 
+             "build-jar"]
 
-            ;; Simple george.example of staring Clojure from Java
-            "example" ["run" "-m" "george.example.application" "4 5 6"]
-            "examplej" ["run" "-m" "george.example.App" "1 2 3"]
+            
+            "xrun-jar" ;; TODO: docstring
+            ["xjava" "-jar" :project/uberjar-path]
 
-            ;; Test of Clojure and JavaFX performance. See source.
-            "stars" ["run" "-m" "george.example.stars"]
-            ;; And here is the original Java-version - for (visual) comparison
-            "starsj" ["run" "-m" "george.example.Stars"]
+            "run-jar" ;; TODO: docstring
+            ["java" "-jar" :project/uberjar-path]
 
-            ;; Something cool
-            "clocks" ["run" "-m" "george.example.arcclocks"]
-            "graph" ["run" "-m" "george.sandbox.graph"]}
-
+            "clean-all" ;; TODO: docstring
+            ["do" 
+             "clean" 
+             ["with-profile" "jre" "clean"]]}
+  
   :codox {
           :doc-paths ["docs"]
           :output-path "target/docs"
@@ -112,8 +210,28 @@
           "https://bitbucket.org/andante-george/george-application/src/default/{filepath}?at=default#{basename}-{line}"
           :html {:namespace-list :flat}}
 
-  :profiles {:repl {:env {:repl? "true"}}
+  
+  :uberjar-exclusions [#"module-info.*"]
+  
+  :profiles {
+             :repl {:env {:repl? "true"}}
+             
+             :dev {:depencencies []
+                   :java-source-paths ["src/dev/java"]
+                   :source-paths      ["src/dev/clj"]
+                   :resource-paths    ["src/dev/rsc"]}
+                    
              :uberjar {:aot :all
                        :manifest {"Main-Class" "no.andante.george.Main"
                                   "JavaFX-Preloader-Class" "no.andante.george.MainPreloader"
-                                  "JavaFX-Application-Class" "no.andante.george.Main"}}})
+                                  "JavaFX-Application-Class" "no.andante.george.Main"}}
+             
+             :jre {
+                   :target-path "target/runtime/"
+                   :clean-targets ^:replace ["target/runtime/"]}})
+             
+             ;:jpms {
+             ;       ;; Java9+ modules does not allow unnamed packages (class-file in top-level). Therefore these must not be AOT-ed.
+             ;       :aot-exclude [#"g.*" #"user.*" #"clj.tuple.*" #"potemkin.*"]
+             ;       ;; So the module-info does not get stripped out.
+             ;       :uberjar-exclusions ^:replace []}})

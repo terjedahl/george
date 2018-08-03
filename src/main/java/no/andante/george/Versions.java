@@ -5,7 +5,7 @@
  *  You must not remove this notice, or any other, from this software.
  */
 
-package george.application;
+package no.andante.george;
 
 import java.io.File;
 import java.util.Arrays;

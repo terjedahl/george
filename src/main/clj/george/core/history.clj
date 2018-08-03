@@ -13,7 +13,7 @@
             [george.util :as u]
             [george.editor.core :as ed])
 
-  (:import (george.application Versions)
+  (:import [no.andante.george Versions]
            (java.util Date UUID)
            (java.sql Timestamp)))
 

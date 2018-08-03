@@ -7,7 +7,7 @@
 
 // http://blog.netopyr.com/2012/06/14/using-the-javafx-animationtimer/
 
-package george.example;
+package no.andante.george.examples;
 
 import java.util.Random;
 import javafx.animation.AnimationTimer;
