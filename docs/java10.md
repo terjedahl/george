@@ -56,34 +56,26 @@ Also, we don't want to build George into the runtime as a module, but in stead h
 
 Builds are done using a mix of aliases, profiles and plugins.
 
-### The runtime
-
-To build the runtime, do:
+The jar and the runtime are both built at once with the command:
 ```bash
-lein build-jre
+lein build
 ```
 
-This will result in an OS-specific custom runtime in the directory `<project_root>/runtime` .  
-It will include only the modules "required" in `<project_root>/src/main/java/modules-info.java`
+This results in a jar-file without module-info.class.  When run - either on standard java runtime or custom runtime, it will be run in "legacy" mode. 
 
-The command simply uses jlink to build the runtime, linking in the modules listed as keyword in a special construct at the top of the project file.
+Also, you will get an OS-specific custom runtime in the directory `<project_root>/target/jre` .  
+It will include only the modules listed in the project-files `module-list`.
 
 
-### The jar
+### JPMS
 
-To build the jar, do:
+You may of course try to build the Jar as a JPMS.  Simply do:
+
 ```bash
-lein build-jar
+lein build-jpms
 ```
+This will write a `module-info.java` based on the `module-list` before building, and then delete it again afterwards.
 
-This results in a jar-file without module-info.class.  When run - either on standard java runtime or custom runtime, it will be run in "legacy" mode.  
-
-###  Both
-
-To build both of the above, do:
-```bash
-lein build-all
-```
 
 
 ## Run
@@ -92,7 +84,7 @@ A mix of aliases et al allow you to run what you have build.
 
 Running something assumes you have done the appropriate builds first.
 
-### Custom JRE
+### The custom JRE
 
 To run anything using `java` in the custom runtime, you can do:
 ```bash
@@ -110,18 +102,27 @@ lein java --list-modules
 ... you will se that the modules list is much longer for `java` than for `xjava`.
 
 
-
-### Jar on JRE
+### The jar
 
 To run the jar on the custom JRE, do:
 ```bash
-lein xrun-jar
+lein xrun
 ```
 
 To run the jar on standard java, do:
 ```bash
-lein run-jar
+lein srun
 ```
+
+### JPMS
+
+If you have done the JPMS build, the jar will still run in "legacy mode" if you use one of the commands above.
+To run it in JPMS mode on the custom runtime, do:
+```bash
+lein xrun-jpms
+```
+
+_This will inevitably fail, even if you add all sorts of extra "--add-export" directives._
 
 
 ### In Leiningen
@@ -143,13 +144,4 @@ _It is not possible to run Leiningen using the custom jre, as Leiningen requires
 
 When developing you will want to use standard repl development mechanims.  There are currently no special repl tools integrated in George this.  But by un-commenting one of the lines at the bottom of `george.application.launcher`, a new instance of George is launched in the repl whenever you (re-)load that module. 
 
-
-
-## Clean
-
-To allow for building jar and runtime in separate steps without deleting the result of each other, the default command `lein clean` only cleans the standard build target, not the runtime build target.  
-To clean everything, do:
-```bash
-lein clean-all
-``` 
 

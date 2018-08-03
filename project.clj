@@ -1,63 +1,77 @@
-(defmacro defstr
-  "defs name to have the root value of the body wrapped as an unavaluated set of expressions wrapped in a do.
-  Makes it easy to write functionality which can then be evaluated in leiningen aliases."
-  {:added "1.0"}
+(def module-list
+  [
+   ;; These modules are currently needed by George:
+   :java.sql
+   :javafx.controls
+   :javafx.graphics
+   :javafx.swing  ;; used in current javafx-init
+   :javafx.web
+   :java.scripting
+   :jdk.scripting.nashorn
+
+   ;; These module may be needed by George later:
+   :java.desktop
+   :java.logging
+   :javafx.media
+
+   ;; These modules are included so users may have access to them from the custom runtime (none yet):
+
+   ;; This module is needed by Clojure:
+   :jdk.unsupported])
+
+
+(require
+  '[clojure.string :as cs]
+  '[clojure.java.io :as cio])
+
+
+(defmacro code
+  "Returns a single string containing the pr-str'd representations of the given expressions, wrapped in a do if more than one.
+  Useful for writing expressions to be evaluated in leiningen aliases using 'exec -e'.
+  (Similar to clojure.tools.nrepl/code, but for the potential 'do' wrapping.)"
+  [& body]
+  (if (< 1 (count body))
+    `(prn-str (quote (do ~@body)))
+    `(prn-str (quote ~@body))))
+;(prn (macroexpand-1 '(code (+ 4 5))))
+;(prn (code (+ 4 5)))
+;(prn (macroexpand-1 '(code (+ 4 5) (+ 6 7))))
+;(prn (code (+ 4 5) (+ 6 7)))
+
+
+(defmacro defcode
+  "Passes body to 'code', then defs the resulting string with the given name."
   [name & body]
-  `(def ~name (prn-str (quote (do ~@body)))))
-
-;(prn (macroexpand-1 '(defstr x (+ 4 5))))
-;(prn (defstr y (+ 6 7)))
+  `(def ~name (code ~@body)))
+;(prn (macroexpand '(defcode x (+ 4 5))))
+;(prn (defcode y (+ 4 5)))
 ;(prn 'y y)
+;(prn (macroexpand-1 '(defcode x (+ 4 5) (+ 6 7))))
+;(prn (defcode z (+ 4 5) (+ 6 7)))
+;(prn 'z z)
 
 
-(defstr mkdirs
-  (doseq [d ["target/runtime/classes" "target/runtime/jar" "target/runtime/mod"]]
-    (.mkdirs (java.io.File. d))))
+(def modules-str
+  (apply str (interpose "," (map name module-list))))
 
 
-(defstr spit-javac-options
-  (let [src "src/main/java"
-        trg "target/runtime/classes"
-        file "javac-options.txt"
-        p (.toPath (java.io.File. src))
-        files 
-        (->>
-          (.toArray (java.nio.file.Files/walk p (make-array java.nio.file.FileVisitOption 0)))
-          (map str)
-          (filter #(.endsWith % ".java")))
-        out 
-        (format "-d %s -s %s %s" trg src  (apply str (interpose " " files)))]
-    (spit (str trg "/" file) out)))
+(def module-info-spitter 
+  (let [reqs (apply str (map #(str "    requires " (name %) ";\n") module-list))         
+        tmpl "module george {\n    exports no.andante.george;\n%s}"   
+        java (format tmpl reqs)]
+    (format "(do (println \"%s\")(spit \"src/main/java/module-info.java\" \"%s\"))" java java))) 
+;(module-info-spitter)
 
 
-(def modules
-  (apply str 
-    (interpose ","
-      (map name
-        [
-         ;; These modules are currently needed by George:
-         :java.sql
-         :javafx.controls
-         :javafx.graphics
-         :javafx.swing  ;; used in current javafx-init
-         :javafx.web
-         :java.scripting
-         :jdk.scripting.nashorn
-
-         ;; These module may be needed by George later:
-         :java.desktop
-         :java.logging
-         :javafx.media
-         
-         ;; This module is needed by Clojure:
-         :jdk.unsupported
-         ;; Needed by Leiningen
-         :java.compiler]))))
-         ;; These modules are included so users may have access to them from the custom runtime (none yet):
+(defcode module-info-deleter
+  (require '[clojure.java.io :as cio]) (cio/delete-file "src/main/java/module-info.java" true))
+;(module-info-deleter)
 
 
-(def xjava "target/runtime/jre/bin/java")
-
+(defcode
+  assert10
+  (assert (.startsWith (System/getProperty "java.version") "10")
+    "This project requires Java 10.  See docs/java10.md for more."))
 
 
 
@@ -145,61 +159,65 @@
              ;; should give crisper text on Mac
              "-Dapple.awt.graphics.UseQuartz=true"]
              
-  :target-path "target/build/%s/"
-  :clean-targets [:target-path]
+  :target-path "target/%s/"
 
 
   ;; Custom keys - used in aliases and profiles
   :java-home         ~(System/getenv "JAVA_HOME")
-  :uberjar-path      "target/build/uberjar/george-application-${:version}-standalone.jar"
-  
+  :uberjar-path      "target/uberjar/george-application-${:version}-standalone.jar"
+
   
   :aliases {
+            "echo" ^{:doc "Prints arguments to standard out."}
+            ["shell" "echo"]
+            
+            "eval" ^{:doc "Evaluates argument as clojure."}
+            ["exec" "-e"]
+            
             "assert10" ^{:doc "Asserts Java 10"}
-            ["exec" "-e" "(assert (.startsWith (System/getProperty \"java.version\") \"10\") \"This project requires Java 10.  See docs/java10.md for more.\")"]
+            ["exec" "-e" ~assert10]
             
             "java" ^:pass-through-help
             ["do" ["assert10"] "shell" "${:java-home}/bin/java"]
             
-            "jlink" ^:pass-through-help
-            ["do" ["assert10"] "shell" "${:java-home}/bin/jlink"]
-
-            "xjava" ^:pass-through-help
-            ["shell" ~xjava]
+            "jmod" ^:pass-through-help
+            ["shell" "${:java-home}/bin/jmod"]
             
-            "build-jre"
+            "jlink" ^:pass-through-help
+            ["shell" "${:java-home}/bin/jlink"]
+            
+            "xjava" ^:pass-through-help
+            ["shell" "target/jre/bin/java"]
+            
+            "build" ^{:doc "Builds the uberjar and the custom runtime."}
             ["do"
+             ["assert10"]
+             ["exec" "-e" "(prn 'build-all '...)"]
+             "uberjar"
              ["exec" "-e" "(prn 'build-jre '...)"]
              ["with-profile" "jre" "clean"]
              ["jlink"
-              "--output" "target/runtime/jre"
+              "--output" "target/jre"
               "--compress=2"
               "--no-header-files"
-              "--add-modules" ~modules]]            
+              "--add-modules" ~modules-str]]
             
-            "build-jar"
-            ["do"
-             ["exec" "-e" "(prn 'build-jar '...)"]
-             "uberjar"]
-             
-             
-            "build-all" ;; TODO: docstring
-            ["do"
-             ["exec" "-e" "(prn 'build-all '...)"]
-             "build-jre" 
-             "build-jar"]
-
-            
-            "xrun-jar" ;; TODO: docstring
-            ["xjava" "-jar" :project/uberjar-path]
-
-            "run-jar" ;; TODO: docstring
-            ["java" "-jar" :project/uberjar-path]
-
-            "clean-all" ;; TODO: docstring
+            "build-jpms" ^{:doc "Builds the uberjar and the custom runtime."}
             ["do" 
-             "clean" 
-             ["with-profile" "jre" "clean"]]}
+              ["eval" ~module-info-spitter]
+              ["with-profile" "jpms" "build"]
+              ["eval" ~module-info-deleter]
+              ["jmod" "describe" "--module-path" :project/uberjar-path]]
+            
+            "xrun" ^{:doc "Runs the built jar on the custom runtime."}
+            ["xjava" "-jar" :project/uberjar-path]
+            
+            "xrun-jpms" ^{:doc "Runs the built jar in JPMS mode on the custom runtime. (It will fail, even when with extra --add-export)"}
+            ["xjava" "--module-path" :project/uberjar-path "--module" "george/no.andante.george.Main"]
+            
+            "srun" ^{:doc "Runs the built jar on the standard runtime."}
+            ["java" "-jar" :project/uberjar-path]}
+            
   
   :codox {
           :doc-paths ["docs"]
@@ -210,8 +228,6 @@
           "https://bitbucket.org/andante-george/george-application/src/default/{filepath}?at=default#{basename}-{line}"
           :html {:namespace-list :flat}}
 
-  
-  :uberjar-exclusions [#"module-info.*"]
   
   :profiles {
              :repl {:env {:repl? "true"}}
@@ -227,11 +243,10 @@
                                   "JavaFX-Application-Class" "no.andante.george.Main"}}
              
              :jre {
-                   :target-path "target/runtime/"
-                   :clean-targets ^:replace ["target/runtime/"]}})
-             
-             ;:jpms {
-             ;       ;; Java9+ modules does not allow unnamed packages (class-file in top-level). Therefore these must not be AOT-ed.
-             ;       :aot-exclude [#"g.*" #"user.*" #"clj.tuple.*" #"potemkin.*"]
-             ;       ;; So the module-info does not get stripped out.
-             ;       :uberjar-exclusions ^:replace []}})
+                   :target-path "target/jre/"
+                   :clean-targets ^:replace ["target/jre/"]}
+
+             :jpms {
+                    ;; Java9+ modules does not allow unnamed packages (class-file in top-level). Therefore these must not be AOT-ed.
+                    :aot-exclude [#"g.*" #"user.*" #"clj.tuple.*" #"potemkin.*"]}})
+                    
