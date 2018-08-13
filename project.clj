@@ -119,7 +119,14 @@
                  ;; https://github.com/alexander-yakushev/defprecated
                  [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                  ;; https://github.com/amalloy/ordered
-                 [org.flatland/ordered "1.5.6"]]
+                 [org.flatland/ordered "1.5.6"]
+                 ;; https://github.com/terjedahl/junique
+                 [it.sauronsoftware/junique "1.0.4"]
+                 ;; https://github.com/Raynes/conch
+                 [me.raynes/conch "0.8.0" :exclusions [org.clojure/clojure]]]
+
+  :uberjar-exclusions [#"conch.*\.jar"]
+  :aot-exclude []  ;; just to avoid the warning
 
   :plugins [
             ;; https://github.com/weavejester/environ
@@ -133,11 +140,17 @@
             ;; https://github.com/hyPiRion/lein-shell 
             [lein-shell "0.5.0"]
             ;; https://github.com/kumarshantanu/lein-exec
-            [lein-exec "0.3.7"]]
-
+            [lein-exec "0.3.7"]
+            ;; https://github.com/technomancy/lein-thrush
+            [lein-thrush "0.1.1"]]
+  
   :repositories [
                  ;; apache.commons.io
-                 ["jcenter" "https://jcenter.bintray.com"]]
+                 ["jcenter" "https://jcenter.bintray.com"]
+                 ;; junique
+                 ["github-terjedahl-junique"
+                  {:url "https://raw.githubusercontent.com/terjedahl/junique/master/maven2"
+                   :snapshots false}]]
                   
   :deploy-repositories [
                         ["snapshots" :clojars]
@@ -152,8 +165,10 @@
   
   :prep-task ["javac" "compile"]
   
-  :aot [no.andante.george.Main]
-  :main no.andante.george.Main
+  :aot [no.andante.george.Run
+        no.andante.george.Launch]
+        
+  :main no.andante.george.Launch
 
   :jvm-opts [
              ;; should give crisper text on Mac
@@ -166,15 +181,38 @@
   :java-home         ~(System/getenv "JAVA_HOME")
   :uberjar-path      "target/uberjar/george-application-${:version}-standalone.jar"
 
-  
+
+  ;;  TODO: Ensure help for all tasks  
   :aliases {
-            "echo" ^{:doc "Prints arguments to standard out."}
+            "build-jar" ^{:doc "            Does 'embed', 'uberjar', 'post-jar'. Optional args the same as 'embed'."}
+                        ["do-args"
+                         ["embed" :args]
+                         ["uberjar"]
+                         ["post-jar"]]
+
+            "run-jar" ^{:doc "              Runs the built jar on the standard runtime."}
+            ["java" "-jar" :project/uberjar-path]
+            
+            "embed" ^{:doc "                Embeds a properties file in the source. Optional ordered args are ['appid' 'uri' 'ts']"}
+            ["run" "-m" "tasks.build/embed-properties" :project/version]
+                          
+            ;; Internal
+            "post-jar" ^{:doc "             Internal: Copies the built jar to 'target/launch/', and writes an updated properties file."}
+            ["run" "-m" "tasks.build/post-uberjar"]
+                        
+            "install-jar" ^{:doc "          Copies the result of 'build-jar' to the default install location."}
+            ["run" "-m" "tasks.deploy/install-jar"]
+            
+            "deploy-jar" ^{:doc "           Deploys the result of 'build-jar' to AWS."}
+            ["run" "-m" "tasks.deploy/deploy-jar"]
+                        
+            "echo" ^{:doc "                 Prints arguments to standard out."}
             ["shell" "echo"]
             
-            "eval" ^{:doc "Evaluates argument as clojure."}
+            "eval" ^{:doc "                 Evaluates argument as clojure."}
             ["exec" "-e"]
             
-            "assert10" ^{:doc "Asserts Java 10"}
+            "assert10" ^{:doc "             Asserts Java 10"}
             ["exec" "-e" ~assert10]
             
             "java" ^:pass-through-help
@@ -189,11 +227,11 @@
             "xjava" ^:pass-through-help
             ["shell" "target/jre/bin/java"]
             
-            "build" ^{:doc "Builds the uberjar and the custom runtime."}
+            "build" ^{:doc "                Builds the uberjar and the custom runtime."}
             ["do"
              ["assert10"]
              ["exec" "-e" "(prn 'build-all '...)"]
-             "uberjar"
+             "build-jar"
              ["exec" "-e" "(prn 'build-jre '...)"]
              ["with-profile" "jre" "clean"]
              ["jlink"
@@ -202,21 +240,19 @@
               "--no-header-files"
               "--add-modules" ~modules-str]]
             
-            "build-jpms" ^{:doc "Builds the uberjar and the custom runtime."}
+            "build-jpms" ^{:doc "           Builds the uberjar and the custom runtime."}
             ["do" 
               ["eval" ~module-info-spitter]
               ["with-profile" "jpms" "build"]
               ["eval" ~module-info-deleter]
               ["jmod" "describe" "--module-path" :project/uberjar-path]]
             
-            "xrun" ^{:doc "Runs the built jar on the custom runtime."}
+            "xrun" ^{:doc "                 Runs the built jar on the custom runtime."}
             ["xjava" "-jar" :project/uberjar-path]
             
-            "xrun-jpms" ^{:doc "Runs the built jar in JPMS mode on the custom runtime. (It will fail, even when with extra --add-export)"}
-            ["xjava" "--module-path" :project/uberjar-path "--module" "george/no.andante.george.Main"]
+            "xrun-jpms" ^{:doc "            Runs the built jar in JPMS mode on the custom runtime. (It will fail, even when with extra --add-export)"}
+            ["xjava" "--module-path" :project/uberjar-path "--module" "george/no.andante.george.Main"]}
             
-            "srun" ^{:doc "Runs the built jar on the standard runtime."}
-            ["java" "-jar" :project/uberjar-path]}
             
   
   :codox {
@@ -232,15 +268,15 @@
   :profiles {
              :repl {:env {:repl? "true"}}
              
-             :dev {:depencencies []
+             :dev {               
                    :java-source-paths ["src/dev/java"]
-                   :source-paths      ["src/dev/clj"]
+                   :source-paths      ["src/dev/clj" "src/tasks"]
                    :resource-paths    ["src/dev/rsc"]}
                     
              :uberjar {:aot :all
-                       :manifest {"Main-Class" "no.andante.george.Main"
-                                  "JavaFX-Preloader-Class" "no.andante.george.MainPreloader"
-                                  "JavaFX-Application-Class" "no.andante.george.Main"}}
+                       :manifest {"Main-Class" "no.andante.george.Launch"}}
+                                  ;"JavaFX-Preloader-Class" "no.andante.george.MainPreloader"
+                                  ;"JavaFX-Application-Class" "no.andante.george.Main"}}
              
              :jre {
                    :target-path "target/jre/"

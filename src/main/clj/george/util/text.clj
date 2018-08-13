@@ -73,7 +73,17 @@
       (str txt \newline))))
 
 
-(defn ppstr
-  "returns the data as a pprint-ed str"
-  [data]
-  (pprint/write data :stream nil))
+
+(defn ^String pprint
+  "Same as clojure.core/pprint"
+ ([object]
+  (pprint/pprint  object)) 
+ ([object writer]
+  (pprint/pprint object writer)))
+
+
+
+(defn ^String pformat
+  "Returns the data as a pprint-ed string."
+  [object]
+  (pprint/write object :stream nil))

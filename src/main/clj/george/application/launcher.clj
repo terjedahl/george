@@ -27,8 +27,9 @@
      [styled :as styled :refer [hr padding]]]
 
     [george.util.singleton :as singleton]
-    [george.application.repl-server :as repl-server])
+    [george.application.repl-server :as repl-server]
 
+    [george.launch.properties :as p])
 
   (:import
     [javafx.geometry Rectangle2D]
@@ -48,26 +49,35 @@
 (def ABOUT_STAGE_KW ::about-stage)
 
 (def versionf "
-  George: %s
- Clojure: %s
-    Java: %s")
+   George: %s
+  Clojure: %s
+     Java: %s
+       ts: %s")
 
 (def copyright "
 Copyright 2015-2018 Terje Dahl.
 Powered by open source software.")
 
+;(defn resource [n]
+;  (.getResource (ClassLoader/getSystemClassLoader) n))
 
-(defn george-version []
-  (slurp (cio/resource "george-version.txt")))
+(defn george-version-ts []
+  ;(slurp (cio/resource "george-version.txt")))
+  ;(slurp (resource "george-version.txt")))
+  (let [{:keys [version ts]} (-> "app.properties" cio/resource p/load)]
+    [version ts]))
+
 
 (defn- about-stage-create []
-  (let [version-info
+  (let [[version ts] (george-version-ts)
+        version-info
         (doto
           (fx/new-label
             (format versionf
-               (george-version)
+               version
                (clojure-version)
-               (env :java-version))
+               (env :java-version)
+               ts)
             :font (fx/new-font "Roboto Mono" 12)))
 
         copyright-info
@@ -256,6 +266,7 @@ Powered by open source software.")
                 (println "Bye for now!" (if repl? " ... NOT" ""))
                 (Thread/sleep 300)
                 (when-not repl?
+                  ;(println "Warning: Exiting disabled!")))))))
                   (fx/now (Platform/exit))
                   (shutdown-agents)  ;; For any lingering threads after using futures and such.
                   (System/exit 0)))))))

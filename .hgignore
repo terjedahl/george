@@ -12,3 +12,4 @@ target/
 .nrepl-port
 pom.xml
 src/main/java/module-info.java
+src/main/rsc/app.properties
