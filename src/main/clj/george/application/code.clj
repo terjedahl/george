@@ -164,7 +164,7 @@
               :spacing 10)
 
           load-fn
-          #(j/thread
+          #(future
               (println (if-let [f (:file @file-meta)]
                            (do (save-file-fn)
                                (load-from-file f (:namespace kwargs)))

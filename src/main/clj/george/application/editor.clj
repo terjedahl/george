@@ -327,7 +327,7 @@ Load code.  %s-L (Similar to \"Run\", but silent.)" u/SHORTCUT_KEY u/SHORTCUT_KE
         (.getFlow editor)
 
         focus-on-editor
-        #(fxj/thread
+        #(future
            (Thread/sleep 500)
            ;(println "focus on Editor editor")
            (fx/later

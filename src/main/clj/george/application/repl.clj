@@ -11,7 +11,7 @@
     [clojure
      [pprint :refer [pprint]]
      [repl :refer [doc dir]]]
-    [clojure.tools.nrepl :as nrepl]
+    [nrepl.core :as nrepl]
     [george.application.repl-server :as repl-server])
   (:import
     [java.net SocketException]))

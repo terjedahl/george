@@ -31,12 +31,12 @@
   [this stage]
   ;(println "/-handover")
   (swap! state_ assoc :handover-done? true)
-  (fxj/thread (launcher/start stage (:root @state_))))
+  (future (launcher/start stage (:root @state_))))
 
 
 (defn -init [this]
   ;(println "no.andante.george.Main/-init")
-  (fxj/thread
+  (future
     (dotimes [i 50]
       (.notifyPreloader this (Preloader$ProgressNotification. (+ 0.0 (* 0.02 i))));
       (Thread/sleep 50))

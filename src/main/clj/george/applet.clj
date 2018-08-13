@@ -6,7 +6,7 @@
 
 (ns george.applet
   (:require
-    [clojure.tools.namespace.find :refer [find-sources-in-dir find-namespaces]]
+    [clojure.tools.namespace.find :refer [find-namespaces]]
     [clojure.pprint :refer [pprint]]
     [clojure.java.classpath :as cp])
   (:import

@@ -58,7 +58,7 @@
 
 
     (swap! history-atom #(-> % (prune 100) (conj item)))
-    (j/thread
+    (future
       ;(println "writing history to file ...")
       (spit HISTORY_FILE (pr-str @history-atom)))))
       ;(println " ... done")
