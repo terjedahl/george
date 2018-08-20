@@ -4,50 +4,30 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns george.launch.load
-  (:require
-    [clojure.java.io :as cio])
   (:import
-    [java.net URLClassLoader URL URI]
-    [java.io File InputStream OutputStream]
     [clojure.lang DynamicClassLoader]
-    [java.nio.file Files OpenOption]))
+    [java.net URLClassLoader URL]
+    [javafx.application Platform]))
+    
 
+(defn init-javafx [& [classloader]]
+  (prn 'load/init-javafx (when classloader 'classloader))
 
-
-;(defn ^URL get-uberjar-url []
-;  (let [jar-file (first (filter #(.contains % "standalone") (seq (.list (cio/file "target/uberjar")))))
-;        jar-path (str "target/uberjar/" jar-file)]
-;    (-> jar-path cio/file .toURI .toURL)))
-
-;(defn ^File uberjar-url []
-;  (require '[task.common :refer  [uberjar-file]])
-;  (when-let [jar-file (uberjar-file)]
-;    (-> jar-file cio/file .toURI .toURL)))
-
-
-
-(defn transfer
-  "Optional total-fn takes 1 args: An long indicating the total number of bytes read/written."
-  [^URL source ^File target & [total-fn]]
-  (prn 'tranfer)
-  (prn 'source source)
-  (prn 'target target)
-  (prn 'total-fn total-fn)
-  (let [buffer (make-array Byte/TYPE 65536)]
-    (with-open [^InputStream input (.getInputStream (-> source .openConnection))
-                ^OutputStream output (Files/newOutputStream (.toPath target) (make-array OpenOption 0))]
-      (loop [total-bytes 0]
-        (let [size (.read input buffer)]
-          (when (pos? size)
-            (.write output buffer 0 size)
-            (when total-fn
-              (total-fn (+ total-bytes size)))
-            (recur (+ total-bytes size))))))))
-
-;(transfer (get-uberjar-url) (cio/file "transfered.jar"))
-;(transfer (get-uberjar-url) (cio/file "transfered.jar") #(println %))
-;(transfer (get-uberjar-url) (cio/file "transfered.jar") #(println (/ % (double 14452523))))
-;(transfer (get-uberjar-url) (cio/file "transfered.jar") #(do (dotimes [i (/ (* 100 %) (double 14452523))] (print "#")) (println "" %)))
+  ;; ensure synchronicity by de-referencing promises 
+  (let [st-promise (promise)]
+    (try (Platform/startup 
+           #(deliver st-promise true)) 
+         (catch Throwable t (println (.getMessage t))))
+    @st-promise)
+  
+  (when classloader
+        (let [cl-promise (promise)]
+          (Platform/runLater 
+            #(do (.setContextClassLoader (Thread/currentThread) classloader)
+                 (deliver cl-promise true)))
+          @cl-promise)) 
+ 
+  (Platform/setImplicitExit false))
 
 
 (defn run-jar
@@ -65,20 +45,10 @@
         dynamic-loader (DynamicClassLoader. loader)]
     ;; It will propagate to all other threads.
     (.setContextClassLoader (Thread/currentThread) dynamic-loader)
+
     ;; Also, we need to set it on the JavaFX thread.
-    (try (javafx.application.Platform/startup #(do)) (catch Throwable _))
-    (javafx.application.Platform/runLater #(.setContextClassLoader (Thread/currentThread) dynamic-loader))
-    ;; We might as well handle this here
-    (javafx.application.Platform/setImplicitExit false)
+    (init-javafx dynamic-loader)
 
     (let [cl (Class/forName class-str true loader)
           main (-> cl (.getDeclaredMethod "main" (into-array [(class (make-array String 0))])))]
       (.invoke main nil (into-array Object [(into-array String args)])))))
-
-
-;(run-jar (get-uberjar-url) "no.andante.george.Main" ["arg1" "arg2 arg3"])
-;(run-jar (get-uberjar-url) "no.andante.george.Main" ["arg1" "arg2 arg3"])
-
-
-
-                                          

@@ -34,3 +34,6 @@ RESULTS IN:
     ;(prn 'args args)
     (binding [*command-line-args* args]
       (apply ld/do (cons project tasks1)))))
+
+
+;; https://github.com/technomancy/leiningen/blob/master/doc/PLUGINS.md#project-specific-tasks

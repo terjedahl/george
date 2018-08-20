@@ -17,11 +17,9 @@
     [george.files :as f]))
 
 
-
-
 (defn- assert-built! []
   (when-not (.exists (cio/file b/APP_F))
-    (warn (format "Exception: No '%s' found.  Have you done 'lein george build'?" b/APP_F))
+    (warn (format "Exception: No '%s' found.  Have you done 'lein build-jar'?" b/APP_F))
     (exit -1)))
 
 
@@ -32,8 +30,11 @@
       (exit -1))))
 
 
+(def SERVE_D (cio/file "target/serve"))
+
+
 (defn install-jar []
-  (prn 'install-jar)
+  (prn 'tasks.deploy/install-jar)
   (assert-built!)
 
   (let [appid (-> b/APP_F p/load :appid)
@@ -43,8 +44,18 @@
     (f/copy-files-to-dir install-d source-files true)))
 
 
-(defn- deploy-jar [& args]
-  (prn 'deploy-jar args)
+(defn serve-jar []
+  (prn 'tasks.deploy/serve-jar)
+  (assert-built!)
+  (let [
+        serve-d (-> SERVE_D (f/ensure-dir) (f/clean-dir))
+        source-files (seq (.listFiles (cio/file b/LAUNCH_D)))]
+    (info (format "Copying files to '%s' ..." serve-d))
+    (f/copy-files-to-dir serve-d source-files true)))
+  
+
+(defn- aws-jar [& args]
+  (prn 'tasks.deploy/aws-jar args)
 
   (assert-built!)
   (assert-aws!)
@@ -70,16 +81,3 @@
     (println (slurp (format "https://download.george.andante.no/%s/launch/app.properties" appid)))
 
     (exit)))
-
-
-
-;(defn -main 
-;  "Tasks for deploying. Usage: deploy [jar|mac|win]"
-;  [& [subtask & rest]]
-;  (prn 'subtask subtask rest)
-;  (case subtask
-;    "jar" (apply deploy-jar rest)
-;    "help" (println "some help here")
-;
-;    nil (warn "No subtask")
-;    :else (warn "Unkown subtask:" subtask)))

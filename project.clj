@@ -74,6 +74,20 @@
     "This project requires Java 10.  See docs/java10.md for more."))
 
 
+(defcode server-status
+    (try
+      (println (slurp "http://localhost:9999/_cmd/status"))
+      (catch java.net.ConnectException _
+        (binding [*err* *out*]
+          (println "Server not running.  Do 'lein server-start' to start jar-server.")))))
+
+(defcode server-stop
+  (try
+      (println (slurp "http://localhost:9999/_cmd/stop"))
+      (catch java.net.ConnectException _
+        (binding [*err* *out*]
+          (println "Waring: Server not running. Did you already stop it?")))))
+
 
 (defproject no.andante.george/george-application  "2018.7-SNAPSHOT"
 
@@ -91,7 +105,6 @@
                  ;; https://github.com/mmcgrana/clj-stacktrace
                  [clj-stacktrace "0.2.8"]
                  ;[leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
-                 [org.apache.directory.studio/org.apache.commons.io "2.4"]  ;; WriterOutputStream in output.clj 
                  ;; https://github.com/clojure/tools.namespace
                  [org.clojure/tools.namespace "0.3.0-alpha4"]
                  ;; https://github.com/clojure/java.classpath
@@ -111,6 +124,7 @@
                  ;; https://github.com/weavejester/environ
                  [environ "1.1.0"]
                  ;; https://github.com/ztellman/potemkin
+                 ;; TODO: remove user.clj
                  [potemkin "0.4.4"]
                  ;; https://github.com/clj-time/clj-time
                  [clj-time "0.13.0"]
@@ -122,10 +136,17 @@
                  [org.flatland/ordered "1.5.6"]
                  ;; https://github.com/terjedahl/junique
                  [it.sauronsoftware/junique "1.0.4"]
+                 
                  ;; https://github.com/Raynes/conch
-                 [me.raynes/conch "0.8.0" :exclusions [org.clojure/clojure]]]
+                 [me.raynes/conch "0.8.0" :exclusions [org.clojure/clojure]]
+                 ;; included here also for IDE usability
+                 [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]]
+                
 
-  :uberjar-exclusions [#"conch.*\.jar"]
+                  ;; Used for Leiningen tasks
+  :uberjar-exclusions [#"conch.*\.jar" 
+                       #"org.eclipse.jetty.*"]
+
   :aot-exclude []  ;; just to avoid the warning
 
   :plugins [
@@ -142,7 +163,14 @@
             ;; https://github.com/kumarshantanu/lein-exec
             [lein-exec "0.3.7"]
             ;; https://github.com/technomancy/lein-thrush
-            [lein-thrush "0.1.1"]]
+            [lein-thrush "0.1.1"]
+
+            ;; https://www.eclipse.org/jetty
+            ;; Used by 'server' task
+            [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
+            ;; Needed because it is in user.clj which is run as part of accessing the application code via .lein-classpath
+            [potemkin "0.4.4"]]
+
   
   :repositories [
                  ;; apache.commons.io
@@ -176,22 +204,27 @@
              
   :target-path "target/%s/"
 
+  ;; We want to use the target-path for different things, but not have it totally cleaned whenever we run 'uberjar'.
+  ;; Of course we then need to clean it ourselves when necessary.
+  ;:auto-clean false
 
   ;; Custom keys - used in aliases and profiles
   :java-home         ~(System/getenv "JAVA_HOME")
   :uberjar-path      "target/uberjar/george-application-${:version}-standalone.jar"
 
+  :server {:port 8080 :dir "."}
 
   ;;  TODO: Ensure help for all tasks  
   :aliases {
             "build-jar" ^{:doc "            Does 'embed', 'uberjar', 'post-jar'. Optional args the same as 'embed'."}
                         ["do-args"
+                         ["assert10"]
                          ["embed" :args]
                          ["uberjar"]
                          ["post-jar"]]
 
             "run-jar" ^{:doc "              Runs the built jar on the standard runtime."}
-            ["java" "-jar" :project/uberjar-path]
+            ["java" "--illegal-access=permit" "-jar" :project/uberjar-path]
             
             "embed" ^{:doc "                Embeds a properties file in the source. Optional ordered args are ['appid' 'uri' 'ts']"}
             ["run" "-m" "tasks.build/embed-properties" :project/version]
@@ -202,9 +235,24 @@
                         
             "install-jar" ^{:doc "          Copies the result of 'build-jar' to the default install location."}
             ["run" "-m" "tasks.deploy/install-jar"]
+
+            "install-dir" ^{:doc "          NO IMPL. Prints the directory used for installing on you machine."}
+            ["echo" "NO IMPL"]
             
-            "deploy-jar" ^{:doc "           Deploys the result of 'build-jar' to AWS."}
-            ["run" "-m" "tasks.deploy/deploy-jar"]
+            "serve-jar" ^{:doc "            Copies the result of 'build-jar' to target/serve, to which 'lein server-start' defaults."}
+            ["run" "-m" "tasks.deploy/serve-jar"]
+
+            "server-start" ^{:doc "         NO IMPL."}
+            ["server" "--port" "9999" "--dir" "./target/serve"]
+
+            "server-status" ^{:doc "        NO IMPL."}
+            ["eval" ~server-status]
+
+            "server-stop" ^{:doc "          NO IMPL."}
+            ["eval" ~server-stop]
+            
+            "aws-jar" ^{:doc "              Deploys the result of 'build-jar' to AWS."}
+            ["run" "-m" "tasks.deploy/aws-jar"]
                         
             "echo" ^{:doc "                 Prints arguments to standard out."}
             ["shell" "echo"]
@@ -266,17 +314,20 @@
 
   
   :profiles {
-             :repl {:env {:repl? "true"}}
+             :repl {
+                    :env {:repl? "true"}}
              
              :dev {               
                    :java-source-paths ["src/dev/java"]
                    :source-paths      ["src/dev/clj" "src/tasks"]
                    :resource-paths    ["src/dev/rsc"]}
                     
-             :uberjar {:aot :all
+             :uberjar {  
+                       :auto-clean true
+                       :clean-targets ^:replace ["target/uberjar"]
+                       
+                       :aot :all
                        :manifest {"Main-Class" "no.andante.george.Launch"}}
-                                  ;"JavaFX-Preloader-Class" "no.andante.george.MainPreloader"
-                                  ;"JavaFX-Application-Class" "no.andante.george.Main"}}
              
              :jre {
                    :target-path "target/jre/"

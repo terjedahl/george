@@ -6,16 +6,18 @@
 (ns tasks.build
   (:require
     [clojure.java.io :as cio]
-    [tasks.common :refer [info warn debug exit uberjar-file]]
+    [tasks.common :refer [info warn debug exit]]
     [george.launch
      [config :as c]
      [properties :as p]]
     [george.files :as f]
-    [george.util.text :refer [pprint pformat]]))
+    [george.util.text :refer [pprint pformat]])
+  (:import (java.io File)))
 
 
 (def RSC_D (cio/file "src/main/rsc"))
 (def LAUNCH_D (cio/file "target/launch"))
+
 (def EMBED_F (cio/file RSC_D p/PROP_N))
 (def APP_F (cio/file LAUNCH_D p/PROP_N))
 
@@ -28,14 +30,23 @@
     (info (pformat props))))
 
 
+(def JAR_D (cio/file "target/uberjar"))
 
-(defn- prep-launch-dir []
-  (-> LAUNCH_D (f/ensure-dir) (f/clean-dir)))
+
+(defn ^File uberjar-file
+  "Returns the file representing the built uberjar, else nil"
+  []
+  (when-let  [name
+              (->> (-> JAR_D cio/file .list seq)
+                   (filter #(.contains % "standalone"))
+                   first)]
+    (cio/file JAR_D name)))
+
 
 
 (defn post-uberjar []
   (prn 'post-uberjar)
-  (let [d (prep-launch-dir)
+  (let [d (-> LAUNCH_D (f/ensure-dir) (f/clean-dir))
         j0 (uberjar-file)
         p0 (p/load EMBED_F)
         ;; copy the jar and output a complete app.properties

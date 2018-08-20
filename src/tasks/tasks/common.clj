@@ -29,15 +29,3 @@
 
 (defn exit [& [code]]
   (System/exit (or code 0)))
-
-
-(defn ^File uberjar-file 
-  "Returns the file representing the built uberjar, else nil"
-  []
-  (when-let  [name 
-              (->> (-> "target/uberjar" cio/file .list seq)
-                   (filter #(.contains % "standalone"))
-                   first)]
-         (cio/file "target/uberjar/" name)))
-       
-  

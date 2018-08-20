@@ -63,15 +63,17 @@
   ((set args) "--no-gui"))
 
 
-(defn main [& args]
-  (prn 'Run/main args)
+(defn main1 [args]
+  (prn 'Run/main1 args)
   (println "  I am ts:" (:ts (p/this-app)))
   (if (no-gui? args)
-    (println "No GUI.")
+    (do 
+      (println "No GUI.  Exiting")
+      (System/exit 0))
     ;; DON'T IMPORT! IT WILL BREAK.
     (javafx.application.Application/launch  no.andante.george.Run (into-array String args))))
 
 
 (defn -main
   [& args]
-  (apply main args))
+  (main1 args))
