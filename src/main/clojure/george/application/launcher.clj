@@ -241,7 +241,7 @@ Powered by open source software.")
            (fx/now
              (fx/alert
                :title "Quit?"
-               :content
+               :text
                (str "Do you want to quit George?"
                     (when repl? "\n\n(You are running from a repl.\n'Quit' will not exit the JVM instance.)"))
                :options ["Quit"]  ;; quit is button-index 0

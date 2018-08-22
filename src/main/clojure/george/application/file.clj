@@ -38,7 +38,7 @@
     (fx/alert
       :title title
       :header (format "The %s has gone missing!" thing)
-      :content "Don't know what to do about that, exactly. :-( \nCan you fix it?"
+      :text "Don't know what to do about that, exactly. :-( \nCan you fix it?"
       :owner (appl/current-application-stage)
       :type :error)))
 
