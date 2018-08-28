@@ -40,7 +40,7 @@
     [javafx.scene.paint Color Paint]
     [javafx.scene.text Font Text FontPosture FontWeight]
     [javafx.scene.shape Line Rectangle Polygon StrokeLineCap]
-    [javafx.stage FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle]
+    [javafx.stage FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle Modality]
     [javafx.util Duration]
     [java.util Collection Optional]
     [clojure.lang Atom]))
@@ -861,11 +861,18 @@ It must return a string (which may be wrapped to fit the width of the list."
         index))))
 
 
-(def alert-types {:none         Alert$AlertType/NONE
-                  :information  Alert$AlertType/INFORMATION
-                  :warning      Alert$AlertType/WARNING
-                  :confirmation Alert$AlertType/CONFIRMATION
-                  :error        Alert$AlertType/ERROR})
+(defn ^Alert$AlertType alerttype [type-kw] 
+  (let [types  
+        {:none         Alert$AlertType/NONE
+         :information  Alert$AlertType/INFORMATION
+         :warning      Alert$AlertType/WARNING
+         :confirmation Alert$AlertType/CONFIRMATION
+         :error        Alert$AlertType/ERROR}]
+    (if-let [typ (types type-kw)]
+      typ
+      (binding [*out* *err*]
+        (println (format "Warning. Unkown type '%s'.  Using ':information'." type-kw))
+        (types :information)))))
 
 
 (defn expandable-content [expand-prompt content & [font pref-width]]
@@ -915,7 +922,7 @@ It must return a string (which may be wrapped to fit the width of the list."
           buttons)
 
         alert
-        (doto (Alert. (alert-types type))
+        (doto (Alert. (alerttype type))
           (.setTitle (:title kwargs))
           (.initOwner (:owner kwargs))
           (.setHeaderText (:header kwargs))
@@ -947,11 +954,12 @@ It must return a string (which may be wrapped to fit the width of the list."
           (-> prim-bounds .getHeight (/ 2) (- (/ (.getHeight scene-or-stage ) 2)))]))
 
 
-(defn imageview [image-or-rsc-str & {:keys [width height preserveratio smooth]
-                                     :or {width nil
-                                          height nil
-                                          preserveratio true
-                                          smooth true}}]
+(defn ^ImageView imageview 
+  [image-or-rsc-str & {:keys [width height preserveratio smooth]
+                       :or {width nil
+                            height nil
+                            preserveratio true
+                            smooth true}}]
   (let [iv
         (doto
           (ImageView.  image-or-rsc-str)
@@ -971,56 +979,76 @@ It must return a string (which may be wrapped to fit the width of the list."
     (Screen/getPrimary))
 
 
-(defn stagestyle [style-kw]
-    (get {:decorated StageStyle/DECORATED
-          :transparent StageStyle/TRANSPARENT
-          :undecorated StageStyle/UNDECORATED
-          :unified StageStyle/UNIFIED
-          :utility StageStyle/UTILITY}
-         style-kw
-         StageStyle/DECORATED))
+(defn ^StageStyle stagestyle [style-kw]
+  (let [styles {:decorated   StageStyle/DECORATED
+                :transparent StageStyle/TRANSPARENT
+                :undecorated StageStyle/UNDECORATED
+                :unified     StageStyle/UNIFIED
+                :utility     StageStyle/UTILITY}]
+    (if-let [style (styles style-kw)]
+      style
+      (binding [*out* *err*]
+        (println (format "Warning. Unkown stagestyle '%s'.  Using ':decorated'." style-kw))
+        (styles :decorated)))))
 
 
-(defn side [side-kw]
-  (get {:top Side/TOP
-        :bottom Side/BOTTOM
-        :left Side/LEFT
-        :right Side/RIGHT}
-       side-kw
-       Side/BOTTOM))
+(defn ^Side side [side-kw]
+  (let [sides {:top    Side/TOP
+               :bottom Side/BOTTOM
+               :left   Side/LEFT
+               :right  Side/RIGHT}]
+    (if-let [side (sides side-kw)]
+      side
+      (binding [*out* *err*]
+        (println (format "Warning. Unkown side '%s'.  Using ':bottom'." side-kw))
+        (sides :bottom)))))
 
 
-(defn setoncloserequest [stage fn-or-handler]
+(defn ^Modality modality [mod-kw]
+  (let [mods {:application Modality/APPLICATION_MODAL
+              :window      Modality/WINDOW_MODAL
+              :none        Modality/NONE}]
+    (if-let [mod (mods mod-kw)] 
+      mod
+      (binding [*out* *err*]
+        (println (format "Warning. Unkown modality '%s'.  Using ':none'." mod-kw))
+        (mods :none)))))
+
+
+(defn ^Stage setoncloserequest [stage fn-or-handler]
     (.setOnCloseRequest stage (ensure-handler fn-or-handler))
     stage)
 
 
-(defn setonhiding [stage fn-or-handler]
+(defn ^Stage setonhiding [stage fn-or-handler]
     (.setOnHiding stage (ensure-handler fn-or-handler))
     stage)
 
 
-(defn setonhidden [stage fn-or-handler]
+(defn ^Stage setonhidden [stage fn-or-handler]
     (.setOnHidden stage (ensure-handler fn-or-handler))
     stage)
 
 
-(defn scrollpane [& [node]]
+(defn ^ScrollPane scrollpane [& [node]]
   (if node
     (ScrollPane. node)
     (ScrollPane.)))
 
 
-(defn stage [& args]
+(defn ^Stage stage [& args]
     (let [
           default-kwargs
           {:style  :decorated
+           :modality nil
            :title  "Untitled stage"
            :scene nil
            :sizetoscene true
-           :location nil ;[100 100]
            :size nil ;[200 200]
-           :centeronscreen nil
+           :location nil ;[100 100]
+           :centeronowner? nil  ;; overrides 'location'  TODO: implement this!
+           :centeronscreen? nil ;; overrides 'centerononwer?'
+           :owner nil
            :show true
            :alwaysontop false
            :tofront false
@@ -1036,26 +1064,32 @@ It must return a string (which may be wrapped to fit the width of the list."
                     (.setScene (:scene kwargs))
                     (.setAlwaysOnTop (:alwaysontop kwargs))
                     (.setResizable (:resizable kwargs))
-
                     (setoncloserequest (:oncloserequest kwargs))
                     (setonhiding (:onhiding kwargs))
                     (setonhidden (:onhidden kwargs)))]
 
-          (when (:sizetoscene kwargs) (.sizeToScene stg))
+        (when-let [mod-kw (:modality kwargs)]
+          (.initModality stg (modality mod-kw)))
 
-          (when-let [[w h] (:size kwargs)]
-              (doto stg (.setWidth w) (.setHeight h)))
+        (when (:sizetoscene kwargs) (.sizeToScene stg))
 
-          (when-let [[x y] (:location kwargs)]
-              (doto stg (.setX x) (.setY y)))
+        (when-let [[w h] (:size kwargs)]
+          (doto stg (.setWidth w) (.setHeight h)))
 
-          (when-let [cos (:centeronscreen kwargs)]
-            (when cos  (.centerOnScreen stg)))
+        (when-let [[x y] (:location kwargs)]
+          (doto stg (.setX x) (.setY y)))
           
-          (when (:show kwargs) (.show stg))
-          (when (:tofront kwargs) (.toFront stg))
+        (when-let [owner (:owner kwargs)]
+          (.initOwner stg owner))
+        
+        (when (:show kwargs) (.show stg))
 
-          stg)))
+        (when-let [cos (:centeronscreen? kwargs)]
+          (when cos (.centerOnScreen stg)))
+
+        (when (:tofront kwargs) (.toFront stg))
+
+        stg)))
 
 
 
