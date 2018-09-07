@@ -48,7 +48,7 @@
 
 
 (def clj-filechooser
-    (apply fx/filechooser fx/FILESCHOOSER_FILTERS_CLJ))
+    (apply fx/filechooser (fx/filechooser-filters-clj)))
 
 
 (defn- select-file

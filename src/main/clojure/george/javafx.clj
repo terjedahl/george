@@ -10,7 +10,6 @@
     [clojure
      [string :as cs]
      [pprint :refer [pprint]]]
-    [george.javafx-init] ;; Important!
     [george.javafx
      [java :as fxj]
      [util :as fxu]]
@@ -53,7 +52,24 @@
   (println (str *ns*"/set-implicit-exit " b))
   (Platform/setImplicitExit false))
 
-(set-implicit-exit false)
+
+(defonce inited?_ (atom false))
+
+(declare load-fonts-from-stylesheet)
+
+(defn init
+  "An easy way to 'initialize [JavaFX] Toolkit'
+Needs only be called once in the applications life-cycle.
+Has to be called before the first call to/on FxApplicationThread (javafx/later)"
+  [& {:keys [force? fonts?] :or {fonts? true}}]
+  (when (or (not @inited?_) force?)
+    (println (str *ns*"/init"))
+    (javafx.embed.swing.JFXPanel.)
+    (set-implicit-exit false)
+    (when fonts?
+      ;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
+      (load-fonts-from-stylesheet "fonts/fonts.css"))
+    (reset! inited?_ true)))
 
 
 ;;;;;;;;;
@@ -77,7 +93,6 @@
 (def GREY Color/GREY)
 
 
-
 (def Pos_TOP_LEFT Pos/TOP_LEFT)
 (def Pos_TOP_RIGHT Pos/TOP_RIGHT)
 (def Pos_TOP_CENTER Pos/TOP_CENTER)
@@ -88,14 +103,14 @@
 (def MouseEvent_ANY MouseEvent/ANY)
 
 
-(defn corner-radii [rad]
+(defn ^CornerRadii corner-radii [rad]
   (when rad
     (if (vector? rad)
       (let [[tl tr br bl ] rad] (CornerRadii. tl tr br bl false))
       (CornerRadii. rad))))
 
 
-(defn color-background [^Paint color & [rad insets]]
+(defn ^Background color-background [^Paint color & [rad insets]]
     (Background. (fxj/vargs (BackgroundFill. color (corner-radii rad) insets))))
 
 
@@ -156,7 +171,7 @@
     `(now* (fn [] ~@body)))
 
 
-(defmacro event-handler
+(defmacro ^EventHandler event-handler
     "Returns an instance of javafx.event.EventHander,
 where input is ignored,
 and the the body is called on 'handle' "
@@ -165,7 +180,7 @@ and the the body is called on 'handle' "
     `(reify EventHandler (~'handle [~'_ ~'_] ~@body)))
 
 
-(defmacro event-handler-2
+(defmacro ^EventHandler event-handler-2
  "Returns an instance of javafx.event.EventHander,
 where args-vec is a vector of 2 elements  - naming the bindings for 'this' and 'event',
 and the body is called on 'handle'"
@@ -175,7 +190,7 @@ and the body is called on 'handle'"
     `(reify EventHandler (~'handle ~args-vec ~@body)))
 
 
-(defn ensure-handler [f]
+(defn ^EventHandler ensure-handler [f]
   (if (instance? EventHandler f) f (event-handler (f))))
 
 
@@ -314,10 +329,6 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
   (-> path stylesheet-parsed load-fonts)) ;; parse and load fonts
 
 
-;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
-(load-fonts-from-stylesheet "fonts/fonts.css")
-
-
 (defn add-stylesheet [^Scene scene path]
   (let []
         ;logger (Logging/getCSSLogger)
@@ -336,7 +347,7 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
     (Application/setUserAgentStylesheet Application/STYLESHEET_MODENA))
 
 
-(defn keyframe*
+(defn ^KeyFrame keyframe*
     "creates an instance of Keyframe with duration (millis) and KeyValue-s from a seq of vectors of format [property value]"
     [duration keyvalues]
     (KeyFrame.
@@ -346,7 +357,7 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
                  (filter some? keyvalues)))))
 
 
-(defn new-keyframe*
+(defn ^KeyFrame new-keyframe*
   [duration onfinished keyvalues]
   (let [d (Duration. duration)
         ah (when onfinished (event-handler (onfinished)))
@@ -362,7 +373,7 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
 ;    (keyframe* duration keyvalues))
 
 
-(defn new-keyframe
+(defn ^KeyFrame new-keyframe
   "creates an instance of Keyframe with duration (millis) and KeyValue-s from vectors of format [property value]"
   [duration onfinish & keyvalues]
   (new-keyframe* duration onfinish keyvalues))
@@ -459,43 +470,42 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
      (ListView. observable-list)))
 
 
-
-(defn multiline-listcell
-  "Given a javafx.scene.control.ListView and a function which when passe an item, returns a string, this function returns a ListCell subclass based on javafx.scene.text.Text which can display multiple lines of text, and which wraps to fit within the width of th ListView."
-  [listview item->str-fn]
-  (proxy [javafx.scene.control.ListCell] []
-    (updateItem [item is-empty]
-      (proxy-super updateItem item is-empty)
-      (.setText this nil)
-      (.setPrefWidth this 0)
-      (if (or is-empty (nil? item))
-        (.setGraphic this nil)
-        ;; else
-        (.setGraphic this
-                     (doto (javafx.scene.text.Text. (item->str-fn item))
-                       (-> .wrappingWidthProperty (.bind (-> listview .widthProperty (.subtract 35))))))))))
-
-
-
-(defn multiline-listcell-factory
-  "Returns a new instance of multiline-listcell whenever called.
-  See 'multiline-listview' and 'multiline-listcell'."
-  [item->str-fn]
-  (reify javafx.util.Callback
-    (call [_ listview]
-      (multiline-listcell listview item->str-fn))))
+;(defn multiline-listcell
+;  "Given a javafx.scene.control.ListView and a function which when passe an item, returns a string, this function returns a ListCell subclass based on javafx.scene.text.Text which can display multiple lines of text, and which wraps to fit within the width of th ListView."
+;  [listview item->str-fn]
+;  (proxy [javafx.scene.control.ListCell] []
+;    (updateItem [item is-empty]
+;      (proxy-super updateItem item is-empty)
+;      (.setText this nil)
+;      (.setPrefWidth this 0)
+;      (if (or is-empty (nil? item))
+;        (.setGraphic this nil)
+;        ;; else
+;        (.setGraphic this
+;                     (doto (javafx.scene.text.Text. (item->str-fn item))
+;                       (-> .wrappingWidthProperty (.bind (-> listview .widthProperty (.subtract 35))))))))))
 
 
 
-(defn multiline-listview
-  "The provided function takes one argument, an item, and returns a string.
-The function may be a keyword or simply 'str', or something more complex.
-It must return a string (which may be wrapped to fit the width of the list."
-  ([item->str-fn]
-   (doto (javafx.scene.control.ListView.)
-     (.setCellFactory (multiline-listcell-factory item->str-fn))))
-  ([]
-   (multiline-listview str)))
+;(defn multiline-listcell-factory
+;  "Returns a new instance of multiline-listcell whenever called.
+;  See 'multiline-listview' and 'multiline-listcell'."
+;  [item->str-fn]
+;  (reify javafx.util.Callback
+;    (call [_ listview]
+;      (multiline-listcell listview item->str-fn))))
+
+
+
+;(defn multiline-listview
+;  "The provided function takes one argument, an item, and returns a string.
+;The function may be a keyword or simply 'str', or something more complex.
+;It must return a string (which may be wrapped to fit the width of the list."
+;  ([item->str-fn]
+;   (doto (javafx.scene.control.ListView.)
+;     (.setCellFactory (multiline-listcell-factory item->str-fn))))
+;  ([]
+;   (multiline-listview str)))
 
 
 (defn add [parent node]
@@ -544,7 +554,7 @@ It must return a string (which may be wrapped to fit the width of the list."
     :sometimes Priority/SOMETIMES} kw))
 
 
-(defn region
+(defn ^Region region
  "optional kwargs:
     :hgrow :always/:never/:sometimes
     :vgrow :always/:never/:sometimes"
@@ -556,17 +566,14 @@ It must return a string (which may be wrapped to fit the width of the list."
         (VBox/setVgrow (priority vgrow))))
 
 
-(defn ^RadioButton radiobutton []
-    (RadioButton.))
-
-
-
 (defn ^StackPane stackpane* [nodes]
     (StackPane. (fxj/vargs-t* Node nodes)))
+
 
 (defn ^StackPane stackpane
     ([& nodes]
      (stackpane* nodes)))
+
 
 (defn ^Group group* [nodes]
     (Group. (fxj/vargs-t* Node nodes)))
@@ -579,6 +586,7 @@ It must return a string (which may be wrapped to fit the width of the list."
 
 (defn pane* [nodes]
   (Pane. (fxj/vargs-t* Node nodes)))
+
 
 (defn pane
   ([& nodes]
@@ -670,7 +678,13 @@ It must return a string (which may be wrapped to fit the width of the list."
   clickable)
 
 
-(defn ^Button button [label & {:keys [onaction width minwidth tooltip]}]
+; ^RadioButton  ;; DON'T TYPE. It touches JavaFX!
+(defn  radiobutton []
+  (RadioButton.))
+
+
+; ^Button  ;; DON'T TYPE. It touches JavaFX!
+(defn  button [label & {:keys [onaction width minwidth tooltip]}]
     (let [b (Button. label)]
         (if width (.setPrefWidth  b (double width)))
         (if minwidth (.setMinWidth b  (double minwidth)))
@@ -679,7 +693,8 @@ It must return a string (which may be wrapped to fit the width of the list."
         b))
 
 
-(defn ^CheckBox checkbox [label & {:keys [onaction tooltip]}]
+; ^CheckBox  ;; DON'T TYPE. It touches JavaFX!
+(defn  checkbox [label & {:keys [onaction tooltip]}]
   (let [cb (CheckBox. label)]
     (when onaction (.setOnAction cb (event-handler (onaction))))
     (when tooltip (.setTooltip cb (Tooltip. tooltip)))
@@ -752,7 +767,8 @@ It must return a string (which may be wrapped to fit the width of the list."
     (set-font (or font (new-font size)))))
 
 
-(defn ^Label new-label
+; ^Label  ;; DON'T TYPE. It touches JavaFX!
+(defn  new-label
   [s & {:keys [graphic font size color mouseclicked tooltip style]  
           :or {size 12}}]
   (let [label (doto  (Label. s graphic)
@@ -912,17 +928,18 @@ It must return a string (which may be wrapped to fit the width of the list."
                         :mode :show-and-wait ;; :show-and-wait or :show
                         :type :information}
 
-        [_ {:keys [options] :as kwargs}] (fxu/partition-args args default-kwargs)
+        [_ {:keys [options type] :as kwargs}] (fxu/partition-args args default-kwargs)
 
         buttons
         (mapv #(ButtonType. %) options)
+        
         buttons
         (if (:cancel-option? kwargs)
           (conj buttons (ButtonType. "Cancel" ButtonBar$ButtonData/CANCEL_CLOSE))
           buttons)
 
         alert
-        (doto (Alert. (alerttype type))
+        (doto (Alert. (if (keyword? type) (alerttype (:type kwargs)) type))
           (.setTitle (:title kwargs))
           (.initOwner (:owner kwargs))
           (.setHeaderText (:header kwargs))
@@ -975,7 +992,8 @@ It must return a string (which may be wrapped to fit the width of the list."
     (Screen/getScreens))
 
 
-(defn ^Screen primary-screen []
+; ^Screen  ;; DON'T TYPE. It touches JavaFX!
+(defn  primary-screen []
     (Screen/getPrimary))
 
 
@@ -1030,7 +1048,8 @@ It must return a string (which may be wrapped to fit the width of the list."
     stage)
 
 
-(defn ^ScrollPane scrollpane [& [node]]
+; ^ScrollPane  ;; DON'T type. It touches JavaFX!
+(defn  scrollpane [& [node]]
   (if node
     (ScrollPane. node)
     (ScrollPane.)))
@@ -1092,18 +1111,20 @@ It must return a string (which may be wrapped to fit the width of the list."
         stg)))
 
 
-
 (defn filechooserfilter [description & extensions]
     (FileChooser$ExtensionFilter. description (fxj/vargs* extensions)))
 
 
-(def FILESCHOOSER_FILTERS_CLJ [
-                               (filechooserfilter "Clojure Files" "*.clj")
-                               (filechooserfilter "All Files"   "*.*")])
+(defn filechooser-filters-clj [] 
+  [
+   (filechooserfilter "Clojure Files" "*.clj")
+   (filechooserfilter "All Files"   "*.*")])
 
-(def FILESCHOOSER_FILTERS_PNG [
-                               (filechooserfilter "PNG files" "*.png")
-                               (filechooserfilter "All Files"   "*.*")])
+
+(defn filechooser-filters-png [] 
+  [
+   (filechooserfilter "PNG files" "*.png")
+   (filechooserfilter "All Files"   "*.*")])
 
 
 (defn ^FileChooser filechooser [& filters]
@@ -1111,19 +1132,19 @@ It must return a string (which may be wrapped to fit the width of the list."
         (-> .getExtensionFilters (.addAll (fxj/vargs* filters)))))
 
 
-(def sample-codes-map {
-                       #{:S} #(println "S")
-                       #{:S :SHIFT} #(println "SHIFT-S")
-                       #{:S :SHORTCUT} #(println "CTRL-S")
-                       #{:S :ALT} #(println "ALT-S")
-                       #{:S :SHIFT :SHORTCUT} (event-handler (println "SHIFT-CTRL/CMD-S"))
-                       #{:SHORTCUT :ENTER} (event-handler-2 [_ event] (println "CTRL/CMD-ENTER") (.consume event))})
+;(def sample-codes-map {
+;                       #{:S} #(println "S")
+;                       #{:S :SHIFT} #(println "SHIFT-S")
+;                       #{:S :SHORTCUT} #(println "CTRL-S")
+;                       #{:S :ALT} #(println "ALT-S")
+;                       #{:S :SHIFT :SHORTCUT} (event-handler (println "SHIFT-CTRL/CMD-S"))
+;                       #{:SHORTCUT :ENTER} (event-handler-2 [_ event] (println "CTRL/CMD-ENTER") (.consume event))})
 
 
-(def sample-chars-map {
-                       "a" #(println "a")
-                       "A" #(println "A")
-                       " " (event-handler-2 [_ e] (println "SPACE (consumed)") (.consume e))})
+;(def sample-chars-map {
+;                       "a" #(println "a")
+;                       "A" #(println "A")
+;                       " " (event-handler-2 [_ e] (println "SPACE (consumed)") (.consume e))})
 
 
 ;; TODO make macro that does this:

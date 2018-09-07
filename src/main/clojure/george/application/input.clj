@@ -7,7 +7,6 @@
   (:require
     [clojure.string :as cs]
     [environ.core :refer [env]]
-    [george.javafx-init] ;; Important!
     [george.javafx :as fx]
     [george.core.history :as hist]
     [george.application.repl :as repl]
@@ -24,7 +23,8 @@
     [javafx.scene.control Tab Button TabPane]
     [javafx.scene Node Scene]))
 
-
+;(initfx)
+ 
 ;(set! *warn-on-reflection* true)
 ;(set! *unchecked-math* :warn-on-boxed)
 ;(set! *unchecked-math* true)

@@ -64,14 +64,21 @@
     (vec (repeatedly STAR_COUNT #(fx/rectangle :size [1 1] :fill Color/WHITE))))
 
 
-(def fps-label ^Label 
-  (fx/new-label "FPS" :color Color/RED))
-        
+(def fpsl_ (atom nil))
+
+(defn ^Label fps-label []
+  (if-let [l @fpsl_]
+    l
+    (reset! fpsl_ (fx/new-label "FPS" :color Color/RED))))
 
 
-(def scene ^Scene (fx/scene
-                      (fx/group* (conj nodes fps-label))
-                      :fill Color/BLACK) )
+
+(def ^Scene scene
+  (memoize ;; effectively making this a lazy singleton.
+    (fn []  
+     (fx/scene
+        (apply fx/group (into-array Node (conj nodes (fps-label))))
+        :fill Color/BLACK))))
 
 
 ;; http://stackoverflow.com/questions/28287398/what-is-the-preferred-way-of-getting-the-frame-rate-of-a-javafx-application
@@ -82,16 +89,10 @@
     (System/setProperty "javafx.animation.pulse" "10")
     (catch AccessControlException e (. e printStackTrace)))
 
-(def tracker (PerformanceTracker/getSceneTracker scene))
+(def tracker (memoize (fn [] (PerformanceTracker/getSceneTracker (scene)))))
 
 (defn- fps []
-    (. ^PerformanceTracker tracker getAverageFPS))
-
-
-(. ^Label fps-label setOnMouseClicked
-   (fx/event-handler
-       (println "resetting fps ...")
-       (. ^PerformanceTracker tracker resetAverageFPS)))
+    (. ^PerformanceTracker (tracker) getAverageFPS))
 
 
 (defn- timer [^Stage stage]
@@ -117,26 +118,27 @@
         (. ^Label fps-label (setText (format " FPS: %.2f   [reset]" (fps))))
         )))
 
-
-
+  
 (defn -main [& args]
-    (fx/later
-        (let [
+  (fx/init)
+  (fx/later
+      (let [stage 
+            (fx/stage
+               :title "stars.clj"
+               :scene (scene)
+               :size [800 600] )
 
-              stage ^Stage (fx/stage
-                  :title "stars.clj"
-                  :scene scene
-                  :size [800 600]
-                  )
+            timer ^AnimationTimer (timer stage)]
 
-              timer
-              ^AnimationTimer (timer stage)
-              ]
+          (.setOnCloseRequest stage (fx/event-handler (.stop timer)))
 
-            (.  stage setOnCloseRequest (fx/event-handler (. timer stop)))
+          (.setOnMouseClicked ^Label (fps-label) 
+             (fx/event-handler
+               (println "resetting fps ...")
+               (.resetAverageFPS ^PerformanceTracker (tracker))))
 
-            (. timer start)
+          (.start timer)
 
-            )))
+          )))
 
 ;(println "WARNING: Running george.example.stars/-main" (-main))

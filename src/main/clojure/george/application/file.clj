@@ -44,7 +44,7 @@
 
 
 (defonce clj-filechooser
-         (doto (apply fx/filechooser fx/FILESCHOOSER_FILTERS_CLJ)
+         (doto (apply fx/filechooser (fx/filechooser-filters-clj))
                (.setInitialDirectory guf/USER_DOCUMENTS)))
 
 

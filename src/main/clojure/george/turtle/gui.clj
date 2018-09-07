@@ -63,15 +63,18 @@
     file))
 
 
-(def CB (fx/now (Clipboard/getSystemClipboard)))
+(def CB 
+  (memoize 
+    (fn[]
+      (fx/now (Clipboard/getSystemClipboard)))))
 
 
 (defn- print-clipboard-content
   "For dev/test purposes."
   []
-  (println "  ## CB content types:" (fx/now (.getContentTypes CB)))
-  ;(fx/now (.getString CB)))
-  (fx/now (.getImage CB)))
+  (println "  ## CB content types:" (fx/now (.getContentTypes (CB))))
+  ;(fx/now (.getString (CB)))
+  (fx/now (.getImage (CB))))
 
 
 (defn- write-image-to-tempfile [image]
@@ -102,7 +105,7 @@
           (.putFiles [tempfile])
           (.putFilesByPath [(str tempfile)])
           (.putString text-repr))]
-    (fx/now (.setContent CB cc))))
+    (fx/now (.setContent (CB) cc))))
 
 
 
@@ -118,10 +121,15 @@
   (fx/now (-> scene snapshot)))
 
 
-"A fileshooser-object is instanciated once pr session. It remembers the previous location.
+"A filechooser-object is instanciated once pr session. It remembers the previous location.
 One might in future choose to save the 'initial directory' so as to return user to same directory across sessions."
-(defonce screenshot-filechooser
-         (apply fx/filechooser fx/FILESCHOOSER_FILTERS_PNG))
+
+(def fc_ (atom nil))
+
+(defn screenshot-filechooser []
+  (if-let [fc @fc_]
+    fc
+    (reset! fc_ (apply fx/filechooser (fx/filechooser-filters-png)))))
 
 
 (defn- build-filename-suggestion [dir]
