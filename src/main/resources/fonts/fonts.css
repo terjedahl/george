@@ -3,6 +3,12 @@ http://www.guigarage.com/2014/10/integrate-custom-fonts-javafx-application-using
 Note update at bottom of page.
 */
 
+/*
+As of java9, the hack used previously won't work to preload fonts.
+Therefore font-files are simply listed in the file fonts.txt, and the list used read and used in code to pre-load fonts.
+*/
+
+/*
 @font-face {
     src: url('SourceCodePro-Regular.ttf');
 }
@@ -27,3 +33,4 @@ Note update at bottom of page.
 @font-face {
     src: url('OpenSans-Regular.ttf');
 }
+*/

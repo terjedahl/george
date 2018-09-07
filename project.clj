@@ -1,5 +1,5 @@
 
-(defproject no.andante.george/george-application  "2018.6.2"
+(defproject no.andante.george/george-application  "2018.6.3-SNAPSHOT"
 
   :description "George - Application"
   :url "https://bitbucket.org/andante-george/george-application"
@@ -62,7 +62,10 @@
 
   :source-paths      ["src/main/clojure"]
   :java-source-paths ["src/main/java"]
-  :javac-options     ["-target" "1.8" "-source" "1.8"]
+  :javac-options     [
+                      ;"-source" "1.8" "-target" "1.8"
+                      "-source" "10"  "-target" "10"]
+  
                       ;"-Xlint:unchecked"]
 
   :test-paths ["src/test/clojure"]

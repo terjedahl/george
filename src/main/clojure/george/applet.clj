@@ -6,14 +6,14 @@
 
 (ns george.applet
   (:require
-    [clojure.tools.namespace.find :refer [find-namespaces]]
+    [clojure.tools.namespace.find :refer [find-sources-in-dir find-namespaces]]
     [clojure.pprint :refer [pprint]]
     [clojure.java.classpath :as cp])
   (:import
     [clojure.lang Symbol]))
 
 
-;; For further development of this consept:
+;; For further development of this concept:
 ;; https://www.developer.com/java/article.php/3848881/Service-Provider-Interface-Creating-Extensible-Java-Applications.htm
 
 
@@ -60,8 +60,15 @@
     #(re-find #"george.applet\..+" (str %))
     (find-namespaces (cp/classpath))))
 
+;; The whole dynamic loading from classpath was cool,
+;; but we will abandon this mechanism as it gets waaaay more complicated with Java 9/10.
+;; In stead perhaps consider a future version which uses a default file and a user-defined override.  
+;; Perhaps even combine it with clojure.deps ...?
+;; TODO: Migrate this to a simple static basefile, for now.
+(def applet-ns-list ['george.applet.turtle-ide])
 
 (defn load-applets []
-  (let [applet-ns-list (vec (find-applets))
+  (let [;applet-ns-list (vec (find-applets))
         verified-info-list (vec (map verify-applet applet-ns-list))]
     (filter some? verified-info-list)))
+;(load-applets)

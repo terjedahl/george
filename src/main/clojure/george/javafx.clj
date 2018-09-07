@@ -53,9 +53,22 @@
   (Platform/setImplicitExit false))
 
 
-(defonce inited?_ (atom false))
 
-(declare load-fonts-from-stylesheet)
+(defn preload-fonts []
+  (println (format "%s/preload-fonts ..." *ns*))
+  (let [dir-path (str (cio/resource "fonts/"))
+        list-path "fonts/fonts.txt"
+        names (cs/split-lines (slurp (cio/resource list-path)))]
+    (doseq [n names]
+      (print " " n " ->  ")
+      (->
+        (str dir-path n)
+        (cs/replace "%20" " ")
+        (Font/loadFont 10.)
+        str println))))
+
+
+(defonce inited?_ (atom false))
 
 (defn init
   "An easy way to 'initialize [JavaFX] Toolkit'
@@ -68,7 +81,7 @@ Has to be called before the first call to/on FxApplicationThread (javafx/later)"
     (set-implicit-exit false)
     (when fonts?
       ;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
-      (load-fonts-from-stylesheet "fonts/fonts.css"))
+      (preload-fonts))
     (reset! inited?_ true)))
 
 
@@ -298,35 +311,13 @@ and the body is called on 'changed'"
     (set-userdata n res)))
 
 
-(import
-  '[com.sun.javafx.css.parser CSSParser]
-  '[com.sun.javafx.css Stylesheet FontFace FontFace$FontFaceSrc]
-  '[com.sun.javafx.util Logging]
-  '[sun.util.logging PlatformLogger$Level])
+
+  
 
 
-(defn- load-fontface-src [^FontFace$FontFaceSrc ffsrc]
-  (-> ffsrc .getSrc (cs/replace "%20" " ") (Font/loadFont 10.)))
-
-(defn- load-fontface [^FontFace ff]
-  (map load-fontface-src (.getSources ff)))
-
-(defn- load-fonts [^Stylesheet stylesheet]
-  (vec (flatten (map load-fontface (.getFontFaces stylesheet))))) ;; 'vec' ensures the lazy seq is realized
-
-(defn stylesheet-parsed [path]
-  (.parse (CSSParser.) (cio/resource path)))
-
-
-(defn load-fonts-from-stylesheet
-  "This does not add the stylesheet to the scene.
-In stead it only parses the stylesheet and loads any font-faces found in it.
-That way one avoids warnings and errors, yet the fonts are available.
-
-Ensure that the passed-in stylesheet only contains font-info. Nothing else."
-  [path]
-  (println (format "%s/load-fonts-from-stylesheet '%s' ..." *ns* path))
-  (-> path stylesheet-parsed load-fonts)) ;; parse and load fonts
+;(import
+;  '[com.sun.javafx.util Logging]
+;  '[sun.util.logging PlatformLogger$Level])
 
 
 (defn add-stylesheet [^Scene scene path]
@@ -336,7 +327,6 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
     ;(.setLevel logger PlatformLogger$Level/OFF)  ;; turn off logger. Doesn't work well.
     (-> scene .getStylesheets (.add path))))  ;; set stylesheet
     ;(.setLevel logger level))) ;; turn logger back to previous level
-    ;(load-fonts-from-stylesheet path)))
 
 
 (defn add-stylesheets [scene & paths]
