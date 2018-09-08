@@ -62,10 +62,8 @@
 
   :source-paths      ["src/main/clojure"]
   :java-source-paths ["src/main/java"]
-  :javac-options     [
-                      ;"-source" "1.8" "-target" "1.8"
-                      "-source" "10"  "-target" "10"]
-  
+  :javac-options     ["-source" "1.8" "-target" "1.8"]
+  ;:javac-options     ["-source" "10"  "-target" "10"]
                       ;"-Xlint:unchecked"]
 
   :test-paths ["src/test/clojure"]

@@ -53,36 +53,61 @@
   (Platform/setImplicitExit false))
 
 
+(defn set-classloader [cl]
+  (let [p (promise)]
+    (Platform/runLater #(deliver p (or (.setContextClassLoader (Thread/currentThread) cl) true)))
+    @p))
 
-(defn preload-fonts []
+
+;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
+(defn preload-fonts [& [verbose?]]
   (println (format "%s/preload-fonts ..." *ns*))
   (let [dir-path (str (cio/resource "fonts/"))
         list-path "fonts/fonts.txt"
         names (cs/split-lines (slurp (cio/resource list-path)))]
     (doseq [n names]
-      (print " " n " ->  ")
+      (when verbose? (print " " n " ->  "))
       (->
         (str dir-path n)
         (cs/replace "%20" " ")
         (Font/loadFont 10.)
-        str println))))
+        (#(when verbose? (-> % str println)))))))
 
 
-(defonce inited?_ (atom false))
-
-(defn init
+(def init
   "An easy way to 'initialize [JavaFX] Toolkit'
 Needs only be called once in the applications life-cycle.
-Has to be called before the first call to/on FxApplicationThread (javafx/later)"
-  [& {:keys [force? fonts?] :or {fonts? true}}]
-  (when (or (not @inited?_) force?)
-    (println (str *ns*"/init"))
-    (javafx.embed.swing.JFXPanel.)
-    (set-implicit-exit false)
-    (when fonts?
-      ;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
-      (preload-fonts))
-    (reset! inited?_ true)))
+Has to be called before the first call to/on FxApplicationThread (javafx/later)
+
+
+
+Memoize-ing it makes it effectively lazy and run only once (unless new/different parameters are passed).
+Add any additional random key+value to trigger a new load (as this triggers a new run of the memoize fn).
+"
+
+  
+  (memoize
+    (fn [& {:keys [fonts? classloader] :or {fonts? true}}]
+      (println (str *ns* "/init"))
+      ;; Java10
+      ;; ensure synchronicity by de-referencing promises 
+      ;(let [st-promise (promise)]
+      ;  (try 
+      ;    (Platform/startup #(deliver st-promise true))
+      ;    (catch Throwable t (println (.getMessage t))))
+      ;  @st-promise)
+      ;; Java8:    
+      (javafx.embed.swing.JFXPanel.)
+  
+      (set-implicit-exit false)
+    
+      (when classloader
+        (set-classloader classloader))
+    
+      (when fonts?
+        (preload-fonts (= fonts? :verbose)))
+        
+      true)))
 
 
 ;;;;;;;;;
