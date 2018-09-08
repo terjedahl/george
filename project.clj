@@ -60,14 +60,14 @@
                         ["snapshots" :clojars]
                         ["releases" :clojars]]
 
-  :source-paths      ["src/main/clojure"]
+  :source-paths      ["src/main/clj"]
   :java-source-paths ["src/main/java"]
   :javac-options     ["-source" "1.8" "-target" "1.8"]
   ;:javac-options     ["-source" "10"  "-target" "10"]
                       ;"-Xlint:unchecked"]
 
-  :test-paths ["src/test/clojure"]
-  :resource-paths ["src/main/resources"]
+  :test-paths ["src/test/clj"]
+  :resource-paths ["src/main/rsc"]
 
   :main no.andante.george.Main
   :aot [no.andante.george.Main]
