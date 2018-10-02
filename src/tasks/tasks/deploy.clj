@@ -17,12 +17,6 @@
     [george.files :as f]))
 
 
-(defn- assert-built! []
-  (when-not (.exists (cio/file b/APP_F))
-    (warn (format "Exception: No '%s' found.  Have you done 'lein build-jar'?" b/APP_F))
-    (exit -1)))
-
-
 (defn- assert-aws! []
   (with-programs [which]
     (when (empty?  (which "aws" {:throw false}))
@@ -30,43 +24,34 @@
       (exit -1))))
 
 
-(def SERVE_D (cio/file "target/serve"))
+(defn- install-dir- []
+  (-> b/APP_F p/load :appid conf/install-dir f/ensure-dir))
 
 
-(defn install-jar []
+(defn install-dir []
+  (println (str (install-dir-))))
+
+
+(defn install []
   (prn 'tasks.deploy/install-jar)
-  (assert-built!)
-
-  (let [appid (-> b/APP_F p/load :appid)
-        install-d (-> appid conf/install-dir f/ensure-dir)
-        source-files (seq (.listFiles (cio/file b/LAUNCH_D)))]
-    (info (format "Copying files to '%s' ..." install-d))
-    (f/copy-files-to-dir install-d source-files true)))
+  (let [install-d (install-dir-)
+        source-files (seq (.listFiles (cio/file b/DEPLYABLE_D)))]
+   (info (format "Copying files to '%s' ..." install-d))
+   (f/copy-files-to-dir install-d source-files true)))
 
 
-(defn serve-jar []
-  (prn 'tasks.deploy/serve-jar)
-  (assert-built!)
-  (let [
-        serve-d (-> SERVE_D (f/ensure-dir) (f/clean-dir))
-        source-files (seq (.listFiles (cio/file b/LAUNCH_D)))]
-    (info (format "Copying files to '%s' ..." serve-d))
-    (f/copy-files-to-dir serve-d source-files true)))
-  
-
-(defn- aws-jar [& args]
+(defn- aws [& args]
   (prn 'tasks.deploy/aws-jar args)
 
-  (assert-built!)
   (assert-aws!)
 
   (let [appid (-> b/APP_F p/load :appid)]
     ;(prn p)
 
     (info (format "Deploying application-jar and app.properties to Amazon S3 for '%s' ..." appid))
-    (.delete (cio/file b/LAUNCH_D ".DS_Store"))
+    (.delete (cio/file b/DEPLYABLE_D ".DS_Store"))
     (stream-to-out
-      (proc "aws" "s3" "cp" (str b/LAUNCH_D) (format "s3://download.george.andante.no/%s/launch" appid) "--acl" "public-read" "--recursive" "--region" "eu-central-1")
+      (proc "aws" "s3" "cp" (str b/DEPLYABLE_D) (format "s3://download.george.andante.no/%s/launch" appid) "--acl" "public-read" "--recursive" "--region" "eu-central-1")
       :out)
 
     (info "Invalidating CloudFront caches ...")

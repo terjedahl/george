@@ -4,7 +4,7 @@
 ; You must not remove this notice, or any other, from this software.
 
 (ns leiningen.server
-  "Start a web server in the current or specified directory, on specified port or 8080."
+  "Start a web server in the current or specified directory, on specified port or 8080"
   (:import
     [org.eclipse.jetty.server Handler Server]
     [org.eclipse.jetty.server.handler DefaultHandler HandlerList ResourceHandler AbstractHandler]))
@@ -23,7 +23,7 @@
     (handle [target base-request request response]
       ;(prn 'handle target base-request request)
       (when  (.startsWith target "/_cmd")
-          (println "GOT _cmd:" target)
+          ;(println "GOT _cmd:" target)
           (.setContentType response "text/plain")
           (.setHandled base-request true)
           (with-open [out (.getOutputStream response)]
@@ -31,7 +31,16 @@
                   (case target
                         "/_cmd/status" 
                         (str {:port port :dir dir})
-                        
+
+                        "/_cmd/url"
+                        (format "http://localhost:%s/" port)
+
+                        "/_cmd/port"
+                        (str port)
+
+                        "/_cmd/dir"
+                        (str dir)
+
                         "/_cmd/stop"   
                         (let [m "Server stopped."]
                           (future (Thread/sleep 1000) (System/exit 0))

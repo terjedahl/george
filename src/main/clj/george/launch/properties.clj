@@ -42,6 +42,8 @@
 (defn now-ts [& [offset-millis]]
   (str (.truncatedTo (.plusMillis (java.time.Instant/now) (or offset-millis 0)) java.time.temporal.ChronoUnit/SECONDS)))
 
+(defn print-now []
+  (println (now-ts)))
 
 (defn default-uri [& [appid]]
     (format "https://download.george.andante.no/%s/launch/" (or appid DEFAULT_ID)))

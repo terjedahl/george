@@ -16,18 +16,24 @@
 
 
 (def RSC_D (cio/file "src/main/rsc"))
-(def LAUNCH_D (cio/file "target/launch"))
+(def DEPLYABLE_D (cio/file "target/deployable"))
+
 
 (def EMBED_F (cio/file RSC_D p/PROP_N))
-(def APP_F (cio/file LAUNCH_D p/PROP_N))
+(def APP_F (cio/file DEPLYABLE_D p/PROP_N))
 
 
-(defn embed-properties [& _]
-  (prn 'embed-properties *command-line-args*)
-  (let [[version appid uri ts] (map #(when (not= % "nil") %) *command-line-args*)
-        props (assoc (p/default appid uri ts) :version version)]
+(defn embed* [version & {:keys [appid uri ts] :as kvargs}]
+  (prn 'embed* version kvargs)
+  (let [props (assoc (p/default appid uri ts) :version version)]
     (p/dump  EMBED_F props)
     (info (pformat props))))
+
+
+(defn embed [version & args]
+  (prn 'embed version args)
+  (let [kv (map (fn [[k v]] [(keyword (subs k 1)) v])  (partition 2 args))]
+    (apply embed* (cons version (flatten kv)))))
 
 
 (def JAR_D (cio/file "target/uberjar"))
@@ -44,9 +50,9 @@
 
 
 
-(defn post-uberjar []
-  (prn 'post-uberjar)
-  (let [d (-> LAUNCH_D (f/ensure-dir) (f/clean-dir))
+(defn deployable []
+  (prn 'deployable)
+  (let [d (-> DEPLYABLE_D (f/ensure-dir) (f/clean-dir))
         j0 (uberjar-file)
         p0 (p/load EMBED_F)
         ;; copy the jar and output a complete app.properties
@@ -58,15 +64,3 @@
     (info (pformat p1))
     (p/dump APP_F p1)))
 
-
-
-;(defn -main
-;  "Tasks for building. Usage: build [|jar|jre|mac|win]"
-;  [& [subtask & rest]]
-;  (prn 'subtask subtask rest)
-;  (case subtask
-;    "jar" (apply build-jar rest)
-;    "help" (println "some help here")
-;
-;    nil (warn "No subtask")
-;    :else (warn "Unkown subtask:" subtask)))
