@@ -1,13 +1,14 @@
-syntax: glob
-target/**
-classes/**
-checkouts/**
-pom.xml
-pom.xml.asc
-**/.DS_Store
+# directories
+.idea/
+target/
+
+# files
+.*.DS_Store
 .lein-*
 .nrepl-port
-.gitignore
-.git/**
-.idea/**
-*.iml
+pom.xml
+src/main/java/module-info.java
+src/main/rsc/app.properties
+
+# types
+.*.iml
