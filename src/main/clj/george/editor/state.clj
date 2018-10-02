@@ -676,18 +676,21 @@
         append-history_)))
 
 
-(def CB (fx/now (Clipboard/getSystemClipboard)))
+(def CB
+  (memoize
+    (fn[]
+      (fx/now (Clipboard/getSystemClipboard)))))
 
 
 (defn clipboard-str []
   ;(println "  ## CB content types:" (fx/now (.getContentTypes CB)))
-  (fx/now (.getString ^Clipboard CB)))
+  (fx/now (.getString ^Clipboard (CB))))
 
 
 (defn set-clipboard-str [s]
   (let [cbc (doto (ClipboardContent.)
               (.putString s))]
-    (fx/now (.setContent ^Clipboard CB cbc))))
+    (fx/now (.setContent ^Clipboard (CB) cbc))))
 
 
 (defn- selection_

@@ -38,13 +38,13 @@
     (fx/alert
       :title title
       :header (format "The %s has gone missing!" thing)
-      :content "Don't know what to do about that, exactly. :-( \nCan you fix it?"
+      :text "Don't know what to do about that, exactly. :-( \nCan you fix it?"
       :owner (appl/current-application-stage)
       :type :error)))
 
 
 (defonce clj-filechooser
-         (doto (apply fx/filechooser fx/FILESCHOOSER_FILTERS_CLJ)
+         (doto (apply fx/filechooser (fx/filechooser-filters-clj))
                (.setInitialDirectory guf/USER_DOCUMENTS)))
 
 

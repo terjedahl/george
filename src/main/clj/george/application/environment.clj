@@ -44,27 +44,27 @@
     :padding 10))
 
 
-(def xy [(+ ^int (launcher/xyxy 2) 5) (launcher/xyxy 1)])
+;(def xy [(+ ^int (launcher/xyxy 2) 5) (launcher/xyxy 1)])
 
 
-(defn- create-toolbar-stage [ide-type]
-  (let [is-turtle (= ide-type :turtle)]
-    (fx/now
-      (fx/stage
-        :location xy
-        :title (if is-turtle "Turtle Geometry" "IDE")
-        :scene (fx/scene (toolbar-pane is-turtle))
-        :sizetoscene true
-        :resizable false
-        :onhidden #(singleton/remove [::toolbar-stage ide-type])))))
+;(defn- create-toolbar-stage [ide-type]
+;  (let [is-turtle (= ide-type :turtle)]
+;    (fx/now
+;      (fx/stage
+;        :location xy
+;        :title (if is-turtle "Turtle Geometry" "IDE")
+;        :scene (fx/scene (toolbar-pane is-turtle))
+;        :sizetoscene true
+;        :resizable false
+;        :onhidden #(singleton/remove [::toolbar-stage ide-type])))))
 
 
 
-(defn toolbar-stage [ide-type]
-  (doto ^Stage
-    (singleton/get-or-create [::toolbar-stage ide-type]
-                             #(create-toolbar-stage ide-type))
-    (.toFront)))
+;(defn toolbar-stage [ide-type]
+;  (doto ^Stage
+;    (singleton/get-or-create [::toolbar-stage ide-type]
+;                             #(create-toolbar-stage ide-type))
+;    (.toFront)))
 
 
 

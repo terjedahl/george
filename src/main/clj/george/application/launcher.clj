@@ -15,7 +15,6 @@
     [g]
     
     [george
-     [javafx-init] ;; Important!
      [javafx :as fx]
      [applet :as applet]]
 
@@ -116,16 +115,18 @@ Powered by open source software.")
 
 (def launcher-width (+ ^int tile-width 20))
 
-(def visual-bounds (.getVisualBounds (fx/primary-screen)))
 
-(def xyxy
-  (let [vb ^Rectangle2D visual-bounds]
+(defn xyxy []
+  (let [vb ^Rectangle2D (.getVisualBounds (fx/primary-screen))]
     [(.getMinX vb)
      (.getMinY vb)
      (+ (.getMinX vb) ^int launcher-width)
      (.getMaxY vb)]))
 
-(def launcher-height (- ^int (xyxy 3) ^int (xyxy 1)))
+
+(defn launcher-height []
+  (let [_xyxy (xyxy)]
+    (- ^int (_xyxy 3) ^int (_xyxy 1))))
 
 
 (defn- applet-tile
@@ -235,7 +236,7 @@ Powered by open source software.")
 
     (doto root
       (.setMaxWidth launcher-width)
-      (.setMaxHeight launcher-height))
+      (.setMaxHeight (launcher-height)))
 
     (detail-setter welcome-node)
 
@@ -251,7 +252,7 @@ Powered by open source software.")
            (fx/now
              (fx/alert
                :title "Quit?"
-               :content
+               :text
                (str "Do you want to quit George?"
                     (when repl? "\n\n(You are running from a repl.\n'Quit' will not exit the JVM instance.)"))
                :options ["Quit"]  ;; quit is button-index 0
@@ -352,6 +353,7 @@ Powered by open source software.")
   ([stage]
    (start stage (application-root)))
   ([stage root]
+   (fx/init)
    (morphe-launcher-stage
      (styled/style-stage stage)
      root
@@ -361,6 +363,7 @@ Powered by open source software.")
 (defn -main
   "Launches George (launcher) as a standalone application."
   [& args]
+  (fx/init)
   (println "george.application.launcher/-main"
            (if (empty? args)
              ""
@@ -370,7 +373,7 @@ Powered by open source software.")
 
 ;;; DEV ;;;
 
-;(when (env :repl?)  (-main))
+(when (env :repl?)  (-main))
 ;(when (env :repl?)  (start))
 ;(when (env :repl?)  (start (starting-stage)))
 

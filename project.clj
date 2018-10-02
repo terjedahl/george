@@ -121,16 +121,17 @@
   :java-source-paths ["src/main/java"]
   :resource-paths    ["src/main/rsc"]
   :test-paths        ["src/test/clj"]
-  
-  :javac-options     ["-target" "10" "-source" "10"]
-  ;:javac-options     ["-target" "1.8" "-source" "1.8"]
-  
-  :prep-task         ["javac" 
-                      "compile"]
-  
+
+  :javac-options     ["-source" "1.8" "-target" "1.8"]
+  ;:javac-options     ["-source" "10"  "-target" "10"]
+                      ;"-Xlint:unchecked"
+
+  :prep-task         ["javac" "compile"]
+
+
   :aot [no.andante.george.Run
         no.andante.george.Launch]
-        
+
   :main no.andante.george.Launch
 
   :jvm-opts [

@@ -6,7 +6,7 @@
 
 (ns george.applet
   (:require
-    [clojure.tools.namespace.find :refer [find-namespaces]]
+    [clojure.tools.namespace.find :refer [find-sources-in-dir find-namespaces]]
     [clojure.pprint :refer [pprint]]
     [clojure.java.classpath :as cp])
   (:import
@@ -61,7 +61,7 @@
     (find-namespaces (cp/classpath))))
 
 ;; The whole dynamic loading from classpath was cool,
-;; but we will abandon this mechanim as it gets waaaay more complicated with Java 9/10.
+;; but we will abandon this mechanism as it gets waaaay more complicated with Java 9/10.
 ;; In stead perhaps consider a future version which uses a default file and a user-defined override.  
 ;; Perhaps even combine it with clojure.deps ...?
 ;; TODO: Migrate this to a simple static basefile, for now.

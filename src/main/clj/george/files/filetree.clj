@@ -198,24 +198,25 @@
   "Returns a custom TreeCell.
   '->str' is optional 1-arg function which takes at item and returns a String."
   []
-  (proxy [TreeCell] []
-    (updateItem [^Path path empty?]
-      (proxy-super updateItem path empty?)
-      (if (or (nil? path) empty?)
-        (doto this
-          (.setGraphic nil)
-          (.setText nil)
-          (fx/set-tooltip nil))
-        ;; else
-        (let [dir? (is-dir path)]
-          (doto this
-            (.setGraphic (if dir? (folder-image) (file-image)))
-            (.setText (filename path))
-            (fx/set-tooltip (to-string path))
-            (make-doubleclickable)
-            (make-draggable)
-            (make-droppable (.getTreeItem this))))))))
-
+  (eval `(proxy [TreeCell] []
+           (updateItem [^Path path# empty?#]
+             (proxy-super updateItem path# empty?#)
+             
+             (if (or (nil? path#) empty?#)
+               (doto ~'this
+                 (.setGraphic nil)
+                 (.setText nil)
+                 (fx/set-tooltip nil))
+               ;; else
+               (let [dir?# (is-dir path#)]
+                 (doto ~'this
+                   (.setGraphic (if dir?# (folder-image) (file-image)))
+                   (.setText (filename path#))
+                   (fx/set-tooltip (to-string path#))
+                   (make-doubleclickable)
+                   (make-draggable)
+                   (make-droppable (.getTreeItem ~'this)))))))))
+       
 
 (defn path-treecell-factory
   "Returns a custom Callback."
@@ -398,6 +399,6 @@
 
 ;;; 
 
-; (when (env :repl?) (stage (file-nav))) 
+;(when (env :repl?) (fx/init) (stage (file-nav))) 
 
 
