@@ -50,8 +50,12 @@
   (println (java-home-str)))
 
 
+(defn java10? []
+  (.startsWith (System/getProperty "java.version") "10"))
+
+
 (defn assert-java10 []
-  (assert (.startsWith (System/getProperty "java.version") "10")
+  (assert (java10?)
           "This project requires Java 10.  See docs/java10.md for more."))
 
 
@@ -82,7 +86,6 @@
 (defn- java-home-bin [cmd args]
   ;(prn 'java-home-bin cmd args)
   (assert-project)
-  (assert-java10)
   (apply shell/shell (concat [*project* (str (java-home-str) "/bin/" cmd)] args)))
 
 
@@ -142,7 +145,6 @@
 (defn embed
   [args]
   (assert-project)
-  (assert-java10)
   (let [{:as kwargs} args
         kvargs (into {} (map (fn [[k v]] [(keyword (subs k 1)) v]) kwargs))]
     ;(prn kvargs)

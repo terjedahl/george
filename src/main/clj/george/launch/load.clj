@@ -4,30 +4,10 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns george.launch.load
+  (:require [george.javafx :as fx])
   (:import
     [clojure.lang DynamicClassLoader]
-    [java.net URLClassLoader URL]
-    [javafx.application Platform]))
-    
-
-(defn init-javafx [& [classloader]]
-  (prn 'load/init-javafx (when classloader 'classloader))
-
-  ;; ensure synchronicity by de-referencing promises 
-  (let [st-promise (promise)]
-    (try (Platform/startup 
-           #(deliver st-promise true)) 
-         (catch Throwable t (println (.getMessage t))))
-    @st-promise)
-  
-  (when classloader
-        (let [cl-promise (promise)]
-          (Platform/runLater 
-            #(do (.setContextClassLoader (Thread/currentThread) classloader)
-                 (deliver cl-promise true)))
-          @cl-promise)) 
- 
-  (Platform/setImplicitExit false))
+    [java.net URLClassLoader URL]))
 
 
 (defn run-jar
@@ -47,7 +27,7 @@
     (.setContextClassLoader (Thread/currentThread) dynamic-loader)
 
     ;; Also, we need to set it on the JavaFX thread.
-    (init-javafx dynamic-loader)
+    (fx/init :classloader dynamic-loader)
 
     (let [cl (Class/forName class-str true loader)
           main (-> cl (.getDeclaredMethod "main" (into-array [(class (make-array String 0))])))]

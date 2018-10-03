@@ -96,7 +96,7 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
       ;    (Platform/startup #(deliver st-promise true))
       ;    (catch Throwable t (println (.getMessage t))))
       ;  @st-promise)
-      ;; Java8:    
+      ;; Java8 (simple and clean. Does the same thing as the Java10 variant)    
       (javafx.embed.swing.JFXPanel.)
   
       (set-implicit-exit false)

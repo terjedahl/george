@@ -9,10 +9,11 @@
     [clojure.java.io :as cio]
     [george.launch
      [config :as c]
-     [load :refer [init-javafx run-jar]]
+     [load :refer [run-jar]]
      [properties :as p]
      [utils :refer [download]]]
-    [george.files :as f])
+    [george.files :as f]
+    [george.javafx :as fx])
   (:import
     [javafx.scene Parent Node Scene]
     [javafx.scene.control ProgressIndicator ProgressBar Label]
@@ -84,7 +85,7 @@
 
 
 (defn- init-launch-screen []
-  (init-javafx)
+  (fx/init)
   ;(fx/preload-fonts))
   (Platform/runLater
     #(let [stage 

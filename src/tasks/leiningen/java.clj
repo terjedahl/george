@@ -12,7 +12,9 @@
   "Run the built deployable on the default java"
   [args]
   (g/assert-deployable)
-  (g/java (concat ["--illegal-access=permit" "-jar" (g/deployable-jar-path)] args)))
+  (if (g/java10?)
+      (g/java (concat ["--illegal-access=permit" "-jar" (g/deployable-jar-path)] args))
+      (g/java (concat ["-jar" (g/deployable-jar-path)] args))))
 
 
 (defn- jpms

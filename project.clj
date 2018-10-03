@@ -122,8 +122,7 @@
   :resource-paths    ["src/main/rsc"]
   :test-paths        ["src/test/clj"]
 
-  :javac-options     ["-source" "1.8" "-target" "1.8"]
-  ;:javac-options     ["-source" "10"  "-target" "10"]
+  :javac-options     ["-source" "10"  "-target" "10"]
                       ;"-Xlint:unchecked"
 
   :prep-task         ["javac" "compile"]
