@@ -1,0 +1,5 @@
+# Providers of Speex sound conversion services
+org.xiph.speex.spi.SpeexFormatConvertionProvider
+
+# for the javalayer mp3 decoder
+javazoom.spi.mpeg.sampled.convert.MpegFormatConversionProvider

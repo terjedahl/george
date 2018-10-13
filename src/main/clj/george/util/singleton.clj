@@ -6,12 +6,37 @@
 (ns
   ^{:author "Terje Dahl"}
   george.util.singleton
-  (:refer-clojure :exclude [get remove])  ;; https://gist.github.com/ghoseb/287710
+  (:refer-clojure :exclude [get remove keys])  ;; https://gist.github.com/ghoseb/287710
   (:require
     [clojure.pprint :refer [pprint]]))
 
 
 (def ^:dynamic *debug* false)
+
+(defmacro debugm 
+  "Executes 'body' if *debug* is bound to 'true'"
+  [& body]
+  `(when *debug*
+     ~@body))
+
+;(prn (macroexpand-1 '(debugm (println "no-debug") (prn 40))))
+;(prn (binding [*debug* true] (macroexpand-1 '(debugm (println "debug") (prn 41)))))
+;(binding [*debug* true] (debugm (print "should print ") (prn 42)))
+
+
+
+(defn- debug
+  "println 'args' if *debug* is bound to 'true'"
+  [& args]
+  (debugm (apply println args)))
+
+
+(defmacro debug! [& body]
+  `(binding [*debug* true]
+     ~@body))
+;(prn (macroexpand-1 '(debug! (debug "in debug-mode"))))
+;(debug! (debug "in debug-mode"))
+
 
 
 ;;; Singleton patterns ;;;
@@ -32,16 +57,17 @@
 
   v)
 
+
 (defn get-or-create
   "returns value for given key if exists,
   else calls provided function, setting its return-value to the key, and returning the value."
   [k f]
-  (when *debug* (printf "singleton/get-or-create '%s' ... " k))
+  (debugm (printf "singleton/get-or-create '%s' ... " k))
   (if-let [v (get k)]
-    (do (when *debug* (println "found"))
+    (do (debug " ... found")
         v)
     (do
-      (when *debug* (println "created"))
+      (debug " ... created")
       (let [v (f)]
         (put k v)))))
 
@@ -49,24 +75,23 @@
 (defn remove
   "removes singleton from singelton-map"
   [k]
-  (when *debug* (printf "singleton/remove '%s' ... " k))
+  (debugm (printf "singleton/remove '%s' ... " k))
   (if-let [_ (get k)]
         (do
           (swap! singletons_ dissoc k)
-          (when *debug* (println "done")))
-        (when *debug* (println "not found"))))
+          (debug "done"))
+        (debug "not found")))
 
 
-(defn clear-all
+(defn remove-all
   "Removes all singletons by reset-ing the atom to an empty map."
   []
   (reset! singletons_ {}))
 
 
-(defn all-keys []
-  (keys @singletons_))
+(defn keys []
+  (clojure.core/keys @singletons_))
 
 
 (defn print-all-keys []
-  (pprint (all-keys)))
-
+  (pprint (keys)))

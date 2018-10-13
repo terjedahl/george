@@ -1,6 +1,7 @@
 # directories
 .idea/
 target/
+src/arm-lingua/
 
 # files
 .*.DS_Store

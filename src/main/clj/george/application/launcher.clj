@@ -362,7 +362,7 @@ Powered by open source software.")
 
 ;;; DEV ;;;
 
-(when (env :repl?)  (-main))
+;(when (env :repl?)  (-main))
 ;(when (env :repl?)  (start))
 ;(when (env :repl?)  (start (starting-stage)))
 

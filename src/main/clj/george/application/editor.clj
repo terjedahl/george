@@ -160,10 +160,11 @@
         (fx/alert
           :title "Use swap-file content?"
           :header "Found swap-file with different content from file."
-          :text "Would you like to load the content from the swap-file in stead of the content in the main file?"
+          :text "Would you like to load the content from the swap-file in stead of the content in the main file?
+
+Swap file content:"
           :expandable-content
           (fx/expandable-content
-            "Swap file content:"
             swap-content
             george.editor.view/DEFAULT_FONT)
           :options ["Use" "Don't use"]

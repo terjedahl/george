@@ -1,5 +1,5 @@
 
-(defproject no.andante.george/george-application  "2018.6.3-SNAPSHOT"
+(defproject no.andante.george/george-application  "2018.7-SNAPSHOT"
 
   :description "George - Application"
   :url "https://bitbucket.org/andante-george/george-application"
@@ -60,14 +60,15 @@
                         ["snapshots" :clojars]
                         ["releases" :clojars]]
 
-  :source-paths      ["src/main/clj"]
-  :java-source-paths ["src/main/java"]
+  :source-paths      ["src/main/clj"   "src/arm-spraklab/src/clj"]
+  :java-source-paths ["src/main/java"  "src/arm-spraklab/src/java"]
+  :resource-paths    ["src/main/rsc"   "src/arm-spraklab/src/rsc" 
+                      "include"        "src/arm-spraklab/include"]
+
   :javac-options     ["-source" "1.8" "-target" "1.8"]
-  ;:javac-options     ["-source" "10"  "-target" "10"]
                       ;"-Xlint:unchecked"]
 
   :test-paths ["src/test/clj"]
-  :resource-paths ["src/main/rsc"]
 
   :main no.andante.george.Main
   :aot [no.andante.george.Main]
@@ -104,6 +105,7 @@
             "clocks" ["run" "-m" "george.example.arcclocks"]
             "graph" ["run" "-m" "george.sandbox.graph"]}
 
+  :repl-options {:port 55055}
   :codox {
           :doc-paths ["docs"]
           :output-path "target/docs"

@@ -13,7 +13,8 @@
     [george.javafx
      [java :as fxj]
      [util :as fxu]]
-    [george.util.javafx :as ufx])
+    [george.util.javafx :as ufx]
+    [clojure.string :as s])
   (:import
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Application Platform]
@@ -42,7 +43,8 @@
     [javafx.stage FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle Modality]
     [javafx.util Duration]
     [java.util Collection Optional]
-    [clojure.lang Atom]))
+    [clojure.lang Atom]
+    [javafx.fxml FXMLLoader]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -228,6 +230,15 @@ and the body is called on 'handle'"
     `(reify EventHandler (~'handle ~args-vec ~@body)))
 
 
+(defmacro ^EventHandler eventhandler
+  "Returns an instance of javafx.event.EventHander.
+   The the body is called on 'handle'.
+    'this' and 'event' are implicitly available in the body (similar to 'this' in clojure.core/proxy." 
+
+  [& body]
+  `(reify EventHandler (~'handle [~'this ~'event] ~@body)))
+
+
 (defn ^EventHandler ensure-handler [f]
   (if (instance? EventHandler f) f (event-handler (f))))
 
@@ -337,8 +348,56 @@ and the body is called on 'changed'"
 
 
 
-  
+(defn load-fxml [pth]
+  (.load (FXMLLoader. (cio/resource pth))))
 
+
+(defn lookup [node id]
+  "Similar to Node.lookup, but goes recursively through all children, and returns the first found or nil"
+  ;	(println "lookup  node:" node "  id:" id)
+  ;	(println "\t\tnode.id:" (.getId node) "  empty?:" (empty? (.getId node)))
+  ;	(println "\t\tnode.class.name:" (-> node class .getSimpleName ))
+  (let [
+         n-name
+         (-> node class .getSimpleName)
+         n-id
+         (.getId node)
+
+         [a b]
+         (s/split id #"#")
+         [a b]
+         [(if (empty? a) nil a) (if (empty? b) nil b)]]
+        ;			_ (println "[a b]:" [a b])
+        
+     (if  ;; does this match on tpe and id, or either?
+      (or
+        (and
+          (and a b)
+          (and
+            (= a n-name)
+            (= b n-id)))
+        (and
+          a
+          (not b)
+          (= a n-name))
+        (and
+          b
+          (= b n-id)))
+      ;; then return node
+      node
+      ;; else recur over its children, if parent, else nil
+      (first
+        (filter identity
+                (map
+                  (fn [c] (lookup c id))
+                  (concat
+                    (try (.getChildren node) (catch Exception e))
+                    (try (.getTabs node) (catch Exception e))
+                    (try (-> node .getContent .getChildren) (catch Exception e))
+                    (try (.getMenus node) (catch Exception e))
+                    (try (.getItems node) (catch Exception e)))))))))
+                       
+        
 
 ;(import
 ;  '[com.sun.javafx.util Logging]
@@ -824,14 +883,16 @@ and the body is called on 'changed'"
                     :padding 0
                     :alignment nil
                     :background nil})
+          padding (:padding kwargs) 
+          padding-seq (if (number? padding) [padding] padding)
           box
           (doto (if vertical?
                     (VBox. (:spacing kwargs) (fxj/vargs-t* Node nodes))
                     (HBox. (:spacing kwargs) (fxj/vargs-t* Node nodes)))
               (BorderPane/setMargin (insets (:insets kwargs)))
               (.setAlignment  (:alignment kwargs))
-              (.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
-
+              ;(.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
+              (-> (#(apply set-padding (cons % padding-seq)))))]
       (when-let [b (:background kwargs)]
           (set-background box b))
 
@@ -906,7 +967,7 @@ and the body is called on 'changed'"
         (types :information)))))
 
 
-(defn expandable-content [expand-prompt content & [font pref-width]]
+(defn expandable-content [^String content & [^Font font ^long pref-width]]
   ;; http://code.makery.ch/blog/javafx-dialogs-official/
   (let [ta
         (doto ^TextArea (textarea :text content :font font)
@@ -920,8 +981,7 @@ and the body is called on 'changed'"
     (doto (GridPane.)
       (.setMaxWidth Double/MAX_VALUE)
       (.setPrefWidth (or pref-width 800))
-      (.add (new-label expand-prompt) 0 0)
-      (.add ta 0 1))))
+      (.add ta 0 0))))
 
 
 (defn ^Alert alert [& args]
@@ -999,7 +1059,7 @@ and the body is called on 'changed'"
           (.setPreserveRatio preserveratio))]
 
     (when width (.setFitWidth iv (double width)))
-    (when height (.setFitheight iv (double height)))
+    (when height (.setFitHeight iv (double height)))
     iv))
 
 
