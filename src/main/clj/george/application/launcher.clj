@@ -139,12 +139,19 @@ Powered by open source software.")
                    res
                    (styled/new-heading (format "'%s' unloaded" (label)))))))
 
+        load-fn
+        (fn [] 
+          (future ;; avoid lag in button
+            (fx/later (main-wrapper #(styled/scrolling-widget (format "Loading %s ..." (label)))))
+            (Thread/sleep 200)  ;; enough time that the scroller will appear
+            (fx/later (main-wrapper main))))
+        
         tile
         (fx/vbox
 
           (doto (Button. nil (icon icon-width icon-width))
             (fx/set-tooltip (description))
-            (fx/set-onaction #(main-wrapper main))
+            (fx/set-onaction load-fn)
             (.setPrefWidth button-width)
             (.setPrefHeight button-width)
             (.setStyle (format "-fx-background-radius: %s;" arc))

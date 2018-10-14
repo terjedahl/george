@@ -16,8 +16,8 @@
     [javafx.scene Scene]
     [javafx.stage Stage]
     [javafx.scene.image Image]
-    (javafx.scene.control Hyperlink)
-    (javafx.scene.web WebView WebEvent)))
+    [javafx.scene.control Hyperlink ProgressIndicator]
+    [javafx.scene.web WebView WebEvent]))
 
 
 
@@ -27,6 +27,15 @@
 
 (defn new-label [s & {:keys [size] :or {size 16}}]
   (fx/new-label s :size size :color fx/GREY :font (fx/new-font "Roboto" size)))
+
+
+(defn scrolling-widget [& [txt]]
+  (fx/hbox
+    (doto (ProgressIndicator.) (.setMaxHeight 28.))
+    (new-label (or txt "Refreshing ..."))
+    :padding 10
+    :spacing 5
+    :alignment fx/Pos_CENTER))
 
 
 (defn padding [h]

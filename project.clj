@@ -7,7 +7,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
 
-  :dependencies [[org.clojure/clojure "1.9.0"]
+  :dependencies [[org.clojure/clojure "1.10.0-beta3"]
                  ;; https://github.com/clojure/core.async
                  [org.clojure/core.async "0.4.474"]
                  ;; https://github.com/clojure/tools.reader
@@ -44,6 +44,8 @@
                  [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                  ;; https://github.com/amalloy/ordered
                  [org.flatland/ordered "1.5.6"]]
+
+  :jar-exclusions [#".DS_Store"]
   
   :plugins [
             ;; https://github.com/weavejester/environ
