@@ -1,5 +1,5 @@
 
-(defproject no.andante.george/george-application  "2018.7-SNAPSHOT"
+(defproject no.andante.george/george-application  "2018.7"
 
   :description "George - Application"
   :url "https://bitbucket.org/andante-george/george-application"
@@ -45,7 +45,7 @@
                  ;; https://github.com/amalloy/ordered
                  [org.flatland/ordered "1.5.6"]]
 
-  :jar-exclusions [#".DS_Store"]
+  :jar-exclusions     [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
   
   :plugins [
             ;; https://github.com/weavejester/environ
