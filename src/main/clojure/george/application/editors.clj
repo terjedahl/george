@@ -23,50 +23,13 @@
     [george.util :as u]
     [george.util.file :as guf]
     [george.application.file :as gaf])
-
   (:import
-    [javafx.scene.control ToggleGroup ToggleButton ScrollPane$ScrollBarPolicy ScrollPane ContentDisplay SplitMenuButton]
-    [javafx.geometry Bounds Side]
-    [javafx.scene.shape Circle]
-    [javafx.scene.paint Color]
-    [java.nio.file Path]
-    (javafx.scene Node)))
+    [javafx.scene.control SplitMenuButton]
+    [javafx.geometry Side]
+    [javafx.scene.input KeyEvent]))
 
 
-(defonce editor-buttons_
-         ^{:doc "Maps ^Path-s to editor-buttons"}
-         (atom {}))
-
-
-(defonce current-editor-group_
-         ^{:doc "Holds map of relevant data for current-editor-group"}
-         (atom nil))
-
-
-;; https://stackoverflow.com/questions/12837592/how-to-scroll-to-make-a-node-within-the-content-of-a-scrollpane-visible#12840519
-(defn- ensure-scrolled-visible [^ScrollPane pane node]
-  (let [spacing 10
-        viewport-w (-> pane .getViewportBounds .getWidth)
-        content (.getContent pane)
-        content-w (->> content .getBoundsInLocal (.localToScene content) .getWidth)
-        
-        ^Bounds node-b-g (->> node .getBoundsInLocal (.localToScene node))
-        node-min-x-g (- (.getMinX node-b-g) spacing)
-        node-max-x-g (+ (.getMaxX node-b-g) spacing)
-        
-        delta 
-        (if (< node-min-x-g  0) 
-            ;(< node-max-x-g  0)  ;; scolls only if completely out of view
-          (/ (- node-min-x-g viewport-w) content-w)
-          (if (> node-max-x-g viewport-w) 
-              ;(> node-min-x-g viewport-w)  ;; scolls only if completely out of view
-            (/ (+ node-min-x-g viewport-w)  content-w)
-            0))]
-
-    (.setHvalue pane (+ (.getHvalue pane) delta))))
-
-
-(defn- save-to-swap-channel []
+(defn save-to-swap-channel []
   (let [c (chan (sliding-buffer 1))]  ;; we only need to run latest queued save-fn
     (go-loop []
              (<! (timeout 5000))  ;; wait 5 seconds before running next save-fn
@@ -92,6 +55,26 @@
   file-info_)
 
 
+(declare save-to-swap-maybe)
+
+
+(defn save
+  "If f
+    then rename f# to f.  (making f# disappear and f be overwritten by f#)
+    else (no f)  switch to save-as.
+  Returns f if save was ok, else nil.
+  "
+  [editor file-info_]
+  (save-to-swap-maybe editor file-info_)
+  ;(prn 'save)
+  (let [{:keys [saved? path swap-path]} @file-info_]
+    (if saved?
+      path
+      (when (gaf/save-swap-paths swap-path path)
+        (swap! file-info_ assoc :saved? true :swap-path nil)
+        path))))
+
+
 (defn save-to-swap
   "Returns the content that was saved.
   Does the actual save-to-swap - both for 'queue-save-to-swap' and before eval/run.
@@ -102,7 +85,7 @@
         p (or swap-path
               (.toPath (gaf/create-swap (.toFile path) (alert-on-missing-dir file-info_))))         
         content (ed/text editor)]
-    
+    ;(prn 'save-to-swap)    
     (if-not (gaf/swap-file-exists-or-alert-print (.toFile p) (alert-on-missing-swap file-info_))
       (set-alert-on-missing-swap file-info_ false)
       (do
@@ -114,9 +97,11 @@
           (oprintln :out "Swap file available:" (str p)))
 
         (set-alert-on-missing-dir file-info_ true)
-        (set-alert-on-missing-swap file-info_ true)))))
+        (set-alert-on-missing-swap file-info_ true)))
+
+    (save editor file-info_)))
   
-  
+
 (defn save-to-swap-maybe [editor file-info_]
   (when-not (:saved-to-swap? @file-info_)
     (save-to-swap editor file-info_)))
@@ -138,62 +123,7 @@
                          (queue-save-to-swap editor file-info_ save-chan))))))))
 
 
-(def tooltipf 
-  "      file:  %s
-     saved:  %s
- swap-file:  %s
-swap-saved:  %s")
-
-
-(defn- indicate
-  "Assembles the string shown in the editor tab.
-  Filename or '<no file>.  Appends '*' if not saved to named file.  Appends '#' if content not yet saved to swap-file."
-  [labeled {:keys [path swap-path saved-to-swap? saved?] :as info}]
-  (let [indication 
-        (format "%s %s%s"
-                (.getFileName path) 
-                (if-not saved? "*" "") 
-                (if-not saved-to-swap? "#" ""))
-
-        tooltip-str
-        (format tooltipf
-                path
-                (when (or path swap-path) saved?)
-                swap-path
-                (when swap-path saved-to-swap?))]
-
-    (.setText labeled indication)
-    (fx/set-tooltip labeled tooltip-str)))
-
-
-(defn- indicator
-  "Updates the file-name and status in the tab whenever file-info_ changes."
-  [labeled file-info_]
-  (indicate labeled @file-info_)
-  (add-watch file-info_ :indicator
-             (fn [_ _ _ file-info]
-               (fx/later (indicate labeled file-info)))))
-
-
-(defn- ^Node new-close-x []
-  (let [x-circle
-        (Circle. 8 8 8 Color/GAINSBORO)
-        x-pane
-        (fx/stackpane
-          x-circle
-          (fx/new-label "X" :size 10 :color Color/DIMGRAY :tooltip "Close editor"))]
-
-    (doto x-pane
-      (.setOnMouseExited (fx/event-handler (.setFill x-circle Color/GAINSBORO)))
-      (.setOnMouseEntered (fx/event-handler (.setFill x-circle Color/ORANGERED)))
-      (.setOnMousePressed
-        (fx/event-handler-2
-          [_ ev]
-          (let [button (-> ev .getSource .getParent)]
-            (.close button true)))))))
-
-
-(defn- new-file-info_ [path]
+(defn new-file-info_ [path]
   (->
     (atom {:path path
            :swap-path nil
@@ -203,13 +133,12 @@ swap-saved:  %s")
     (set-alert-on-missing-dir true)))
 
 
-(defn- new-editor-root 
-  "The layout that gets inserted into the details-area when the button is selected."
-  [editor file-info_ ns-str]
+;; TODO: memoize
+(defn- new-eval-bar [editor file-info_ ns-str]
   (let [
         ns-label
-        (input/ns-label)
-        
+        (styled/ns-label)
+
         update-ns-fn
         (input/set-ns-label-fn ns-label)
         _ (update-ns-fn ns-str)
@@ -219,206 +148,113 @@ swap-saved:  %s")
 
         eval-button
         (doto (SplitMenuButton.)
-          (.setText "Run")
+          (.setText "Load")
           (.setPrefWidth 130)
           (.setAlignment fx/Pos_CENTER)
           (.setPopupSide Side/TOP)
           (fx/set-tooltip
-            (format "Run code.   %s-R                  
-Load code.  %s-L (Similar to \"Run\", but silent.)" u/SHORTCUT_KEY u/SHORTCUT_KEY)))
-
-        bottom-menubar
+            (format "Load code: %s-L       (Silent)                     
+ Run code: %s-ENTER   (Verbose)" u/SHORTCUT_KEY u/SHORTCUT_KEY)))
+        
+        bar
         (layout/menubar false
                         ns-label
                         (fx/region :hgrow :always)
                         interrupt-button
                         eval-button)
-
         focusable
         (.getFlow editor)
-
-        do-eval-fn
+        
+        eval-fn
         (fn [load?]
-          (save-to-swap-maybe editor file-info_)
+          (save editor file-info_)
           (input/do-eval
             (ed/text editor)
             eval-button
             interrupt-button
             #(.getText ns-label)
             update-ns-fn
-            (.getFileName (:path @file-info_))
+            (str (.getFileName (:path @file-info_)))
             focusable
             nil
             load?))
 
-        root
-        (fx/borderpane
-          :center editor
-          :bottom bottom-menubar)]
-
+        do-eval-fn #(eval-fn false)
+        do-load-fn #(eval-fn true)]
+        
     (doto eval-button
-      (fx/set-onaction  #(do-eval-fn nil))
-      (-> .getItems (.addAll (fxj/vargs (layout/menu [:item "Load" #(do-eval-fn true)])))))
+      (fx/set-onaction  do-load-fn)
+      (-> .getItems (.addAll (fxj/vargs (layout/menu [:item "Run" do-eval-fn])))))
+
+    {:eval-bar bar
+     :do-eval-fn do-eval-fn
+     :do-load-fn do-load-fn
+     :do-interrupt-fn #(.fire interrupt-button)}))   
 
 
-    root))
+(defn- path-indicate [labeled file-info]
+  (let [path (:path file-info)]
+    (.setText labeled (str " " path " "))))
 
 
-(definterface IEditorButton3
-  (getFileInfoAtom [])
-  (getEditor [])
-  (rename [new_path])
-  (close [allow_save]))
-
-
-(defn- new-editor-button 
-  "new-editor-button extends ToggleButton implments IEditorButton"
-  [path togglegroup scrollpane container & {:keys [ns] :or {ns "user"}}]
-  
+(defn- new-editor-bar [editor file-info_]
   (let [
-        content
-        (slurp (.toFile path))
+        save-fn
+        #(save editor file-info_)
         
-        editor
-        (ed/editor-view content :clj)
+        path-label
+        (styled/path-label)
         
-        file-info_
-        (new-file-info_ path)
+        save-button
+        (styled/small-button "Save"
+                             :onaction save-fn
+                             :tooltip "Save unsaved changes to file.")
+        
+        bar
+        (layout/menubar true
+                        path-label
+                        save-button)]
 
-        save-chan 
-        (save-to-swap-channel)
+    (add-watch file-info_ :path-indicator 
+               #(fx/later (path-indicate path-label %4)
+                          (.setVisible save-button (not (:saved? %4)))))
 
-        button
-        (proxy [ToggleButton IEditorButton3] [(str (.getFileName path)) (new-close-x)] 
-          (fire []
-            (when (or (not (.getToggleGroup this)) (not (.isSelected this)))
-              (ensure-scrolled-visible  scrollpane this)
-              (proxy-super fire)))
-          (getFileInfoAtom [] file-info_)
-          (getEditor [] editor)
-          (rename [new-path]
-            (prn 'rename (str new-path))
-            (swap! editor-buttons_ assoc new-path this)
-            (swap! editor-buttons_ dissoc (:path @file-info_))
-            (swap! file-info_ assoc :path new-path :swap-path nil :saved? true :saved-to-swap? true)
-            (fx/later (.setText this (str (.getFileName new-path)))))
-              
-          (close [allow-save?]
-            (println " Do some work before closing button (saving and such) ...")
-            (let [box (.getParent this)]
-              (fx/set-onaction this #(do))
-              (.setCenter container (fx/new-label "No tab selected"))
-              (-> togglegroup .getToggles (.remove this))
-              (fx/remove box this)
-              (swap! editor-buttons_ dissoc (:path @file-info_)))))
-
-        editor-root
-        (new-editor-root editor file-info_ ns)]
-    
-    (state-listener editor button file-info_ save-chan)
-    (indicator button file-info_)
-
-    (doto button
-      (.setContentDisplay ContentDisplay/RIGHT)  
-      (.setGraphicTextGap 14)
-      (.setFocusTraversable false)
-      (.setToggleGroup togglegroup)
-      (fx/set-onaction #(.setCenter container editor-root)))
-
-    (swap! editor-buttons_ assoc path button)
-
-    button))
+    (path-indicate path-label @file-info_)
+    (.setVisible save-button false)
+                                                   
+    {:editor-bar bar
+     :do-save-fn save-fn}))
 
 
-(defn new-editors-root [& {:keys [ns with-one?]}]
+(defn new-editor-root 
+  "The layout that gets inserted into the details-area when the button is selected."
+  [editor file-info_ ns-str]
   (let [
-        togglegroup
-        (ToggleGroup.)
-      
-        container 
-        (fx/borderpane :center (fx/new-label "No tab selected"))
+        {:keys [editor-bar do-save-fn]}
+        (new-editor-bar editor file-info_)
         
-        buttonpane
-        (fx/hbox :padding 10 :spacing 10)
-
-        buttonscrollpane
-        (doto (fx/scrollpane buttonpane)
-          (.setHbarPolicy ScrollPane$ScrollBarPolicy/ALWAYS)  ;; TODO: Style away "arrows"
-          (.setVbarPolicy ScrollPane$ScrollBarPolicy/NEVER))
-
-        ;buttons
-        ;(map #(new-editor-button % togglegroup buttonscrollpane container)  (fx/names-list))
+        {:keys [eval-bar do-eval-fn do-load-fn do-interrupt-fn]}
+        (new-eval-bar editor file-info_ ns-str)
         
         root
         (fx/borderpane
-          :top
-          buttonscrollpane
-          :center
-          container)]
+          :top    editor-bar
+          :center editor
+          :bottom eval-bar)]
 
-    ;(apply fx/add-all (cons buttonpane buttons))
-    
-    (reset! current-editor-group_ 
-            {:buttonpane buttonpane
-             :buttonscrollpane buttonscrollpane
-             :togglegroup togglegroup
-             :container container})
+    ;; TODO: pass-in Node which event-filter should be attached.
+    ;; Alternatively, return event-filter which can be attached/un-attached ...
+    ;; Or something else ...?
+    (doto root
+      (.addEventFilter KeyEvent/KEY_PRESSED
+                       (fx/key-pressed-handler {
+                                                ;#{:O :SHORTCUT}        open-fn
+                                                #{:S :SHORTCUT}        do-save-fn
+                                                #{:L :SHORTCUT}        do-load-fn
+                                                #{:ENTER :SHORTCUT}    do-eval-fn
+                                                #{:ESCAPE :SHORTCUT}   do-interrupt-fn})))
     
     root))
-
-
-(defn- create-stage [& [with-one?]]
-  (fx/now
-    (->
-      (fx/stage
-        :title "Editor stage"
-        :oncloserequest  
-        #(do (singleton/remove ::editors-stage)
-             (reset! current-editor-group_ nil)
-             (reset! editor-buttons_ {}))
-        :tofront true
-        ;:alwaysontop true
-        :sizetoscene false
-        :scene (fx/scene (new-editors-root :with-one? with-one? :ns "user.turtle"))
-        :size [600 400])
-      styled/style-stage)))
-
-(defn get-or-create-stage [& [with-one?]]
-  (singleton/get-or-create ::editors-stage #(create-stage with-one?)))
-
-
-;;; Service ;;;
-
-
-
-(defn open-or-reveal
-  "Opens content of file in editor if not already open, else reveals the editor displaying the file."
-  [path]
-  (println "g.a.editors/open-or-reveal" path)
-  (if-let [button (@editor-buttons_ path)]
-    (let []
-      (println "editor found")
-      ;(prn 'button button)
-      (fx/later (.fire button)))
-    
-    (let [{:keys [togglegroup buttonpane buttonscrollpane container] :as bg} @current-editor-group_]
-      (if-not bg
-        (println "WARNING! No editors/@current-editor-group_")
-        (let [button (new-editor-button path togglegroup buttonscrollpane container)]
-          (fx/add buttonpane button)
-          (future
-            (Thread/sleep 200)
-            (fx/later (.fire button))))))))
-      
-
-(defn rename [old-path new-path]
-  (when-let [tab (@editor-buttons_ old-path)]
-    (.rename tab new-path)))
-
-
-(defn close [path save?]
-  (when-let [tab (@editor-buttons_ path)]
-    (.close tab save?)))
 
 
 ;;; DEV ;;;

@@ -11,44 +11,64 @@
     [george.javafx :as fx]
     [george.javafx.java :as fxj]
     [clj-diff.core :as diff]
-    [george.util :refer [->Labeled labeled?] :as gu] ;; This also loads defmethod diff/patch
-    [george.application.ui.layout :as layout]
+    [george.util :refer [->Labeled labeled? timeout] :as gu] ;; This also loads defmethod diff/patch
+    [george.util.text :refer [**]]
     [george.application.ui.styled :as styled]
     [hara.io.watch]
-    [hara.common.watch :as watch]
-    [george.application.editors :as editors])
+    [hara.common.watch :as watch])
   (:import
-    [java.io IOException]
+    [java.io IOException File]
     [java.nio.file Files Paths Path LinkOption StandardCopyOption NoSuchFileException]
-    [javafx.geometry Orientation Pos]
-    [javafx.scene Cursor SnapshotParameters]
-    [javafx.scene.control TreeView TreeItem TreeCell ScrollBar MenuItem ContextMenu]
-    [javafx.scene.input TransferMode ClipboardContent KeyEvent]
+    [javafx.geometry Pos]
+    [javafx.scene Cursor SnapshotParameters Node]
+    [javafx.scene.control TreeView TreeItem TreeCell MenuItem ContextMenu ComboBox Alert Button ListCell TextField]
+    [javafx.scene.input TransferMode ClipboardContent KeyEvent MouseButton MouseEvent DragEvent]
     [javafx.scene.paint Color]
     [javafx.util Callback]
-    [java.nio.file.attribute FileAttribute]))
+    [java.nio.file.attribute FileAttribute]
+    [javafx.beans.value ChangeListener]
+    [george.util Labeled]
+    [java.util List]))
+
+;(set! *warn-on-reflection* true)
+
 
 (def ILLEGAL_CHARS
   (set "<>*?:`'\"/|\\"))
 
 
-(defn illegal-chars [s]
+(def open-or-reveal_ (atom (fn [_] (println "WARNING! g.a.filetree/open-or-reveal_ not set!"))))
+(def rename-file_    (atom (fn [_ _] (println "WARNING! g.a.filetree/rename-file_ not set!"))))
+(def close-file_     (atom (fn [_ _] (println "WARNING! g.a.filetree/close-file_ not set!"))))
+
+
+(declare
+  lazy-filetreeitem
+  populate-dirs-combo
+  set-root)
+
+
+(definterface IRefreshable
+  (refresh []))
+
+
+(defn- illegal-chars [s]
   (filter ILLEGAL_CHARS (seq s)))
 
 
-(defn ^String filename [path]
+(defn- ^String filename [^Path path]
   (str (.getFileName path)))
 
 
-(defn to-path [s & args]
+(defn- to-path [s & args]
   (Paths/get s (into-array String args)))
 
 
-(defn to-string [path]
+(defn- to-string [^Path path]
   (-> path .toAbsolutePath str))
 
 
-(defn is-dir [path]
+(defn- is-dir [path]
   (Files/isDirectory path (make-array LinkOption 0)))
 
 
@@ -56,49 +76,86 @@
   (cs/lower-case (filename p)))
 
 
-(defn alphabetized [paths]
+(defn- alphabetized [paths]
   (sort-by filename-lowercased paths))
 
 
-(defn exists [path]
+(defn- exists [path]
   (Files/exists path (into-array [LinkOption/NOFOLLOW_LINKS])))
 
 
-(defn not-hidden [paths]
+(defn- not-hidden [paths]
   (filter #(not (Files/isHidden %)) paths))
 
 
-(defn not-special-hidden [paths]
+(defn- not-special-hidden [paths]
   (filter #(not= ".DS_Store" (filename %) ) paths))
 
 
 (defn- get-child-paths [parent-path & [include-hidden? include-special?]]
-  (->  parent-path
-       Files/newDirectoryStream
-       vec
-       (#(if include-hidden? 
-           (if include-special? 
-             (identity %)
-             (not-special-hidden %)) 
-           (not-hidden %)))
-       alphabetized))
+  ;(prn 'parent-path parent-path)
+  (if-not (is-dir parent-path)
+    []
+    (->  parent-path
+         Files/newDirectoryStream
+         vec
+         (#(if include-hidden? 
+             (if include-special? 
+               (identity %)
+               (not-special-hidden %)) 
+             (not-hidden %)))
+         alphabetized)))
+
+
+(defn- ^Path item->path [^TreeItem item]
+  (.getValue item))
 
 
 (defn- item->path->string [item]
-  (-> item .getValue to-string))
+  (-> item item->path to-string))
 
 
-(defn- treecell->path [treecell]
+(defn- treecell->path [^TreeCell treecell]
   (-> treecell .getTreeItem .getValue))
 
 
-;; TODO: better icons?
-(defn file-image [] 
+(defn- is-root [^TreeItem item]
+  ;; root has no parent
+  (-> item .getParent not))
+
+
+(defn- ^TreeView <-treeview 
+  "Helper function - for save extraction and type-hinting"
+  [state_]
+  (-> @state_ :treeview))
+
+
+(defn- <-root [state_]
+  (-> state_ <-treeview .getRoot))
+
+
+(defn- <-selected [state_]
+  (-> state_ <-treeview .getSelectionModel .getSelectedItem))
+
+
+
+(defn- file-image [] 
   (fx/imageview "graphics/file-16.png"))
-(defn file-clj-image []
+(defn- file-clj-image []
   (fx/imageview "graphics/file-clj-16.png"))
-(defn  folder-image [] 
+(defn-  folder-image [] 
   (fx/imageview "graphics/folder-16.png"))
+
+
+(defn- disclosure-node
+ ([expanded?]
+  (disclosure-node true expanded?))
+ ([dir? expanded? & [extra-padding-top]]
+  (when dir?
+    (let [n (fx/polygon 0 0  8 5  0 10 :fill Color/DARKSLATEGRAY :strokewidth 0)]
+      (when expanded? (.setRotate n 90))
+      (doto (fx/stackpane n) 
+        (fx/set-padding (+ 0 (or extra-padding-top 0)) 5 0 5))))))
 
 
 (defn- new-graphic [path]
@@ -109,9 +166,7 @@
       clj? (file-clj-image)
       :default
       (file-image))))
-        
 
-(declare lazy-filetreeitem)
 
 
 (defn- move-file [source-path target-path]
@@ -119,27 +174,37 @@
     (Files/move source-path
                 target-path
                 (fxj/vargs StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE))
-    (editors/rename source-path target-path)
+    (@rename-file_ source-path target-path)
     (catch IOException e (.printStackTrace e))))
 
 
-(defn- get-those-paths [event]
-  ;(to-path (.getString (.getDragboard event))))
+(defn- get-those-paths [^DragEvent event]
   (map #(.toPath %) 
        (-> event .getDragboard .getFiles)))
 
-(defn- will-receive? [this-path that-path]
-  (let [dir? (is-dir this-path)
-        that-parent (.getParent that-path)
-        same-parent? (try (Files/isSameFile this-path that-parent) (catch NoSuchFileException _ false))
-        same? (try (Files/isSameFile this-path that-path) (catch NoSuchFileException _ false))]
-    ;(println "  ##    this-path:" (to-string this-path))
-    ;(println "  ##         dir?:" dir?)
-    ;(println "  ##    that-path:" (to-string that-path))
-    ;(println "  ##  that-parent:" (to-string that-parent))
-    ;(println "  ## same-parent?:" same-parent?)
-    ;(println "  ##        same?:" same?)
-    (and dir? (not same-parent?) (not same?))))
+
+(defn- is-same [path1 path2]
+  (try (Files/isSameFile path1 path2) (catch NoSuchFileException _ false)))
+
+
+(defn- is-ancestor
+  "Returns true it 'path2' is an ancestor of 'path1'"
+  [path1 path2]
+  (loop [path path1]
+    (if-let [parent (.getParent path)]
+      (if (is-same parent path2)
+          true 
+          (recur parent))
+      false)))
+
+
+(defn- will-receive? 
+  "Returns true if 'path1' will receive 'path2'"
+  [path1 path2]
+  (and (is-dir path1) 
+       (not (is-same path1 path2)) 
+       (not (is-same path1 (.getParent path2)))  ;; prevent dropping into direct parent directory
+       (not (is-ancestor path1 path2))))  ;; prevent dropping into child directory
 
 
 (defn- colliding-path 
@@ -150,7 +215,7 @@
       (to-path (to-string this-path) p))))
 
 
-(defn warn-of-existing [path]
+(defn- warn-of-existing [path]
   (let [nam (filename path)
         par (to-string (.getParent path))
         dir? (is-dir path)]
@@ -181,19 +246,17 @@
   (every? true? (map #(will-receive-or-warn? this-path %) those-paths)))
 
 
-(defn mark-dropspot [treecell receiving?]
-  (let [w [1 0 1 0]]
+(defn- mark-dropspot [treecell receiving?]
+  (let [w [1 1 1 1]]
     (doto treecell
-      (.setBorder 
-        (fx/new-border (if receiving? Color/BLUE Color/TRANSPARENT) w)))))
+      (.setBorder (fx/new-border (if receiving? Color/GREEN Color/TRANSPARENT) w)))))
 
 
-(defn make-dropspot [treecell treeitem]
-  ;; TODO: Ensure that children are also "ghosted" when dragging
+(defn- make-dropspot [treecell treeitem]
   (mark-dropspot treecell false)
 
   (.setOnDragOver treecell
-    (fx/event-handler-2 [_ event] ;; DragEvent
+    (fx/new-eventhandler ;; DragEvent
       (let [this-path (.getValue treeitem)
             ;that-path (get-that-path event)
             those-paths (get-those-paths event)]
@@ -202,8 +265,7 @@
           ;(.consume event)))))
   
   (.setOnDragEntered treecell
-    (fx/event-handler-2 [_ event] ;; DragEvent
-      
+    (fx/new-eventhandler
       ;(prn 'db-ct (-> event .getDragboard .getContentTypes (.contains DataFormat/FILES)))
       ;(doseq [f (-> event .getDragboard .getFiles)]
       ;  (prn 'f f))
@@ -214,14 +276,13 @@
       (.consume event)))
 
   (.setOnDragExited treecell
-    (fx/event-handler-2 [_ event] ;; DragEvent
+    (fx/new-eventhandler ;; DragEvent
        ;(println "un-marking dir" (.getValue treeitem))
        (mark-dropspot treecell false)
        (.consume event)))
 
-  ;; TODO: make receiving folder selected in view
   (.setOnDragDropped treecell
-    (fx/event-handler-2 [_ event]
+    (fx/new-eventhandler
        (let [this-path (.getValue treeitem)
              those-paths (get-those-paths event)]
          (when (will-receive-all-or-warn? this-path those-paths)
@@ -236,26 +297,26 @@
   treecell)
 
 
-(defn make-draggable [treecell]
+(defn- make-draggable [treecell]
   (let [press-XY (atom nil)
         treeitem (.getTreeItem treecell)
         path (.getValue treeitem)]
     (doto treecell
       (.setOnMousePressed
-        (fx/event-handler-2 [_ me] (reset! press-XY (fx/XY me))))
+        (fx/new-eventhandler (reset! press-XY (fx/XY event))))
 
       ;(.setOnMouseDragged
       ;  (fx/event-handler-2 [_ me] (.consume me)))
 
       (.setOnDragDetected
-        (fx/event-handler-2 [_ me]
+        (fx/new-eventhandler
            ;(println "starting drag: " treecell)
            (let [db
                  (.startDragAndDrop treecell (fxj/vargs TransferMode/MOVE))
                  cc
                  (doto (ClipboardContent.) 
                        ;(.putString (to-string path))
-                       (.putFiles [(.toFile path)]))
+                       (.putFiles [(.toFile ^Path path)]))
 
                  [x y] @press-XY
                  [w h] (fx/WH treecell)
@@ -277,19 +338,18 @@
              (.setOpacity treecell 1.0)
 
              (.setContent db cc)
-             (.consume me))))
+             (.consume event))))
 
       (.setOnDragDone
-        (fx/event-handler-2 
-          [_ me]
+        (fx/new-eventhandler 
           (.setOpacity treecell 1.0)
           (.setCursor treecell Cursor/DEFAULT)
           ;(prn 'onDragDone me)
           ;(prn 'mode (.getTransferMode me))
-          (when (.getTransferMode me)
-            (try (.refresh (.getParent treeitem)) 
+          (when (.getTransferMode event)
+            (try (-> treeitem ^IRefreshable .getParent .refresh) 
                  (catch NullPointerException _)))
-          (.consume me))))))
+          (.consume event))))))
 
 
 (defn- set-context-menu [treecell]
@@ -298,32 +358,57 @@
           (into-array
             [(doto (MenuItem. "Refresh")
                    (fx/set-onaction
-                     #(-> treecell .getTreeItem .refresh)))]))             
+                     #(-> treecell ^IRefreshable .getTreeItem .refresh)))]))             
         
         cm-handler
-        (fx/event-handler-2 [_ e]
-                            (.show cm-dir treecell
-                                   (.getScreenX e)
-                                   (.getScreenY e)))]
+        (fx/new-eventhandler
+           (.show  cm-dir 
+                   ^Node treecell 
+                   ^double (.getScreenX event) 
+                   ^double (.getScreenY event)))]
     
     (when  (is-dir (treecell->path treecell))
         (.setOnContextMenuRequested treecell cm-handler))))
 
 
-(defn path-treecell
+(defn- set-dir 
+  "Sets the directory combo to the selected dir, and mounts the tree for the dir"
+  [state_ combo path watched_ watch-label]
+  (future
+    (fx/later
+      (populate-dirs-combo combo path)
+      (set-root state_ path watched_ watch-label)
+      (.requestFocus combo))))
+
+
+(defn- open [state_ combo watched_ watch-label]
+  (let [p (-> state_ <-selected item->path)]
+    (if (is-dir p)
+      (set-dir state_ combo p watched_ watch-label)
+      (do
+        (prn 'calling-open-on-file p)
+        (@open-or-reveal_ p)))))
+
+
+(defn- tooltip-str [^Path path]
+  (let [{:strs [size creationTime lastModifiedTime] :as attrs} 
+        (Files/readAttributes path "*" (make-array LinkOption 0))]
+    ;(prn attrs)
+    (format "path:     %s
+size:     %s bytes
+created:  %s
+modified: %s 
+    " (to-string path) size creationTime lastModifiedTime)))
+
+
+(defn- path-treecell
   "Returns a custom TreeCell.
   '->str' is optional 1-arg function which takes at item and returns a String."
   []
   (proxy [TreeCell] []
     ;; Override
-    (startEdit []
-      ;; Toggle start/cancel to allow for repeated triggers without leaving item.  (Trigger with)
-      (proxy-super startEdit)
-      (proxy-super cancelEdit)
-      (println "startEdit")
-      (let [path (treecell->path this)]
-        (when (-> path is-dir not)
-          (editors/open-or-reveal path))))
+    (startEdit [])
+    
     ;; Override
     (updateItem [^Path path empty?]
       (proxy-super updateItem path empty?)
@@ -334,20 +419,49 @@
           (fx/set-tooltip nil))
         ;; else
         (doto this
+          (.setDisclosureNode (disclosure-node (is-dir path) (-> this .getTreeItem .isExpanded) 5))
           (.setGraphic (new-graphic path))
           (.setText (filename path))
-          (fx/set-tooltip (to-string path))
+          (fx/set-tooltip (tooltip-str path))
           (make-draggable)
           (make-dropspot (.getTreeItem this))
           (set-context-menu))))))
             
 
-(defn path-treecell-factory
+(defn- path-treecell-factory
   "Returns a custom Callback."
   []
   (reify Callback
     (call [_ _]
       (path-treecell))))
+
+
+(defn- dir-combocell []
+  (let [;indent 15
+        indent 5]
+    (proxy [ListCell] []
+      ;; Override
+      (updateItem [^Labeled item is-empty]
+        (proxy-super updateItem item is-empty)
+        (if (or (nil? item) is-empty)
+          (doto this
+            (.setGraphic nil)
+            (.setText nil))
+          (let [{:keys [value ind]} item
+                label (filename value)
+                hbox (doto (fx/new-label nil :graphic (fx/hbox (disclosure-node true) (new-graphic value) :spacing 3)) 
+                           (fx/set-padding [0 0 0 (* ind indent)]))]
+            (doto this
+              (.setGraphic hbox)
+              (.setText (if (empty? label) "/" label)))))))))
+
+
+;; https://docs.oracle.com/javase/8/javafx/user-interface-tutorial/combo-box.htm
+(defn- ^Callback dir-combo-factory
+  []
+  (reify Callback
+    (call [_ _]
+      (dir-combocell))))
 
 
 (defn- refresh-item 
@@ -381,16 +495,14 @@
 (defn- set-children [treeitem path]
   (let [children (.getChildren treeitem)
         paths (get-child-paths path)]
-    (.setAll  children (fxj/vargs* (map #(lazy-filetreeitem %) paths)))))
+    ;(.setAll  children (fxj/vargs* (map #(lazy-filetreeitem %) paths)))
+    (.setAll children ^List (map #(lazy-filetreeitem %) paths))))
 
 
-(definterface IRefreshable
-  (refresh []))
-
-
-(defn lazy-filetreeitem [path]
+(defn- lazy-filetreeitem [path]
   (let [dir?  (is-dir path)
         get-children-called_  (atom false)     
+
         item
         (proxy [TreeItem IRefreshable] [path (if dir? (folder-image) (file-image))]
           ;; Override
@@ -404,35 +516,53 @@
             (proxy-super getChildren))
           ;; implement IRefreshable
           (refresh []
-            ;(prn 'refresh (to-string path))
             (when (and dir? @get-children-called_)
                   (refresh-item this))))]
     item))
 
 
-;; TODO: implement tooltip for files (path mod-date, etc.)
-;; TODO: implement context-menu on items (open/open in tab (for folders), edit, delete.
-
-
-(defn tree-root [^Path path]
+(defn- new-root [^Path path]
   (doto (lazy-filetreeitem path)
         (.setExpanded true)))
 
 
-(defn- tree-listener [current-item_]
-  (fx/changelistener [_ _ _ item]
-     (when item
-       (let [path (-> item .getValue)]
-         (reset! current-item_ item)
-         (if (is-dir path)
-           (println "DIR:" (filename path))
-           (println "FILE:" (filename path))))))) 
+(defn- tree-mousehandler [state_ combo watched_ watch-label]
+  (fx/new-eventhandler
+     (when (and (-> event .getButton (.equals MouseButton/PRIMARY))
+                (-> event .getClickCount (= 2)))
+         (open state_ combo watched_ watch-label)
+         (.consume event))))
 
 
-(defn- make-autoscrolling [treeview]
+(defn- tree-keyhandler [state_ combo watched_ watch-label]
+  (fx/key-pressed-handler
+    {
+     #{:SHORTCUT :ENTER}
+     (fx/new-eventhandler
+       (when (<-selected state_)                            
+         (open state_ combo watched_ watch-label)
+         (.consume event)))
+
+     #{:SHORTCUT :LEFT}
+     (fx/new-eventhandler
+        (when-let [item (<-selected state_)]
+          (when (-> item .getParent is-root)
+            (when-let [root-parent (-> item .getValue .getParent .getParent)]
+              (set-dir state_ combo root-parent watched_ watch-label)
+              (.consume event)))))}))
+
+
+(defn- ^ChangeListener tree-focuslistener [state_]
+  (fx/new-changelistener 
+     (when (and new-value ;; boolean
+                (not (<-selected state_)))
+       (-> state_ <-treeview .getSelectionModel .selectFirst))))
+
+
+(defn- make-autoscrolling [^TreeView treeview]
   (.setOnDragOver treeview
-    (fx/event-handler-2 [_ me]
-      (let [y (.getY me)
+    (fx/new-eventhandler 
+      (let [y (.getY event)
             bounds (.getBoundsInLocal treeview)
             h (.getHeight bounds)
             want-to-scroll? (not (< 50 y (- h 50)))
@@ -444,48 +574,60 @@
                     (.increment scrollbar))))))))
 
 
-(defn- set-watch [path current-watch_ root]
-  (when-let [f @current-watch_]
-    (watch/remove f f))
-  (reset! current-watch_ (.toFile path))
-  (watch/add
-    @current-watch_ ;; file
-    current-watch_ ;; use the atom itself as watch-key
-    (fn [_ _ _ v]
-      ;(prn 'v v)
-      (.refresh root))
-    {:types #{:create :modify :delete}
-     :recursive true
-     :exclude [".DS_Store"]}))
-
-
-(defn- filetree [^Path path current-item_ current-watch_]
-  (let [root (tree-root path)]
-    (reset! current-item_ root)
-    (set-watch path current-watch_ root)
+(defn- set-watch [state_ watched_ watch-label]
+  (future
+    (when-let [f @watched_]
+      (watch/clear f))
+    (fx/later (.setText watch-label "w?"))
     
-    (doto (TreeView. root)
-          (.setCellFactory (path-treecell-factory))
-          (make-autoscrolling)
-          (.setEditable true)
-          (-> .getSelectionModel 
-              .selectedItemProperty 
-              (.addListener (tree-listener current-item_))))))
+    (let [root (<-root state_)
+          file ^File (-> root item->path .toFile)
+          res    
+          (timeout 5000 ::timed-out
+                   (watch/add file :tree-root #(.refresh root) 
+                              {:types #{:create :modify :delete}
+                               :recursive true
+                               :exclude [".DS_Store"]
+                               :supress false}))]
+      
+      (reset! watched_ (when (not= res ::timed-out) res))
+      (fx/later (.setText watch-label (if (some? @watched_) "w" "!w"))))
+    
+    state_))
 
 
-(defn- set-filetree [borderpane path current-item_ current-watch_]
-  (.setCenter borderpane (filetree path current-item_ current-watch_)))
+(defn- ^TreeView new-treeview [state_ combo watched_ watch-label]
+  (let [treeview (TreeView.)]
+    (doto treeview
+      ;(.setShowRoot false)
+      (.setCellFactory (path-treecell-factory))
+      (make-autoscrolling)
+      (.setEditable true)
+      ;(-> .getSelectionModel .selectedItemProperty (.addListener (tree-listener current-item_)))
+      (.addEventFilter MouseEvent/MOUSE_CLICKED (tree-mousehandler state_ combo watched_ watch-label))
+      (.addEventFilter KeyEvent/KEY_PRESSED (tree-keyhandler state_ combo watched_ watch-label))
+      (-> .focusedProperty (.addListener (tree-focuslistener state_))))    
+
+    ;(set-watch state_ watched_ watch-label)
+    treeview))
 
 
-(defn- panel-folder [{:keys [label value]} borderpane current-item_ current-watch_]
-  ;(reset! current-item_ value)
-  (fx/new-label
-    label
-    :graphic (folder-image)
-    :mouseclicked #(set-filetree borderpane value current-item_ current-watch_)))
+(defn- set-root [state_ path watched_ watch-label]
+  (let [{:keys [empty-label treeview]} @state_
+        
+        root (new-root path)]
+    
+    (set-watch state_ watched_ watch-label)
+    
+    (doto treeview
+      (.setRoot root)
+      (.scrollTo 0))
+      ;(make-dropspot root))
+
+    (.setVisible empty-label (-> root .getChildren empty?))))               
 
 
-(defn delete-path 
+(defn- delete-path 
   "Deletes files and folders recursively."
   [path]
   (when (is-dir path)  
@@ -503,9 +645,9 @@
       1))
 
 
-(defn- delete-dialog [current-item_]
-  (let [
-        path (.getValue @current-item_)
+(defn- delete-dialog [state_]
+  (let [item (<-selected state_)
+        path  (item->path item)
         dir? (is-dir path)
         cnt (if dir? (dec (count-paths-recursively path)) 0)
         xff (if (= cnt 1) 
@@ -523,19 +665,21 @@
             (filename path)
             (if-not dir? "" (format "\n\n  It contains %s." xff))))]
             
-    (println res)    
+    ;(println res)    
     (when (= res 1)
-      (editors/close path false)
+      (@close-file_ path false)
       (delete-path path)
-      ;(Thread/sleep 200)  ;; Allow current-item_ to be updated
-      (-> @current-item_ .getParent .refresh))))
-      ;; TODO: In Java 9, we would prefer to use: moveToTrash(File f)
+      ;; TODO: In Java 9+, we would prefer to use: moveToTrash(File f)
       ;; https://docs.oracle.com/javase/9/docs/api/java/awt/Desktop.html#moveToTrash-java.io.File-
+      ;(Thread/sleep 200)  ;; Allow current-item_ to be updated
+      (-> item .getParent .refresh))))
 
 
-(defn new-rename-dialog [current-item_ new?]
-  (let [path
-        (.getValue @current-item_)
+(defn- new-rename-dialog [state_ new?]
+  (let [item  (or (<-selected state_)
+                  (<-root state_))
+        
+        path (item->path item)
         
         name
         (if new? "" (filename path))
@@ -579,7 +723,7 @@
           :padding 10)
         options [(if new? "Create" "Rename")]
 
-        alert
+        alert ^Alert
         (fx/alert
           :type :none
           :title (if new? "New file or folder" "Rename file or folder")
@@ -615,105 +759,181 @@
 
                 (fx/set-enable save-button (and new? legal?))))))]
     
-    (doto name-field   
+    (doto ^TextField name-field
       (.requestFocus)
       (.selectAll)
-      (-> .textProperty (.addListener (fx/changelistener [_ _ _ v] (do-checks)))))
+      (-> .textProperty (.addListener ^ChangeListener (fx/new-changelistener (do-checks)))))
 
     (when (fx/option-index (.showAndWait alert) options)
-      (println "new-rename-dialog res:" (.getText name-field))
+      ;(println "new-rename-dialog res:" (.getText name-field))
       (let [p (to-path parent-str (.trim (.getText name-field)))]
         (if new?
           (if (.isSelected folder-checkbox)
             (Files/createDirectory p (make-array FileAttribute 0))
             (do
               (Files/createFile p (make-array FileAttribute 0))
-              (editors/open-or-reveal p)))
+              (@open-or-reveal_ p)))
           ;; TODO: move file if not new?
           (move-file path p))
         ;; TODO: refresh folder in tree-view!
-        (-> @current-item_ .getParent .refresh)))))
+        (-> item .getParent .refresh)))))
 
 
-(defn- file-nav []
+(defn- path-label [i path]
+  (let [n (filename path)
+        n (if (empty? n) 
+            "/"             
+            n)]
+    (str (** i "    ") n)))
+
+
+(defn- populate-dirs-combo [^ComboBox combo ^Path path]
+  (let [paths
+        (->
+          (loop [res [path] path path]
+            (if-let [parent (.getParent path)]
+              (recur (conj res parent) parent)
+              res))
+          reverse)
+        labeled-paths 
+        (map-indexed #(assoc (->Labeled (path-label %1 %2) %2) :ind %1) paths)]
+    ;(pprint parents)
+    
+    (doto combo
+      ;(-> .getItems (.setAll (list (->Labeled (filename path) path))))
+      (-> .getItems (.setAll ^List labeled-paths))
+      (-> .getSelectionModel .selectLast))))
+
+
+
+(def default-state
+  {:treeview nil
+   :empty-label nil})
+
+
+(defn file-nav []
   (let [
-        current-item_ 
-        (atom nil)
-        current-watch_
-        (atom nil)
-
-        root
-        (fx/borderpane)
+        state_ (atom default-state)
         
-        specials 
-        [
-         (->Labeled "George" (to-path (env :user-home) "Documents" "George"))
-         (->Labeled "Desktop" (to-path (env :user-home) "Desktop"))
-         (->Labeled "Documents" (to-path (env :user-home) "Documents"))
-         (->Labeled "Home" (to-path (env :user-home)))]
-
-        panel
-        (apply 
-          fx/vbox
-          (concat
-            (map #(panel-folder % root current-item_ current-watch_) specials)
-            [:spacing 5          
-             :insets [5 20 5 20]]))    
+        watched_     (atom nil)
         
+        initial-path (to-path (env :user-home) "Documents" "George")
+        
+        dirs-combo   (ComboBox.)
+        
+        watch-label (doto (fx/new-label "." :color fx/ANTHRECITE :font 16)
+                          (fx/set-padding 5))
+        
+        treeview     (new-treeview state_ dirs-combo watched_ watch-label)
+        empty-label (fx/new-label "Empty" :font 24 :color Color/LIGHTGRAY)
+        treeview-layers (fx/stackpane treeview empty-label)
+
         new-button
-        (fx/button "New ..."
-                   :tooltip "Create a new file or folder in current folder"
-                   :onaction #(new-rename-dialog current-item_ true))
+        (styled/small-button "New"
+                             :tooltip "Create a new file or folder in current folder"
+                             :onaction #(new-rename-dialog state_ true))
 
         rename-button
-        (fx/button "Rename ..."
-               :tooltip "Rename selected file or folder"
-               :onaction #(new-rename-dialog current-item_ false))
-        
+        (styled/small-button "Rename"
+                             :tooltip "Rename selected file or folder"
+                             :onaction #(new-rename-dialog state_ false))
+
         delete-button
-        (fx/button "Delete ..."
-                   :tooltip "Delete selected file or folder"
-                   :onaction #(delete-dialog current-item_))
-        menubar
-        (layout/menubar 
-          true
-          new-button rename-button delete-button)
+        (styled/small-button "Delete"
+                             :tooltip "Delete selected file or folder"
+                             :onaction #(delete-dialog state_))
 
-        paths-set (set (map :value specials))]
+        refresh-button
+        (styled/small-button "R"
+                             :tooltip "Manually refresh file-tree"
+                             :onaction #(future (fx/later (-> state_  <-root .refresh))))
 
-    (add-watch current-item_ :file-nav 
-               #(do 
-                  ;(prn 'current-item_ (to-string (.getValue %4)))
-                  (doseq [b [rename-button delete-button]] 
-                    (.setDisable b (boolean (paths-set (.getValue %4)))))))
-                                    
-    (doto root
-      (.setTop menubar)
-      (.setLeft panel)
-      (set-filetree (-> specials first :value) current-item_ current-watch_))))
-     
+        location-bar
+        (fx/hbox dirs-combo watch-label refresh-button
+                 :padding 5 :spacing 5 :alignment fx/Pos_CENTER_LEFT)
+
+        button-bar
+        (fx/hbox new-button rename-button delete-button
+                 :padding 5 :spacing 5)
+        
+        dc-factory (dir-combo-factory)]
+
+    (swap! state_ assoc
+       :treeview treeview
+       :empty-label empty-label)
+
+    (doto dirs-combo
+      (.setButtonCell (.call dc-factory nil))
+      (.setCellFactory dc-factory)
+      (fx/set-tooltip "Open a parent folder")
+      (fx/set-onaction2
+        #(let [combo ^ComboBox (.getSource %2)
+               path (-> combo .valueProperty .getValue :value)]
+           ;(prn 'combo-event %2)
+           (.hide combo)
+           (set-dir state_ combo path watched_ watch-label)))
+      (.addEventFilter KeyEvent/KEY_PRESSED 
+                       (fx/key-pressed-handler 
+                         {#{:SPACE} 
+                          #(if (.isShowing dirs-combo) (.hide dirs-combo) (.show dirs-combo))}))
+      (populate-dirs-combo initial-path))
+    
+    (-> treeview .getSelectionModel .selectedItemProperty 
+        (.addListener ^ChangeListener
+          (fx/new-changelistener
+             (doseq [^Button button [rename-button delete-button]]
+               (.setDisable button (nil? new-value))))))
+
+    (set-root state_ initial-path watched_ watch-label)
+    
+    (doto (fx/borderpane)
+      ;; Set children in specific order to ensure correct focus traversal order
+      (.setTop location-bar)
+      (.setCenter treeview-layers)
+      (.setBottom button-bar))))
+
+
+(defn reveal
+  "Makes file visible and marked in  tree-view"
+  [path]
+  (println "NO IMPL: g.f.filetree/reveal" path))
+
 
 (defn stage [root]
   (let []
     (fx/later
-      (fx/stage
-        :title "File navigator"
-        :scene (fx/scene root)
-        :tofront true
-        ;:alwaysontop true
-        :size [500 500]
-        :sizetoscene false))))
+      (->
+        (fx/stage
+          :title "File navigator"
+          :scene (fx/scene root)
+          :tofront true
+          ;:alwaysontop true
+          :size [500 500]
+          :sizetoscene false)
+        styled/style-stage))))
 
 
-
-(defn reveal 
-  "Makes file visible and marked in  tree-view"
-  [path]
-  (println "g.f.filetree/reveal (not!)" path))  
+;;;; DEV
 
 
-;;; 
+;(when (env :repl?) (stage (file-nav)))
 
-;(when (env :repl?) (stage (file-nav))) 
 
+;; TODO: Pass more args around in "state_"
+
+;; TODO: Ensure that children are also "ghosted" when dragging
+;; TODO: Maybe implement context-menu on items (open/open in tab (for folders), edit, delete.
+
+;; TODO: Use graphic for watch-indicator (with tooltip)
+;; TODO: Make dirs-combo "small"
+;; TODO: memoize icon functions
+;; TODO: Better icons in tree and for buttons
+
+;; TODO: Re-implement watch-mechanism
+
+;; TODO: Make drag be able to drop in top-level (hidden root) Complicated?!  Re-organize to allow TreeView itself to handle all DnD ...?
+
+;; TODO: In Java 9+, we would prefer to use: moveToTrash(File f)
+
+;; TODO: Attach local "edit" [...] menu to each file item (copy/cut/paste/rename/delete)
 

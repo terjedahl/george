@@ -7,7 +7,7 @@
   (:require
     [clojure.string :as cs]
     [environ.core :refer [env]]
-    [george.javafx-init] ;; Important!
+    [george.javafx-init]                                    ;; Important!
     [george.javafx :as fx]
     [george.core.history :as hist]
     [george.application.repl :as repl]
@@ -17,7 +17,8 @@
     [george.util :as u]
     [george.application.eval :as eval]
     [george.editor.core :as ed]
-    [george.application.ui.layout :as layout])
+    [george.application.ui.layout :as layout]
+    [george.application.ui.styled :as styled])
   (:import
     [javafx.scene.input KeyEvent MouseEvent]
     [java.net SocketException]
@@ -105,10 +106,6 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" u/SHORTCUT_
     (.setDisable true)))
 
 
-(defn ns-label []
-  (fx/new-label nil
-     :style "-fx-font: 14 'Source Code Pro Medium'; -fx-text-fill: gray; -fx-padding: 3;"))
-
 
 (defn set-ns-label-fn [label]
   (fn [ns]
@@ -123,7 +120,7 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" u/SHORTCUT_
         current-history-index_ (atom -1)
 
         ns-label
-        (ns-label)
+        (styled/ns-label)
         update-ns-fn
         (set-ns-label-fn ns-label)
         _ (update-ns-fn (or ns "user"))

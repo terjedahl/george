@@ -333,7 +333,25 @@
 ;(prn (apply str (time (olist-diffpatch-test))))
 
 
-(defrecord Labeled [label value])
+(defrecord Labeled [label value]
+  Object
+  (toString [_] (str label)))
 
 (defn labeled? [inst]
-  (instance? Labeled inst))  
+  (instance? Labeled inst))
+
+
+(defn timeout*
+  "Same as 'timeout', but evaluates the passed-in function 'f'."
+  [timeout-ms timeout-val f]
+  (let [fut (future  (f))
+        ret (deref fut timeout-ms timeout-val)]
+    (when (= ret timeout-val)
+      (future-cancel fut))
+    ret))
+
+
+(defmacro timeout
+  "Returns the result of evaluating body, else returns timeout-val if timeout-ms passed."
+  [timeout-ms timeout-val & body]
+  `(timeout* ~timeout-ms ~timeout-val (fn [] ~@body)))

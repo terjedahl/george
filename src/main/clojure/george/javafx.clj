@@ -30,7 +30,7 @@
      ListView RadioButton
      TextField TextArea
      Tooltip
-     ScrollPane CheckBox ScrollBar]
+     ScrollPane CheckBox ScrollBar ListCell]
     [javafx.scene.image ImageView]
     [javafx.scene.input MouseEvent]
     [javafx.scene.layout
@@ -41,7 +41,7 @@
     [javafx.scene.text Font Text FontPosture FontWeight]
     [javafx.scene.shape Line Rectangle Polygon StrokeLineCap]
     [javafx.stage FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle]
-    [javafx.util Duration]
+    [javafx.util Duration Callback]
     [java.util Collection]
     [clojure.lang Atom]))
 
@@ -77,11 +77,12 @@
 (def GREY Color/GREY)
 
 
-
 (def Pos_TOP_LEFT Pos/TOP_LEFT)
 (def Pos_TOP_RIGHT Pos/TOP_RIGHT)
 (def Pos_TOP_CENTER Pos/TOP_CENTER)
 (def Pos_CENTER Pos/CENTER)
+(def Pos_CENTER_LEFT Pos/CENTER_LEFT)
+(def Pos_CENTER_RIGHT Pos/CENTER_RIGHT)
 (def VPos_TOP VPos/TOP)
 (def VPos_CENTER VPos/CENTER)
 
@@ -174,23 +175,20 @@ and the body is called on 'handle'"
     `(reify EventHandler (~'handle ~args-vec ~@body)))
 
 
+(defmacro ^EventHandler new-eventhandler
+  "Returns an instance of javafx.event.EventHander.
+Evaluates body in handle-method.  'this' and 'event' are implicitly."
+  [& body]
+  `(reify EventHandler (~'handle [~'this ~'event] ~@body)))
+
+
 (defn ensure-handler [f]
-  (if (instance? EventHandler f) f (event-handler (f))))
+  (if (instance? EventHandler f) f (new-eventhandler (f))))
 
 
 (defn ensure-handler2 [f]
-  (if (instance? EventHandler f) f (event-handler-2 [inst ev] (f inst ev))))
+  (if (instance? EventHandler f) f (event-handler-2 [this event] (f this event))))
 
-
-(defmacro ^ChangeListener changelistener
-    "Returns an instance of javafx.beans.value.ChangeListener,
-where args-vec is a vector of 4 elements  - naming the bindings for 'this', 'observable', 'old', 'new',
-and the body is called on 'changed'"
-    [args-vec & body]
-    (assert (vector? args-vec) "First argument must be a vector representing 4 args")
-    (assert (= 4 (count args-vec)) "args-vector must contain 4 elements - for binding 'this', 'observable', 'old', 'new'")
-    `(reify ChangeListener (~'changed ~args-vec
-                               ~@body)))
 
 
 ; (event-handler (println 1) (println 2)) ->
@@ -204,6 +202,21 @@ and the body is called on 'changed'"
 (comment macroexpand-1 '(event-handler-2 [t e]
                          (println 1)
                          (println 2)))
+
+
+(defmacro ^ChangeListener changelistener
+  "Returns an instance of javafx.beans.value.ChangeListener,
+where args-vec is a vector of 4 elements  - naming the bindings for 'this', 'observable', 'old', 'new',
+and the body is called on 'changed'"
+  [args-vec & body]
+  (assert (vector? args-vec) "First argument must be a vector representing 4 args")
+  (assert (= 4 (count args-vec)) "args-vector must contain 4 elements - for binding 'this', 'observable', 'old', 'new'")
+  `(reify ChangeListener (~'changed ~args-vec ~@body)))
+
+
+(defmacro ^ChangeListener new-changelistener
+  [& body]
+  `(reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body)))
 
 
 (defn children [^Parent parent]
@@ -467,7 +480,7 @@ Ensure that the passed-in stylesheet only contains font-info. Nothing else."
   (ListView. observable-list)))
 
 
-(defn find-scrollbar [view & [horizontal?]]
+(defn ^ScrollBar find-scrollbar [view & [horizontal?]]
   (let [nodes (.lookupAll view ".scroll-bar")]
     (first (filter #(and (instance? ScrollBar %)
                          (= (.getOrientation %) (if horizontal? HORIZONTAL VERTICAL)))
@@ -619,7 +632,7 @@ It must return a string (which may be wrapped to fit the width of the list."
      (set-stroke stroke))))
 
 
-(defn polygon
+(defn ^Polygon polygon
     [& args]
 
     (let [
@@ -685,13 +698,14 @@ It must return a string (which may be wrapped to fit the width of the list."
   clickable)
 
 
-(defn ^Button button [label & {:keys [onaction onaction2 width minwidth tooltip]}]
+(defn ^Button button [label & {:keys [onaction onaction2 width minwidth tooltip style]}]
     (let [b (Button. label)]
       (when width (.setPrefWidth  b (double width)))
       (when minwidth (.setMinWidth b  (double minwidth)))
       (when onaction (set-onaction b onaction))
       (when onaction2 (set-onaction2 b onaction2))
       (when tooltip (set-tooltip b tooltip))
+      (when style (.setStyle b style))
       b))
 
 
@@ -908,7 +922,7 @@ It must return a string (which may be wrapped to fit the width of the list."
       (.add ta 0 1))))
 
 
-(defn alert [& args]
+(defn ^Alert alert [& args]
   "Returns index of selected option, else nil.
   If :mode is nil, then returns the pre-shown dialog. You must then show it yourself, and process the results.
 
@@ -1190,3 +1204,16 @@ Example of codes-map:
                     (.handle v event)
                     (v))))))
 
+
+(defn ^Callback callback [f]
+  (reify Callback
+    (call [_ param]
+      (f param))))
+
+
+(defn listcell 
+  [f]
+  (proxy [ListCell] []
+    (updateItem [item is-empty]
+      (proxy-super updateItem item is-empty)
+      (f this item is-empty))))

@@ -23,7 +23,8 @@
     [george.application.file :as gaf]
     [clojure.java.io :as cio]
     [clojure.string :as cs]
-    [george.util :as u])
+    [george.util :as u]
+    [george.application.ui.styled :as styled])
 
   (:import
     [javafx.scene.control Tab TabPane SplitMenuButton]
@@ -314,7 +315,8 @@ Load code.  %s-L (Similar to \"Run\", but silent.)" u/SHORTCUT_KEY u/SHORTCUT_KE
         (input/interrupt-button)
 
         ns-label
-        (input/ns-label)
+        (styled/ns-label)
+
         update-ns-fn
         (input/set-ns-label-fn ns-label)
         _ (update-ns-fn (or ns "user"))
@@ -460,5 +462,5 @@ Load code.  %s-L (Similar to \"Run\", but silent.)" u/SHORTCUT_KEY u/SHORTCUT_KE
 
 ;;; DEV ;;;
 
-;(when (env :repl?) (println "WARNING: Running george/create-stage" (create-stage true)))
+;(when (env :repl?) (println "WARNING: Running george.editor/create-stage" (create-stage true)))
 

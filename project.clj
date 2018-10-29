@@ -46,8 +46,8 @@
                  [org.flatland/ordered "1.5.6"]
                  ;; https://github.com/zcaudate/hara
                  ;; http://docs.caudate.me/hara/hara-io-watch.html
-                 [zcaudate/hara.common.watch "2.8.2"]
-                 [zcaudate/hara.io.watch "2.8.2"]]
+                 [zcaudate/hara.common.watch "2.8.7"]
+                 [zcaudate/hara.io.watch "2.8.7"]]
   
   :plugins [
             ;; https://github.com/weavejester/environ

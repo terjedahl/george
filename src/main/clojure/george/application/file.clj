@@ -17,7 +17,7 @@
     [george.javafx.java :as fxj])
   (:import
     [java.io File IOException]
-    [java.nio.file Files  StandardCopyOption]))
+    [java.nio.file Files StandardCopyOption Path]))
 
 
 (def GEORGE_DOCUMENT_DIR
@@ -157,12 +157,19 @@
       false)))
 
 
+(defn save-swap-paths
+  "Renames the swapf to f. This results in f now containing the new content, and swap no longer existing.
+  Returns true if swap was successful, else false."
+  [^Path swapp ^Path p]
+  (if (swap-file-exists-or-alert-print (.toFile swapp) true)
+    ;(.renameTo swapf f) ;; doesn't work on Windows if file exists.
+    (try (boolean (Files/move swapp p (fxj/vargs StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE)))
+         (catch IOException e (.printStackTrace e)))
+    false))
+
+
 (defn save-swap
   "Renames the swapf to f. This results in f now containing the new content, and swap no longer existing.
   Returns true if swap was successful, else false."
   [^File swapf ^File f]
-  (if (swap-file-exists-or-alert-print swapf true)
-    ;(.renameTo swapf f) ;; doesn't work on Windows if file exists.
-    (try (boolean (Files/move (.toPath swapf) (.toPath f) (fxj/vargs StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE)))
-         (catch IOException e (.printStackTrace e)))
-    false))
+  (save-swap-paths (.toPath swapf) (.toPath f)))  
