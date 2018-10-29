@@ -53,8 +53,8 @@
       (println "ERROR: The applet's 'info' function could not be resolved!"))
     (catch Exception e
       (binding [*out* *err*] 
-        (println (format "WARNING: Loading namespace '%s' failed!" applet-ns))
-        (.printStackTrace e)))))
+        (println (format "WARNING: Loading namespace '%s' failed!" applet-ns))))))
+        ;(.printStackTrace e)))))
 
 
 ;(defn find-applets

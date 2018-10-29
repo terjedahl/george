@@ -1,5 +1,5 @@
 
-(defproject no.andante.george/george-application  "2018.7"
+(defproject no.andante.george/george-application  "2018.8-SNAPSHOT"
 
   :description "George - Application"
   :url "https://bitbucket.org/andante-george/george-application"
@@ -7,11 +7,12 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
 
-  :dependencies [[org.clojure/clojure "1.10.0-beta3"]
+  :dependencies [;; https://clojure.org/community/downloads
+                 [org.clojure/clojure "1.10.0-beta4"]
                  ;; https://github.com/clojure/core.async
                  [org.clojure/core.async "0.4.474"]
                  ;; https://github.com/clojure/tools.reader
-                 [org.clojure/tools.reader "1.1.1"]
+                 [org.clojure/tools.reader "1.3.0"]
                  ;; https://github.com/mmcgrana/clj-stacktrace
                  [clj-stacktrace "0.2.8"]
                  ;[leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
@@ -19,27 +20,27 @@
                  ;; https://github.com/clojure/tools.namespace
                  [org.clojure/tools.namespace "0.3.0-alpha4"]
                  ;; https://github.com/clojure/java.classpath
-                 [org.clojure/java.classpath "0.2.3"]
+                 [org.clojure/java.classpath "0.3.0"]
                  ;; https://github.com/cemerick/nREPL
-                 [nrepl "0.4.1"]
+                 [nrepl "0.4.5"]
                  ;; https://github.com/FXMisc/RichTextFX
-                 [org.fxmisc.richtext/richtextfx "0.9.0"]
+                 [org.fxmisc.richtext/richtextfx "0.9.1"]
                  ;; https://github.com/TomasMikula/Flowless
                  [org.fxmisc.flowless/flowless  "0.6.1"]
                  ;; https://github.com/droitfintech/clj-diff
                  [tech.droit/clj-diff "1.0.0"]
                  ;; https://github.com/clojure/core.rrb-vector
-                 [org.clojure/core.rrb-vector "0.0.11"]
+                 [org.clojure/core.rrb-vector "0.0.13"]
                  ;; https://github.com/clojure/data.json
                  [org.clojure/data.json "0.2.6"]
                  ;; https://github.com/weavejester/environ
                  [environ "1.1.0"]
                  ;; https://github.com/ztellman/potemkin
-                 [potemkin "0.4.4"]
+                 [potemkin "0.4.5"]
                  ;; https://github.com/clj-time/clj-time
-                 [clj-time "0.13.0"]
+                 [clj-time "0.15.0"]
                  ;; https://github.com/yogthos/markdown-clj
-                 [markdown-clj "1.0.2"]
+                 [markdown-clj "1.0.4"]
                  ;; https://github.com/alexander-yakushev/defprecated
                  [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                  ;; https://github.com/amalloy/ordered
@@ -53,7 +54,7 @@
             ;; https://github.com/weavejester/codox
             [lein-codox "0.10.3"]
             ;; https://github.com/technomancy/leiningen/tree/stable/lein-pprint
-            [lein-pprint "1.1.2"]]
+            [lein-pprint "1.2.0"]]
 
   :repositories [
                  ["jcenter" "https://jcenter.bintray.com"]] ;; apache.commons.io
