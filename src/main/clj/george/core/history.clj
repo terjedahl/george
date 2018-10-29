@@ -4,42 +4,55 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns
-  ^{:author "Terje Dahl"}
+  ^{:docs "Keeps track of \"Input\" history.  Also, persists state of editors et al."}
   george.core.history
-  (:require [clojure.java.io :as cio]
-            [clojure.edn :as edn]
-
-            [george.javafx.java :as j]
-            [george.util :as u]
-            [george.editor.core :as ed])
-
-  (:import (george.application Versions)
-           (java.util Date UUID)
-           (java.sql Timestamp)))
-
-
-(def HISTORY_FILE (cio/file Versions/APPDATA_DIR "repl" "history.edn"))
-(.mkdirs (.getParentFile HISTORY_FILE))
-;(println "HISTORY_FILE:" HISTORY_FILE)
+  (:require 
+    [clojure.java.io :as cio]
+    [clojure.edn :as edn]
+    [george.util :as u]
+    [george.util.file :as guf]
+    [george.editor.core :as ed])
+  (:import
+    [george.application Versions]
+    [java.util Date]
+    [java.sql Timestamp]
+    [java.io File]))
 
 
-(defonce ^:private history-atom (atom []))
-
-(defonce ^:private repls-nr-atom (atom 0))
-
-(defn next-repl-nr [] (swap! repls-nr-atom inc))
-
-(defn uuid [] (str (UUID/randomUUID)))
+(def history-file 
+  (memoize 
+    #(guf/ensure-dirs
+       (cio/file (Versions/appdataDir) "repl" "history.edn"))))
 
 
-(defn- load-history []
-  (when (.exists HISTORY_FILE)
-    (binding [*data-readers* {'inst clojure.instant/read-instant-timestamp}]
-      ;(println "reading history from file ...")
-      (reset! history-atom (edn/read-string (slurp HISTORY_FILE))))))
-      ;(println " ... done")
+(def open-files-file
+  (memoize
+    #(guf/ensure-dirs
+       (cio/file (Versions/appdataDir) "state" "open-files.edn"))))
 
-(load-history)
+
+(def NEXT 1)
+(def PREV -1)
+
+
+(defonce ^:private history_ (atom []))
+(defonce ^:private repls-nr_ (atom 0))
+
+
+(defn next-repl-nr [] 
+  (swap! repls-nr_ inc))
+
+
+(defn- do-load-history []
+  (let [f (history-file)]
+    (when (.exists f)
+      (binding [*data-readers* {'inst clojure.instant/read-instant-timestamp}]
+        (reset! history_ (-> f slurp  edn/read-string))))))
+      
+
+(defn- ensure-loaded-history []
+  (when-not @history_
+    (do-load-history)))
 
 
 (defn- prune [vec max]
@@ -51,43 +64,36 @@
 
 
 (defn append-history [repl-uuid content]
+  (ensure-loaded-history)
   (let [item {:repl-uuid repl-uuid
               :timestamp (Timestamp. (.getTime (Date.)))
               :content   content}]
         ;_ (println "item:" item)
-
-
-    (swap! history-atom #(-> % (prune 100) (conj item)))
+    (swap! history_ #(-> % (prune 100) (conj item)))
     (future
       ;(println "writing history to file ...")
-      (spit HISTORY_FILE (pr-str @history-atom)))))
+      (spit (history-file) (pr-str @history_)))))
       ;(println " ... done")
 
 
-
-
-(def NEXT 1)
-(def PREV -1)
-
-(defn do-history [code-area repl-uuid current-history-index-atom direction global?]
-  (let [
-        items-global
-        (reverse @history-atom)
+(defn do-history [code-area repl-uuid current-history-index_ direction global?]
+  (ensure-loaded-history)
+  (let [items-global
+        (reverse @history_)
 
         items
         (if global?
           items-global
           (filter #(= (:repl-uuid %) repl-uuid) items-global))
 
-        i (+ @current-history-index-atom (- direction))
+        i (+ @current-history-index_ (- direction))
         i (if (< i -1) -1 i)
         i (if (> i (count items)) (count items) i)
+        
         content
-        (if (and
-                (not (empty? items))
-                (not (< i 0))
-                (not (>= i (count items))))
-
+        (when (and (not (empty? items))
+                   (not (< i 0))
+                   (not (>= i (count items))))
             (:content (nth items i)))
 
         content
@@ -98,10 +104,19 @@
             (if (= (count items) (count items-global))
               ";; No more global history."
               ";; No more local history.\n;; To access global history use SHIFT-CLICK.")))]
-
-
-    (reset! current-history-index-atom i)
+    
+    (reset! current-history-index_ i)
     (doto code-area
       (ed/set-text content))))
 
 
+(defn set-open-files [paths]
+  (future
+    (spit (open-files-file) (pr-str {:open-files (vec paths)}))))
+
+
+(defn get-open-files [] 
+  (let [f ^File (open-files-file)]
+    (if (.exists f)
+      (-> f slurp edn/read-string :open-files)
+      [])))

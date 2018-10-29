@@ -8,6 +8,7 @@
     [environ.core :refer [env]]
     [george.javafx :as fx]
     [george.javafx.java :as fxj]
+    [george.core.history :as hist]
     [george.editor.core :as ed]
     [george.application.editors :as eds]
     [george.files.filetree :as filetree]
@@ -21,7 +22,9 @@
     [javafx.scene.shape Circle]
     [javafx.scene.input MouseEvent]
     [java.nio.file Path]
-    [javafx.util Callback]))
+    [javafx.util Callback]
+    [javafx.collections ListChangeListener]
+    [java.util List]))
 
 
 (def listview_ (atom nil))
@@ -153,7 +156,7 @@ swap-saved:  %s")
 (defn open-or-reveal
   "Opens content of file in editor if not already open, else reveals the editor displaying the file."
   [path]
-  (println (str *ns* "open-or-reveal") path)
+  (println (str *ns* "/open-or-reveal") (str path))
   (let [items (.getItems @listview_)
         item (->> items (filter #(= path (-> % :file-info_ deref :path)) ) first)]
     (if (nil? item) 
@@ -182,9 +185,20 @@ swap-saved:  %s")
     (.setOnMouseClicked opens (click-handler))
 
     (reset! listview_ opens)
-
+    
+    (-> opens .getItems (.addAll ^List (map #(file-item (filetree/to-path %)) (hist/get-open-files))))
+    
+    (-> opens .getItems (.addListener (reify ListChangeListener 
+                                        (onChanged [_ change]
+                                          (let [open-files 
+                                                (mapv (fn [item] (-> item :file-info_ deref :path filetree/to-string)) (.getList change))]
+                                            (doseq [f open-files]
+                                              (prn '-- f))
+                                            (hist/set-open-files open-files))))))
+    
     (future (Thread/sleep 200)
             (fx/later (.setDividerPosition splitpane 0 0.67)))
+
     splitpane))
 
 
@@ -201,7 +215,7 @@ swap-saved:  %s")
           (.setOrientation Orientation/HORIZONTAL))]
     
     (future (Thread/sleep 200)
-            (fx/later (.setDividerPosition splitpane 0 0.3)))
+            (fx/later (.setDividerPosition splitpane 0 0.4)))
     ;; set "services" for filetree
     (reset! filetree/open-or-reveal_ open-or-reveal)
     (reset! filetree/rename-file_ rename-file!)
@@ -211,6 +225,7 @@ swap-saved:  %s")
 
 
 (defn- new-stage []
+  (fx/init)
   (fx/now
     (->
       (fx/stage
@@ -231,4 +246,12 @@ swap-saved:  %s")
 
 ;;; DEV ;;;
 
-(when (env :repl?) (println "WARNING: Running george.files-editors/get-or-create-stage" (get-or-create-stage)))
+;(when (env :repl?) (println "WARNING: Running george.files-editors/get-or-create-stage" (get-or-create-stage)))
+
+
+;; TODO: Ensure that opened files exists, else mark (in red with message).
+;; TODO: Enable showing open file in filetree    
+;; TODO: Implement more sophisticated calculation for width of left pane (and height of bottom pane.)
+;; TODO: Implement storing state and selecting last selected file in editor.
+;; TODO: See about ns of file-item.
+;; TODO: DnD re-ordering of open files.  And also alfabetical ordering (non-destructive).

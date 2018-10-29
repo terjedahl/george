@@ -56,19 +56,19 @@
   (filter ILLEGAL_CHARS (seq s)))
 
 
-(defn- ^String filename [^Path path]
+(defn ^String filename [^Path path]
   (str (.getFileName path)))
 
 
-(defn- to-path [s & args]
+(defn to-path [s & args]
   (Paths/get s (into-array String args)))
 
 
-(defn- to-string [^Path path]
+(defn to-string [^Path path]
   (-> path .toAbsolutePath str))
 
 
-(defn- is-dir [path]
+(defn is-dir [path]
   (Files/isDirectory path (make-array LinkOption 0)))
 
 
@@ -147,7 +147,7 @@
   (fx/imageview "graphics/folder-16.png"))
 
 
-(defn- disclosure-node
+(defn disclosure-node
  ([expanded?]
   (disclosure-node true expanded?))
  ([dir? expanded? & [extra-padding-top]]
@@ -158,7 +158,7 @@
         (fx/set-padding (+ 0 (or extra-padding-top 0)) 5 0 5))))))
 
 
-(defn- new-graphic [path]
+(defn new-graphic [path]
   (let [dir? (is-dir path)
         clj? (.endsWith (filename path) ".clj")]
     (cond
@@ -252,7 +252,7 @@
       (.setBorder (fx/new-border (if receiving? Color/GREEN Color/TRANSPARENT) w)))))
 
 
-(defn- make-dropspot [treecell treeitem]
+(defn make-dropspot [treecell treeitem]
   (mark-dropspot treecell false)
 
   (.setOnDragOver treecell
@@ -297,7 +297,7 @@
   treecell)
 
 
-(defn- make-draggable [treecell]
+(defn make-draggable [treecell]
   (let [press-XY (atom nil)
         treeitem (.getTreeItem treecell)
         path (.getValue treeitem)]
@@ -352,7 +352,7 @@
           (.consume event))))))
 
 
-(defn- set-context-menu [treecell]
+(defn set-context-menu [treecell]
   (let [cm-dir
         (ContextMenu.
           (into-array
@@ -390,7 +390,7 @@
         (@open-or-reveal_ p)))))
 
 
-(defn- tooltip-str [^Path path]
+(defn tooltip-str [^Path path]
   (let [{:strs [size creationTime lastModifiedTime] :as attrs} 
         (Files/readAttributes path "*" (make-array LinkOption 0))]
     ;(prn attrs)
@@ -440,22 +440,22 @@ modified: %s
 (defn- dir-combocell []
   (eval
     `(let [;indent 15
-           indent 5]
+           indent# 5]
        (proxy [ListCell] []
          ;; Override
          (updateItem [^Labeled item# is-empty#]
            (proxy-super updateItem item# is-empty#)
            (if (or (nil? item#) is-empty#)
-             (doto this
+             (doto ~'this
                (.setGraphic nil)
                (.setText nil))
-             (let [{:keys [value ind]} item#
-                   label (filename value)
-                   hbox (doto (fx/new-label nil :graphic (fx/hbox (disclosure-node true) (new-graphic value) :spacing 3)) 
-                              (fx/set-padding [0 0 0 (* ind indent)]))]
+             (let [{:keys [~'value ~'ind]} item#
+                   label# (filename ~'value)
+                   hbox# (doto (fx/new-label nil :graphic (fx/hbox (disclosure-node true) (new-graphic ~'value) :spacing 3)) 
+                               (fx/set-padding [0 0 0 (* ~'ind indent#)]))]
                (doto ~'this
-                 (.setGraphic hbox)
-                 (.setText (if (empty? label) "/" label))))))))))
+                 (.setGraphic hbox#)
+                 (.setText (if (empty? label#) "/" label#))))))))))
 
 
 ;; https://docs.oracle.com/javase/8/javafx/user-interface-tutorial/combo-box.htm
@@ -921,22 +921,22 @@ modified: %s
 
 ;(when (env :repl?) (stage (file-nav)))
 
+;; TODO: Re-implement watch-mechanism
 
 ;; TODO: Pass more args around in "state_"
 
-;; TODO: Ensure that children are also "ghosted" when dragging
+;; TODO: Attach local "edit" [...] menu to each file item (copy/cut/paste/rename/delete)
 ;; TODO: Maybe implement context-menu on items (open/open in tab (for folders), edit, delete.
+
+;; TODO: Ensure that children are also "ghosted" when dragging
 
 ;; TODO: Use graphic for watch-indicator (with tooltip)
 ;; TODO: Make dirs-combo "small"
 ;; TODO: memoize icon functions
 ;; TODO: Better icons in tree and for buttons
 
-;; TODO: Re-implement watch-mechanism
-
 ;; TODO: Make drag be able to drop in top-level (hidden root) Complicated?!  Re-organize to allow TreeView itself to handle all DnD ...?
 
 ;; TODO: In Java 9+, we would prefer to use: moveToTrash(File f)
 
-;; TODO: Attach local "edit" [...] menu to each file item (copy/cut/paste/rename/delete)
 

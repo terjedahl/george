@@ -32,7 +32,7 @@ public class Versions {
 
     // user-home "~/AppData/George" or "~/Library/Application Support/George" or "~/.george/George"
 
-    public final static File APPDATA_DIR =
+    private final static File APPDATA_DIR =
             new File(
                     System.getProperty("user.home")
                             + SEP +
@@ -44,16 +44,20 @@ public class Versions {
                             +  SEP +
                             APP_NAME);
 
-    public static File APPJARS_DIR = new File( APPDATA_DIR + SEP + "appjars");
+    
+    private final static File APPJARS_DIR = 
+            new File( APPDATA_DIR + SEP + "appjars");
 
-
-
-    static {
+    
+    public static File appjarsDir () {
         APPJARS_DIR.mkdirs();  // make sure the directories are created!
-        System.out.println("APPJARS_DIR exists: " + APPJARS_DIR.exists());
-
+        return APPJARS_DIR;
     }
 
+    public static File appdataDir () {
+        APPDATA_DIR.mkdirs();  // make sure the directories are created!
+        return APPDATA_DIR;
+    }
 
 
     public static int compareVersions (String x, String y) {
