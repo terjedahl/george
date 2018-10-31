@@ -15,13 +15,15 @@
     [george.util.text :refer [**]]
     [george.application.ui.styled :as styled]
     [hara.io.watch]
-    [hara.common.watch :as watch])
+    [hara.common.watch :as watch]
+    [george.application.config :as conf]
+    [george.util.file :as guf :refer [filename ->path ->file visible? exists? parent]])
   (:import
     [java.io IOException File]
     [java.nio.file Files Paths Path LinkOption StandardCopyOption NoSuchFileException]
     [javafx.geometry Pos]
     [javafx.scene Cursor SnapshotParameters Node]
-    [javafx.scene.control TreeView TreeItem TreeCell MenuItem ContextMenu ComboBox Alert Button ListCell TextField]
+    [javafx.scene.control TreeView TreeItem TreeCell MenuItem ContextMenu ComboBox Button ListCell TextField]
     [javafx.scene.input TransferMode ClipboardContent KeyEvent MouseButton MouseEvent DragEvent]
     [javafx.scene.paint Color]
     [javafx.util Callback]
@@ -56,10 +58,6 @@
   (filter ILLEGAL_CHARS (seq s)))
 
 
-(defn ^String filename [^Path path]
-  (str (.getFileName path)))
-
-
 (defn to-path [s & args]
   (Paths/get s (into-array String args)))
 
@@ -80,12 +78,8 @@
   (sort-by filename-lowercased paths))
 
 
-(defn- exists [path]
-  (Files/exists path (into-array [LinkOption/NOFOLLOW_LINKS])))
-
-
 (defn- not-hidden [paths]
-  (filter #(not (Files/isHidden %)) paths))
+  (filter visible? paths))
 
 
 (defn- not-special-hidden [paths]
@@ -179,8 +173,7 @@
 
 
 (defn- get-those-paths [^DragEvent event]
-  (map #(.toPath %) 
-       (-> event .getDragboard .getFiles)))
+  (map ->path  (-> event .getDragboard .getFiles)))
 
 
 (defn- is-same [path1 path2]
@@ -316,7 +309,7 @@
                  cc
                  (doto (ClipboardContent.) 
                        ;(.putString (to-string path))
-                       (.putFiles [(.toFile ^Path path)]))
+                       (.putFiles [(->file path)]))
 
                  [x y] @press-XY
                  [w h] (fx/WH treecell)
@@ -548,7 +541,7 @@ modified: %s
      #{:SHORTCUT :LEFT}
      (fx/new-eventhandler
         (when-let [item (<-selected state_)]
-          (when (-> item .getParent is-root)
+          (when (-> item is-root) ;(-> item .getParent is-root)
             (when-let [root-parent (-> item .getValue .getParent .getParent)]
               (set-dir state_ combo root-parent watched_ watch-label)
               (.consume event)))))}))
@@ -583,7 +576,7 @@ modified: %s
     (fx/later (.setText watch-label "w?"))
     
     (let [root (<-root state_)
-          file ^File (-> root item->path .toFile)
+          file ^File (-> root item->path ->file)
           res    
           (timeout 5000 ::timed-out
                    (watch/add file :tree-root #(.refresh root) 
@@ -623,10 +616,8 @@ modified: %s
     
     (doto treeview
       (.setRoot root)
-      (.scrollTo 0))
-      ;(make-dropspot root))
-
-    (.setVisible empty-label (-> root .getChildren empty?))))               
+      (.scrollTo 0))))
+    ;(.setVisible empty-label (-> root .getChildren empty?))))               
 
 
 (defn- delete-path 
@@ -678,22 +669,23 @@ modified: %s
 
 
 (defn- new-rename-dialog [state_ new?]
-  (let [item  (or (<-selected state_)
-                  (<-root state_))
+  (let [item  (or (<-selected state_) (<-root state_))
         
         path (item->path item)
         
         name
-        (if new? "" (filename path))
+        (if new? 
+          (format "file%s%s.clj" (rand-int 10) (rand-int 10)) 
+          (filename path))
         
         parent-path
         (if new?
-            (if (is-dir path) path (.getParent path))
-            (.getParent path))
-        
+            (if (is-dir path) path (parent path))
+            (parent path))
+
         parent-str
         (str (to-string parent-path) "/")
-
+ 
         len (if new? 15 (.length name))
         len (if (< len 15) 15 len)
               
@@ -725,7 +717,7 @@ modified: %s
           :padding 10)
         options [(if new? "Create" "Rename")]
 
-        alert ^Alert
+        alert
         (fx/alert
           :type :none
           :title (if new? "New file or folder" "Rename file or folder")
@@ -748,7 +740,7 @@ modified: %s
               (fx/set-enable save-button false)
               (let [p (to-path parent-str n)
                     ;; Does an existing file/folder exist?
-                    new? (not (exists p))
+                    new? (not (exists? p))
                     ;; Is the path legal?  (no bad chars etc)
                     illegals (illegal-chars n)
                     legal? (nil? (first illegals))]
@@ -763,7 +755,7 @@ modified: %s
     
     (doto ^TextField name-field
       (.requestFocus)
-      (.selectAll)
+      (.selectRange 0 (if new? 6 (count name)))
       (-> .textProperty (.addListener ^ChangeListener (fx/new-changelistener (do-checks)))))
 
     (when (fx/option-index (.showAndWait alert) options)
@@ -793,7 +785,7 @@ modified: %s
   (let [paths
         (->
           (loop [res [path] path path]
-            (if-let [parent (.getParent path)]
+            (if-let [parent (parent path)]
               (recur (conj res parent) parent)
               res))
           reverse)
@@ -819,7 +811,7 @@ modified: %s
         
         watched_     (atom nil)
         
-        initial-path (to-path (env :user-home) "Documents" "George")
+        initial-path (->path (conf/documents-dir))
         
         dirs-combo   (ComboBox.)
         
@@ -827,7 +819,7 @@ modified: %s
                           (fx/set-padding 5))
         
         treeview     (new-treeview state_ dirs-combo watched_ watch-label)
-        empty-label (fx/new-label "Empty" :font 24 :color Color/LIGHTGRAY)
+        empty-label  (doto (fx/new-label "Empty" :font 24 :color Color/LIGHTGRAY) (.setVisible false))
         treeview-layers (fx/stackpane treeview empty-label)
 
         new-button
@@ -925,6 +917,8 @@ modified: %s
 
 ;; TODO: Pass more args around in "state_"
 
+;; TODO: new file and new folder should be separate dialogs - and default name and marking should be different.
+
 ;; TODO: Attach local "edit" [...] menu to each file item (copy/cut/paste/rename/delete)
 ;; TODO: Maybe implement context-menu on items (open/open in tab (for folders), edit, delete.
 
@@ -939,4 +933,5 @@ modified: %s
 
 ;; TODO: In Java 9+, we would prefer to use: moveToTrash(File f)
 
+;; TODO: Ensure newly created file is marked (and opened)
 

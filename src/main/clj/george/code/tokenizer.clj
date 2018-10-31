@@ -4,22 +4,17 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns george.code.tokenizer
-    (:require
+  (:require
+    [clojure.core.async :refer [go thread chan >! >!! <! <!! go-loop]]
+    [clojure.tools.reader.impl.commons :refer [number-literal? match-number parse-symbol read-past skip-line]]
 
-        [clojure.core.async :refer [go thread chan >! >!! <! <!! go-loop]]
+    [clojure.repl :refer [doc]]
+    [clojure.pprint :refer [pp pprint]]
 
-        [clojure.tools.reader.impl.commons :refer
-         [number-literal? match-number parse-symbol read-past skip-line]]
-
-        [clojure.repl :refer [doc]]
-        [clojure.pprint :refer [pp pprint]]
-
-        [clojure.java.io :as cio])
-    (:import (clojure.lang LineNumberingPushbackReader)))
-
-
-
-
+    [clojure.java.io :as cio])
+  (:import 
+    [clojure.lang LineNumberingPushbackReader]
+    [java.io StringReader]))
 
 
 (declare
@@ -56,7 +51,7 @@
 (defn indexing-pushback-stringreader [s]
     (let [indx (atom 0) s-len (. s length)]
         (proxy [LineNumberingPushbackReader
-                IIndex] [(java.io.StringReader. s)]
+                IIndex] [(StringReader. s)]
             (read []
                 (if (< @indx s-len)
                     (do

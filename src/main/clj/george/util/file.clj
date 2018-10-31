@@ -8,22 +8,34 @@
     [clojure.java.io :as cio])
   (:import
     [java.io File]
-    [java.nio.file Files]))
+    [java.nio.file Files LinkOption Path]))
 
 
-(defn ^File user-documents
- ([]
-  (let [user-home (System/getProperty "user.home")
-        dir (cio/file  user-home "Documents")  ;; Windows now uses "Documents"
-        dir (if (.exists dir) dir
-                              (user-documents "My Documents"))]  ;; In case older installation
-    (if (.exists dir) dir
-                      (user-documents ""))))  ;; OK. Lets go with naked user-dir
- ([name]
-  (cio/file (System/getProperty "user.home") name)))
+(defprotocol FileOrPath
+  (parent [p]))
+
+(extend-protocol FileOrPath
+  File
+  (parent [f] (.getParentFile f))
+  Path
+  (parent [p] (.getParent p)))
 
 
-(def USER_DOCUMENTS (user-documents))
+(defn ^Boolean exists? [^Path path]
+  (Files/exists path (into-array [LinkOption/NOFOLLOW_LINKS])))
+
+
+(defn ^Boolean hidden? [^Path path]
+  (Files/isHidden path))
+
+
+(defn ^Boolean visible? [^Path path]
+  (not (hidden? path)))
+
+
+(defn ^String filename [^Path path]
+  (str (.getFileName path)))
+
 
 
 (defn ^File parent-dir
@@ -32,7 +44,7 @@
   (.getParentFile f))
 
 
-(defn ^Boolean create-dirs
+(defn ^Boolean create-dir
   "Returns true if any parent dirs were created."
   [^File f]
   (-> f .getParentFile .mkdirs))
@@ -44,16 +56,44 @@
   (.createNewFile f))
 
 
-(defn ^File ensure-dirs
-  "Returns the file, creating any dirs if necessary."
+(defn ^Boolean create-parent-dir
+  "Returns true if any parent dirs were created"
   [^File f]
-  (doto f (create-dirs)))
+  (-> f .getParentFile .mkdirs))
+
+
+(defn ^Boolean create-dir
+  "Returns true if dir or parent dirs were created"
+  [^File dir]
+  (.mkdirs dir))
+
+
+(defn ^File ensure-parent-dir
+  "Returns the file, creating any parent dirs if necessary."
+  [^File f]
+  (doto f (create-parent-dir)))
+
+
+(defn ^File ensure-dir
+  "Returns the dir, creating it and any parent dirs if necessary."
+  [^File dir]
+  (doto dir  (create-dir)))
 
 
 (defn ^File ensure-file
-  "Returns the file, creating any dirs and he file itself if necessary."
+  "Returns the file, creating any parent dirs and the file itself if necessary."
   [^File f]
-  (doto f (ensure-dirs) (create-file)))
+  (doto f 
+    (ensure-parent-dir) 
+    (create-file)))
+
+
+(defn ^Path ->path [^File f]
+  (.toPath f))
+
+
+(defn ^File ->file [^Path p]
+  (.toFile p))
 
 
 (defn delete-file

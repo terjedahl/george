@@ -248,10 +248,10 @@ swap-saved:  %s")
 
 ;(when (env :repl?) (println "WARNING: Running george.files-editors/get-or-create-stage" (get-or-create-stage)))
 
-
 ;; TODO: Ensure that opened files exists, else mark (in red with message).
 ;; TODO: Enable showing open file in filetree    
 ;; TODO: Implement more sophisticated calculation for width of left pane (and height of bottom pane.)
 ;; TODO: Implement storing state and selecting last selected file in editor.
 ;; TODO: See about ns of file-item.
-;; TODO: DnD re-ordering of open files.  And also alfabetical ordering (non-destructive).
+;; TODO: DnD re-ordering of open files.  And also alphabetical ordering (non-destructive).
+

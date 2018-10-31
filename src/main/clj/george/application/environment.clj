@@ -23,8 +23,7 @@
 
   (:import
     [javafx.scene Node]
-    [javafx.scene.control SplitPane]
-    [javafx.stage Stage]))
+    [javafx.scene.control SplitPane]))
 
 
 ;(set! *warn-on-reflection* true)

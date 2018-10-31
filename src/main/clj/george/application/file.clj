@@ -11,6 +11,7 @@
     [clojure.java.io :as cio]
     [george.javafx :as fx]
     [george.util.file :as guf]
+    [george.application.config :as conf]
     [george.util.time :as t]
     [george.application.output :refer [oprintln]]
     [george.application.launcher :as appl]
@@ -21,7 +22,7 @@
 
 
 (def GEORGE_DOCUMENT_DIR
-  (cio/file guf/USER_DOCUMENTS "George"))
+  (conf/documents-dir))
 
 
 (def TEMP_SWAP_DIR
@@ -45,7 +46,7 @@
 
 (defonce clj-filechooser
          (doto (apply fx/filechooser (fx/filechooser-filters-clj))
-               (.setInitialDirectory guf/USER_DOCUMENTS)))
+               (.setInitialDirectory (conf/documents-dir))))
 
 
 (defn select-file-for-open
@@ -57,7 +58,7 @@
                (try (.showOpenDialog fc owner)
                     (catch IllegalArgumentException e
                            (show-something-missing-alert :folder)
-                           (.setInitialDirectory fc guf/USER_DOCUMENTS)
+                           (.setInitialDirectory fc (conf/documents-dir))
                            (select-file-for-open)))]
       ;; leave the filechooser in a useful location
       (.setInitialDirectory clj-filechooser (.getParentFile f))
@@ -74,7 +75,7 @@
                (try (.showSaveDialog fc owner)
                     (catch IllegalArgumentException e
                       (show-something-missing-alert :folder)
-                      (.setInitialDirectory fc guf/USER_DOCUMENTS)
+                      (.setInitialDirectory fc (conf/documents-dir))
                       (create-file-for-save)))]
 
       (.setInitialDirectory clj-filechooser (.getParentFile f))

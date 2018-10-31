@@ -6,29 +6,29 @@
 (ns
   ^{:docs "Keeps track of \"Input\" history.  Also, persists state of editors et al."}
   george.core.history
-  (:require 
+  (:require
     [clojure.java.io :as cio]
     [clojure.edn :as edn]
     [george.util :as u]
     [george.util.file :as guf]
-    [george.editor.core :as ed])
+    [george.editor.core :as ed]
+    [george.application.config :as conf])
   (:import
-    [george.application Versions]
     [java.util Date]
     [java.sql Timestamp]
     [java.io File]))
 
 
 (def history-file 
-  (memoize 
-    #(guf/ensure-dirs
-       (cio/file (Versions/appdataDir) "repl" "history.edn"))))
+  (memoize
+    #(guf/ensure-parent-dir
+       (cio/file (conf/appdata-dir) "repl" "history.edn"))))
 
 
 (def open-files-file
   (memoize
-    #(guf/ensure-dirs
-       (cio/file (Versions/appdataDir) "state" "open-files.edn"))))
+    #(guf/ensure-parent-dir
+       (cio/file (conf/appdata-dir) "state" "open-files.edn"))))
 
 
 (def NEXT 1)

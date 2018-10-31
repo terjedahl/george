@@ -7,12 +7,12 @@
   george.util
   (:require
     [clojure.pprint :refer [pprint]]
-    [clojure.core.rrb-vector :as fv] 
+    [clojure.core.rrb-vector :as fv]
     [clj-diff.core :as diff]
-    [clojure.pprint :as cpp])
+    [clojure.pprint :as cpp]
+    [george.application.config :as conf])
   (:import 
     [java.util UUID Collection]
-    [java.io File]
     [clojure.lang PersistentVector]
     [clojure.core.rrb_vector.rrbt Vector]  ;; Java package/class must be with underscore
     [javafx.collections ObservableList]))
@@ -35,28 +35,7 @@
   (str (UUID/randomUUID)))
 
 
-;; from Versions.java in george-client
-(def IS_MAC  (-> (System/getProperty "os.name") .toLowerCase (.contains "mac")))
-
-(def IS_WINDOWS (-> (System/getProperty "os.name") .toLowerCase (.contains "windows")))
-
-
-(def SEP File/separator)
-(def PSEP File/pathSeparator)
-
-
-(def SHORTCUT_KEY (if IS_MAC "CMD" "CTRL"))
-
-
-;(defn clamp
-;  "low and high (both inclusive)"
-;  [low  x  high]
-;  ;(println "::clamp" low x high)
-;  (if (< x low)
-;      low
-;      (if (> x high)
-;        high
-;        x)))
+(def SHORTCUT_KEY (if (conf/macos?) "CMD" "CTRL"))
 
 
 (defn clamp-int

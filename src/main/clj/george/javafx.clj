@@ -19,10 +19,10 @@
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Application Platform]
     [javafx.beans.value ChangeListener WritableValue]
-    [javafx.collections FXCollections]
+    [javafx.collections FXCollections ObservableList]
     [javafx.event EventHandler]
     [javafx.geometry Insets Pos VPos Side Orientation]
-    [javafx.scene Group Node Parent Scene]
+    [javafx.scene Group Node Scene]
     [javafx.scene.control
      Alert Alert$AlertType
      Button ButtonType ButtonBar$ButtonData
@@ -32,7 +32,7 @@
      Tooltip
      ScrollPane CheckBox ScrollBar]
     [javafx.scene.image ImageView]
-    [javafx.scene.input MouseEvent]
+    [javafx.scene.input MouseEvent KeyEvent]
     [javafx.scene.layout
      BorderPane HBox Priority Region StackPane VBox
      Border
@@ -42,7 +42,7 @@
     [javafx.scene.shape Line Rectangle Polygon StrokeLineCap]
     [javafx.stage FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle Modality]
     [javafx.util Duration]
-    [java.util Collection Optional]
+    [java.util Collection Optional List]
     [clojure.lang Atom]
     [javafx.fxml FXMLLoader]))
     
@@ -274,12 +274,12 @@ and the body is called on 'changed'"
   `(reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body)))
 
 
-(defn children [^Parent parent]
+(defn children [parent]
   (.getChildren parent))
 
 
-(defn children-set-all [^Parent parent children]
-  (.setAll (.getChildren parent) children))
+(defn children-set-all [parent children]
+  (.setAll ^ObservableList (.getChildren parent) ^List children))
 
 
 (defn XY [item]
@@ -400,11 +400,11 @@ and the body is called on 'changed'"
                 (map
                   (fn [c] (lookup c id))
                   (concat
-                    (try (.getChildren node) (catch Exception e))
-                    (try (.getTabs node) (catch Exception e))
-                    (try (-> node .getContent .getChildren) (catch Exception e))
-                    (try (.getMenus node) (catch Exception e))
-                    (try (.getItems node) (catch Exception e)))))))))
+                    (try (.getChildren node) (catch Exception _))
+                    (try (.getTabs node) (catch Exception _))
+                    (try (-> node .getContent .getChildren) (catch Exception _))
+                    (try (.getMenus node) (catch Exception _))
+                    (try (.getItems node) (catch Exception _)))))))))
                        
         
 
@@ -893,6 +893,7 @@ and the body is called on 'changed'"
      (if (vector? v)
          (insets* v)
          (Insets. v)))
+  
     ([top right bottom left]
      (insets* [top right bottom left])))
 
@@ -905,27 +906,32 @@ and the body is called on 'changed'"
 
 
 (defn box [vertical? & args]
-    (let [
-          [nodes kwargs]
-          (fxu/partition-args
-              args {:spacing 0
-                    :insets 0
-                    :padding 0
-                    :alignment nil
-                    :background nil})
+    (let [[nodes kwargs] (fxu/partition-args
+                             (filter some? args) 
+                             {:spacing 0
+                              :insets 0
+                              :padding 0
+                              :alignment nil
+                              :background nil})
+          
           padding (:padding kwargs) 
-          padding-seq (if (number? padding) [padding] padding)
-          box
-          (doto (if vertical?
-                    (VBox. (:spacing kwargs) (fxj/vargs-t* Node nodes))
-                    (HBox. (:spacing kwargs) (fxj/vargs-t* Node nodes)))
-              (BorderPane/setMargin (insets (:insets kwargs)))
-              (.setAlignment  (:alignment kwargs))
-              ;(.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
-              (-> (#(apply set-padding (cons % padding-seq)))))]
-      (when-let [b (:background kwargs)]
-          (set-background box b))
+      
+          box (if vertical?
+                (VBox. (:spacing kwargs) (into-array Node nodes))
+                (HBox. (:spacing kwargs) (into-array Node nodes)))]
+          
+      (doto box
+          (BorderPane/setMargin (insets (:insets kwargs)))
+          (.setAlignment  (:alignment kwargs)))
+      
+      ;(.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
+      (if (number? padding)
+          (set-padding box padding)
+          (apply set-padding (cons box padding)))      
 
+      (when-let [b (:background kwargs)]
+        (set-background box b))
+      
       box))
 
 
@@ -1320,8 +1326,8 @@ Example of codes-map:
     [chars-map]
 
     (event-handler-2
-        [inst event]
-        (let [ch-str (.getCharacter event)
+        [_  event]
+        (let [ch-str (.getCharacter ^KeyEvent event)
               chars-map1 (if (instance? Atom chars-map) @chars-map chars-map)]
           (when-let [v  (chars-map1 ch-str)]
                 (if (instance? EventHandler v)
