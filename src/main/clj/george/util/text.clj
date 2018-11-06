@@ -77,3 +77,9 @@
   "returns the data as a pprint-ed str"
   [data]
   (pprint/write data :stream nil))
+
+
+(defn **
+  "Returns string consisting of n*s"
+  [n s]
+  (apply str (repeat n s)))

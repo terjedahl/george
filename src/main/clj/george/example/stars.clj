@@ -9,15 +9,15 @@
   george.example.stars
   (:require
     [george.javafx :as fx])
-  (:import [java.util Random]
-           [javafx.scene.paint Color]
-           [javafx.animation AnimationTimer]
-           [javafx.stage Stage]
-           [javafx.scene Node Scene CacheHint]
-           [com.sun.javafx.perf PerformanceTracker]
-           [java.security AccessControlException]
-           [javafx.scene.control Label]
-           [javafx.scene.shape Rectangle]))
+  (:import 
+    [java.util Random]
+    [javafx.scene.paint Color]
+    [javafx.animation AnimationTimer]
+    [javafx.stage Stage]
+    [javafx.scene Node Scene ]
+    [com.sun.javafx.perf PerformanceTracker]
+    [java.security AccessControlException]
+    [javafx.scene.control Label]))
 
 
 ;; primitive math is faster
@@ -119,7 +119,7 @@
         )))
 
   
-(defn -main [& args]
+(defn -main [& _]
   (fx/init)
   (fx/later
       (let [stage 
@@ -141,4 +141,4 @@
 
           )))
 
-;(println "WARNING: Running george.example.stars/-main" (-main))
+;(println "Warning: Running george.example.stars/-main" (-main))

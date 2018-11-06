@@ -14,8 +14,7 @@
 
     [george.application
      [output-input :as oi]
-     [editor :as editor]
-     [launcher :as launcher]]
+     [files-editors :as f-eds]]
 
     [george.application.ui
        [layout :as layout]
@@ -23,8 +22,7 @@
 
   (:import
     [javafx.scene Node]
-    [javafx.scene.control SplitPane]
-    [javafx.stage Stage]))
+    [javafx.scene.control SplitPane]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -77,7 +75,7 @@
 
         left
         (doto
-          (editor/new-tabbed-editor-root :ns user-ns-str :with-one? true))
+          (f-eds/main-root))
 
         oi-root ^SplitPane
         (doto
@@ -87,7 +85,7 @@
         root
         (doto
           (SplitPane. (fxj/vargs-t Node left oi-root))
-          (.setDividerPosition 0 0.5)
+          (.setDividerPosition 0 0.6)
           (.setStyle "-fx-box-border: transparent;"))]
 
     ;; TODO: Implement general ratio function for height of total height

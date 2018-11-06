@@ -9,9 +9,8 @@
     [george.javafx :as fx]
     [george.javafx.java :as fxj])
   (:import
-    (javafx.scene.layout TilePane)
-    (javafx.geometry Orientation)))
-
+    [javafx.scene.layout TilePane]
+    [javafx.geometry Orientation]))
 
 
 (defn- load-app-action [root-pane app-pane left-pane app-root-fn]
@@ -87,4 +86,4 @@
 
 ;;; DEV ;;;
 
-;(when (env :repl?) (println "WARNING: Running george.application.window/create-stage") (create-stage))
+;(when (env :repl?) (println "Warning: Running george.application.window/create-stage") (create-stage))

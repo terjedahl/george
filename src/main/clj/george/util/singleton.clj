@@ -45,21 +45,22 @@
 ;; this should be private!
 (defonce singletons_ (atom {}))
 
+
 (defn get
   "returns value for given key  if exists, else nil"
   [k]
   (@singletons_ k))
 
+
 (defn put
-  "sets value for given key, then returns value"
+  "Sets value for given key, then returns value"
   [k v]
   (swap! singletons_ assoc k v)
-
   v)
 
 
 (defn get-or-create
-  "returns value for given key if exists,
+  "Returns value for given key if exists,
   else calls provided function, setting its return-value to the key, and returning the value."
   [k f]
   (debugm (printf "singleton/get-or-create '%s' ... " k))
@@ -73,7 +74,7 @@
 
 
 (defn remove
-  "removes singleton from singelton-map"
+  "Removes singleton from singleton-map"
   [k]
   (debugm (printf "singleton/remove '%s' ... " k))
   (if-let [_ (get k)]

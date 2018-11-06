@@ -20,6 +20,17 @@
     [javafx.scene.web WebView WebEvent]))
 
 
+(defn ns-label []
+  (fx/new-label nil
+                :style "-fx-font: 14 'Source Code Pro Medium'; -fx-text-fill: gray; -fx-padding: 3;"))
+
+(defn path-label []
+  (fx/new-label nil
+                :style "-fx-font-size: 12; -fx-text-fill: gray; -fx-padding: 3;"))
+
+(defn small-button [& args]
+  (apply fx/button (concat args [:style "-fx-font-size: 12;-fx-padding: 3 6;"])))
+
 
 (defn new-heading [s & {:keys [size] :or {size 16}}]
   (fx/text s :size size :color fx/GREY))
@@ -51,10 +62,9 @@
 
 
 (defn skin-scene [^Scene scene]
+  (fx/clear-stylesheets scene)
   (fx/set-Modena)  ;; This should clear the StyleManager's "cache" so everything is reloaded.
-  (doto scene
-    (->  .getStylesheets .clear)
-    (fx/add-stylesheets "styles/basic.css")))
+  (fx/add-stylesheets scene "styles/basic.css"))
 
 
 (defn add-icon [^Stage stage]

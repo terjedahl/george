@@ -7,8 +7,7 @@
 (ns george.applet
   (:require
     [clojure.tools.namespace.find :refer [find-sources-in-dir find-namespaces]]
-    [clojure.pprint :refer [pprint]]
-    [clojure.java.classpath :as cp])
+    [clojure.pprint :refer [pprint]])
   (:import
     [clojure.lang Symbol]))
 
@@ -53,7 +52,7 @@
       (println "ERROR: The applet's 'info' function could not be resolved!"))
     (catch Exception e
       (binding [*out* *err*] 
-        (println (format "WARNING: Loading namespace '%s' failed!" applet-ns))))))
+        (println (format "Warning: Loading namespace '%s' failed!" applet-ns))))))
         ;(.printStackTrace e)))))
 
 

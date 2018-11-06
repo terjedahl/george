@@ -447,7 +447,7 @@
 
 
 (defn new-line-cell [state_ scroll-offset_ flow_ chars]
-  (if (= chars u/DEL_OBJ)
+  (if (= chars u/*DEL_OBJ*)
     (Cell/wrapNode (Rectangle.))  ;; A minimum cell which will be disposed of anyways. For speed
     (let [k (Object.)
 

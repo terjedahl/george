@@ -3,14 +3,10 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns
-  ^{:author "Terje Dahl"}
-  george.namespace.core
+(ns george.namespace.core
   (:require
     [clojure.pprint :refer [pprint pp]]
     [george.javafx :as fx]))
-
-
 
 
 (defn- namespaces []
@@ -29,7 +25,8 @@
 
     root))
 
-(defn -main [& args]
+
+(defn -main [& _]
   (fx/later
     (fx/stage
       :title "RT"
@@ -37,7 +34,6 @@
       :scene (fx/scene (scene-root)))))
 
 
-
 ;;; DEV ;;;
 
-;(println "WARNING: Running george.namespace.core/-main") (-main)
+;(println "Warning: Running george.namespace.core/-main") (-main)

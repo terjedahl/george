@@ -288,27 +288,32 @@
           (.setEditable false)
           (.setFocusTraversable true)
           (.setParagraphGraphicFactory (gutter-factory)))
+
         clear-button
-        (fx/button
-          "Clear"
-          :onaction #(do (ca/set-text codearea "") 
-                         (swap! gutter-types assoc :prevs [] :curr nil)
-                         (.setParagraphGraphicFactory codearea (gutter-factory)))
-          :tooltip "Clear output")
+        (doto
+          (fx/button
+            "Clear"
+            :onaction #(do (ca/set-text codearea "") 
+                           (swap! gutter-types assoc :prevs [] :curr nil)
+                           (.setParagraphGraphicFactory codearea (gutter-factory)))
+            :tooltip "Clear output")
+          (fx/add-class "g-small-button"))
 
         top
         (layout/menubar true
           (doto clear-button (.setFocusTraversable false))
           (fx/region :hgrow :always)
-          (layout/menu
-            [:button "nREPL" :bottom
-             [
-              [:item "Ping all sessions" ping-sessions]
-              [:item "Interrupt all sessions!" interrupt-all-sessions]
-              [:separator]
-              [:item "Create new default session" recreate-session]
-              [:separator]
-              [:item "Start new server" restart-server]]]))
+          (doto
+            (layout/menu
+              [:button "nREPL" :bottom
+               [
+                [:item "Ping all sessions" ping-sessions]
+                [:item "Interrupt all sessions!" interrupt-all-sessions]
+                [:separator]
+                [:item "Create new default session" recreate-session]
+                [:separator]
+                [:item "Start new server" restart-server]]])
+            (fx/add-class "g-small-menubutton")))
 
         root
         (fx/borderpane

@@ -282,5 +282,5 @@
 
 (def c (atom nil))
 
-;(when (env :repl?) (println "WARNING: Running george.code/new-code-stage" (reset! c (new-code-stage))))
+;(when (env :repl?) (println "Warning: Running george.code/new-code-stage" (reset! c (new-code-stage))))
 

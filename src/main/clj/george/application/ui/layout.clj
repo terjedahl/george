@@ -140,7 +140,7 @@
       :separator (SeparatorMenuItem.)
       :item      (let [[_ label action] root] (doto (MenuItem. label) (fx/set-onaction action)))
       :button    (let [[_ label side children] root]
-                   (doto (MenuButton. label  nil (fxj/vargs* (map menu children)))
+                   (doto (MenuButton. label  nil (fxj/vargs* (map menu (filter some? children))))
                          (.setStyle "-fx-box-border: -fx-text-box-border;")
                          (.setPopupSide (fx/side side))
                          (.setFocusTraversable false))))))

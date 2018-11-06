@@ -44,7 +44,11 @@
                  ;; https://github.com/alexander-yakushev/defprecated
                  [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                  ;; https://github.com/amalloy/ordered
-                 [org.flatland/ordered "1.5.6"]]
+                 [org.flatland/ordered "1.5.6"]
+                 ;; https://github.com/zcaudate/hara
+                 ;; http://docs.caudate.me/hara/hara-io-watch.html
+                 [zcaudate/hara.common.watch "2.8.7"]
+                 [zcaudate/hara.io.watch "2.8.7"]]
 
   :jar-exclusions     [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
   
