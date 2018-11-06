@@ -6,7 +6,6 @@
 (ns
   ^{:doc "Misc file handling utilities and UI elements, for Editors and Files."}
   george.application.file
-
   (:require
     [clojure.java.io :as cio]
     [george.javafx :as fx]
@@ -15,17 +14,9 @@
     [george.util.time :as t]
     [george.application.output :refer [oprintln]]
     [george.application.launcher :as appl])
-  (:import
-    [java.io File IOException]
-    [java.nio.file Path]))
+  (:import 
+    [java.io File]))
 
-
-(def GEORGE_DOCUMENT_DIR
-  (conf/documents-dir))
-
-
-(def TEMP_SWAP_DIR
-  (cio/file GEORGE_DOCUMENT_DIR "#swaps#"))
 
 (def missing-thing
   {:folder ["Directory missing!" "previous folder location"]
@@ -55,7 +46,7 @@
         owner (appl/current-application-stage)]
     (when-let [^File f
                (try (.showOpenDialog fc owner)
-                    (catch IllegalArgumentException e
+                    (catch IllegalArgumentException _
                            (show-something-missing-alert :folder)
                            (.setInitialDirectory fc (conf/documents-dir))
                            (select-file-for-open)))]
@@ -106,26 +97,6 @@
 ;(println (swap-wrap "#xxx#"))
 
 
-(defn swap-unwrap
-  "Returns the passed-in swap-file-name (a la emacs) as a stripped name, but only if it is a swap-file-name."
-  [^String n]
-  (if (swap? n)
-    (subs n 1 (dec (count n)))
-    n))
-
-;(println (swap-unwrap "#xxx#"))
-;(println (swap-unwrap "#xxx##"))
-;(println (swap-unwrap "#xxx"))
-
-
-(defn create-temp-swap
-  "Creates an swap-file in default document directory for such, then returns the file."
-  []
-  (let [iso (t/now-iso-basic)
-        f (cio/file TEMP_SWAP_DIR (swap-wrap iso))]
-    (guf/ensure-file f)))
-
-
 (defn parent-dir-exists-or-alert-print [^File d alert?]
   (if (.exists d)
       true
@@ -155,20 +126,3 @@
         (show-something-missing-alert :swap-file))
       (oprintln :err "Swap file missing: " (str swapf))
       false)))
-
-
-(defn save-swap-paths
-  "Renames the swapf to f. This results in f now containing the new content, and swap no longer existing.
-  Returns true if swap was successful, else false."
-  [^Path swapp ^Path p]
-  (if (swap-file-exists-or-alert-print (.toFile swapp) true)
-    (try (boolean (guf/move swapp p))
-         (catch IOException e (.printStackTrace e)))
-    false))
-
-
-(defn save-swap
-  "Renames the swapf to f. This results in f now containing the new content, and swap no longer existing.
-  Returns true if swap was successful, else false."
-  [^File swapf ^File f]
-  (save-swap-paths (.toPath swapf) (.toPath f)))  

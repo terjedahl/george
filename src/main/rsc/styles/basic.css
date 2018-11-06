@@ -24,7 +24,6 @@ Tutorial:
     -fx-font-size: 11pt;
     -fx-font-family: "Roboto";
     -fx-text-base-color: -g-anthrecite-ish;
-
     -fx-background-color: WHITESMOKE;
 }
 
@@ -43,6 +42,28 @@ Tutorial:
 .hyperlink:hover:visited {
     -fx-underline: true;   
 }
+
+
+.g-small-button {
+    -fx-font-size: 12;
+    -fx-padding: 4 8;
+}  
+
+.g-small-menubutton {
+    -fx-font-size: 12;
+    -fx-padding: 0 0;
+}  
+
+
+/*
+https://stackoverflow.com/questions/30680570/javafx-button-border-and-hover#30680668
+*/
+.g-no-button {
+    -fx-background-color: transparent;
+}  
+.g-no-button:hover {
+    -fx-background-color: -fx-shadow-highlight-color, -fx-outer-border, -fx-inner-border, -fx-body-color;
+}  
 
 
 /*

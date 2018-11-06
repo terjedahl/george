@@ -455,8 +455,20 @@ and the body is called on 'changed'"
   (mapv #(add-stylesheet scene %) paths))
 
 
+(defn clear-stylesheets [scene]
+  (-> scene .getStylesheets .clear)) 
+
 (defn set-Modena []
     (Application/setUserAgentStylesheet Application/STYLESHEET_MODENA))
+
+
+(defn add-class
+  ([node ^String css-class]
+   (add-class node css-class false))
+  ([node ^String css-class reload?]
+   (let [style-class ^List (.getStyleClass node)]
+     (when reload? (.remove style-class css-class))
+     (.add style-class css-class))))
 
 
 (defn ^KeyFrame keyframe*

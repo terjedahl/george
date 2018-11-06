@@ -23,18 +23,7 @@
   (:import
     [javafx.scene Node]
     [javafx.scene.control SplitPane]))
-"
-Compiling george.files.filetree
-Compiling george.application.editors
-Compiling george.application.ui.layout
-Compiling george.application.ui.geometry
-Compiling george.application.ui.stage
-Compiling george.application.ui.styled
-Compiling george.application.output
-Compiling george.application.input
-Compiling george.application.repl
-Compiling george.application.environment
-"
+
 
 ;(set! *warn-on-reflection* true)
 ;(set! *unchecked-math* :warn-on-boxed)

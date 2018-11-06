@@ -222,7 +222,6 @@ Has it been renamed, moved, or deleted?
   (let [filenav-state_ (filetree/file-nav)
 
         lr (left-root filenav-state_) 
-        ;ed (editors/new-editors-root)
 
         container
         (reset! editor-pane_ (fx/borderpane :center (fx/new-label "No file selected")))
@@ -232,7 +231,7 @@ Has it been renamed, moved, or deleted?
               (.setOrientation Orientation/HORIZONTAL))]
     
     (future  (Thread/sleep 333) 
-             (fx/later (.setDividerPosition splitpane 0 0.33)))
+             (fx/later (.setDividerPosition splitpane 0 0.4)))
 
     ;; set "services" for filetree
     (reset! filetree/open-or-reveal_ (fn [path] (open-or-reveal filenav-state_ path)))
@@ -267,10 +266,12 @@ Has it been renamed, moved, or deleted?
 ;(when (env :repl?) (println "Warning: Running george.files-editors/new-stage") (fx/init) (new-stage))
 
 
+
+;; TODO: When file selected, editor should get focus
+
 ;; TODO: Better tooltip in open-file-list,
 ;; TODO: Save state of last selected file in editor.
 ;; TODO: Save state of open folder in filetree maybe?
 ;; TODO: DnD re-ordering of open files.  And also alphabetical ordering (non-destructive).
 ;; TODO: Implement more sophisticated calculation for width of left pane (and height of bottom pane.)
 
-;; TODO: Maintain original create DT when swapping in file.

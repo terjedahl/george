@@ -20,8 +20,9 @@
     [george.application.output :refer [oprint oprintln]]
     [george.application.ui.layout :as layout]
     [george.util :as u]
-    [george.util.file :as guf]
-    [george.application.file :as gaf])
+    [george.util.file :as guf :refer [->file ->path]]
+    [george.application.file :as gaf]
+    [clojure.java.io :as cio])
   (:import
     [javafx.scene.control SplitMenuButton]
     [javafx.geometry Side]
@@ -69,7 +70,14 @@
   (let [{:keys [saved? path swap-path]} @file-info_]
     (if saved?
       path
-      (when (gaf/save-swap-paths swap-path path)
+      (when 
+        (try 
+          (cio/copy (->file swap-path) (->file path))
+          (guf/delete swap-path)
+          true
+          (catch Exception e (.printStackTrace e) 
+            false))
+        
         (swap! file-info_ assoc :saved? true :swap-path nil)
         path))))
 
@@ -82,13 +90,13 @@
   [editor file-info_]
   (let [{:keys [path swap-path]} @file-info_
         p (or swap-path
-              (.toPath (gaf/create-swap (.toFile path) (alert-on-missing-dir file-info_))))         
+              (->path (gaf/create-swap (->file path) (alert-on-missing-dir file-info_))))         
         content (ed/text editor)]
     ;(prn 'save-to-swap)    
-    (if-not (gaf/swap-file-exists-or-alert-print (.toFile p) (alert-on-missing-swap file-info_))
+    (if-not (gaf/swap-file-exists-or-alert-print (->file p) (alert-on-missing-swap file-info_))
       (set-alert-on-missing-swap file-info_ false)
       (do
-        (spit (.toFile p) content)
+        (spit (->file p) content)
         (swap! file-info_ assoc :saved-to-swap? true :saved? false :swap-path p)
         (when-not (alert-on-missing-dir file-info_)
           (oprintln :out "Directory available:" (str (guf/parent p))))

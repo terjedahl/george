@@ -425,9 +425,9 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
                                                  [:separator]
                                                  [:item (format "Reveal in %s" (cond (conf/macos?) "Finder" (conf/windows?) "Explorer" :else "File manager"))
                                                         #(future (guf/open (if dir?# path# (parent path#))))]]])
-                         (.addEventFilter MouseEvent/MOUSE_CLICKED 
-                                         (fx/new-eventhandler 
-                                           (select-item state_# item#)))) 
+                         (.addEventFilter MouseEvent/MOUSE_CLICKED  (fx/new-eventhandler (select-item state_# item#)))
+                         (fx/add-class "g-no-button"))
+ 
                        :padding [0 10 0 0]
                        :spacing 3
                        :alignment fx/Pos_CENTER_LEFT))
