@@ -6,10 +6,11 @@
 (ns george.example.rcanvas
     ;; inspired by http://dlsc.com/2014/04/10/javafx-tip-1-resizable-canvas/
     ;; but it seems to work even without the overrides !?!
-    (:require [george.javafx :as fx])
-    (:import (javafx.scene.paint Color)
-             (javafx.scene.canvas Canvas)))
-
+    (:require 
+      [george.javafx :as fx])
+    (:import 
+      [javafx.scene.paint Color]
+      [javafx.scene.canvas Canvas]))
 
 
 (defn- draw-red-x-box [canvas]
@@ -24,7 +25,6 @@
             (.strokeLine 0 h w 0))))
 
 
-
 (defn- resizable-canvas []
     (let [rc (proxy [Canvas] [])]
                  ;(isResizable [] true)
@@ -37,7 +37,6 @@
 
 
 (defn resizable-canvas-stage []
-
   (let [
         canvas (resizable-canvas)
         _ (draw-red-x-box canvas)
@@ -53,8 +52,7 @@
           :scene (fx/scene pane)))))
 
 
-
-
 ;;; DEV ;;;
-;(println "WARNING: Running george.turtle.turtle/resizable-canvas-stage" (resizable-canvas-stage))
+
+;(println "Warning: Running george.turtle.turtle/resizable-canvas-stage" (resizable-canvas-stage))
 

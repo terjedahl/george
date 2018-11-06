@@ -14,11 +14,10 @@
     [george.application.config :as conf]
     [george.util.time :as t]
     [george.application.output :refer [oprintln]]
-    [george.application.launcher :as appl]
-    [george.javafx.java :as fxj])
+    [george.application.launcher :as appl])
   (:import
     [java.io File IOException]
-    [java.nio.file Files StandardCopyOption Path]))
+    [java.nio.file Path]))
 
 
 (def GEORGE_DOCUMENT_DIR
@@ -141,7 +140,7 @@
   "Creates a swap-file in same location as f, and returns it.
   If parent-dir doesn't exist, then it returns nil."
   [f alert?]
-  (let [d (guf/parent-dir f)
+  (let [d (guf/parent f)
         n (.getName f)
         f (cio/file d (swap-wrap n))]
     (when (parent-dir-exists-or-alert-print d alert?)
@@ -163,8 +162,7 @@
   Returns true if swap was successful, else false."
   [^Path swapp ^Path p]
   (if (swap-file-exists-or-alert-print (.toFile swapp) true)
-    ;(.renameTo swapf f) ;; doesn't work on Windows if file exists.
-    (try (boolean (Files/move swapp p (fxj/vargs StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE)))
+    (try (boolean (guf/move swapp p))
          (catch IOException e (.printStackTrace e)))
     false))
 

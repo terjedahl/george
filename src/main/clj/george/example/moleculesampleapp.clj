@@ -3,21 +3,16 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns
-  george.example.moleculesampleapp
-
+(ns george.example.moleculesampleapp
   (:require
-    [george.javafx :as fx]
-    [george.javafx.java :as fxj])
-
-
-
-  (:import (javafx.scene DepthTest Scene PerspectiveCamera Node)
-           (javafx.scene.paint Color PhongMaterial)
-           (moleculesampleapp Xform)
-           (javafx.scene.shape Box Cylinder Sphere)
-           (javafx.scene.transform Rotate)
-           (javafx.geometry Point2D)))
+    [george.javafx :as fx])
+  (:import 
+    [javafx.scene DepthTest PerspectiveCamera]
+    [javafx.scene.paint Color PhongMaterial]
+    [moleculesampleapp Xform]
+    [javafx.scene.shape Box Cylinder Sphere]
+    [javafx.scene.transform Rotate]))
+           
 
 (def CAMERA_INITIAL_DISTANCE -450)
 (def CAMERA_INITIAL_X_ANGLE 70.0)
@@ -207,10 +202,7 @@
                             (.setY (+ (.. cameraXform2 t getY) (* deltaY MOUSE_SPEED modifier TRACK_SPEED))))))))))
 
 
-
-
-
-(defn- start[]
+(defn- start []
   (fx/now
     (let [
           world (Xform.)
@@ -229,24 +221,20 @@
                     (.setCamera camera)
                     (handle-keyboard)
                     (handle-mouse))
-
-
+          
           stage (fx/stage
                   :title "Molecule Sample App"
                   :scene scene
                   :sizetoscene true)]
-
-
-
       stage)))
 
 
 (defn -main
   "Launches an input-stage as a stand-alone application."
-  [& args]
+  [& _]
   (fx/later (start)))
 
 
 ;;; DEV ;;;
 
-;(println "WARNING: Running george.sandbox.moleculesampleapp/-main" (-main))
+;(println "Warning: Running george.sandbox.moleculesampleapp/-main" (-main))

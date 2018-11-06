@@ -87,7 +87,7 @@
           (spit f content)
           (swap! file-info_ assoc :swap-saved? true :saved? false :swap-file f)
           (when-not (alert-on-missing-dir file-info_)
-            (oprintln :out "Directory available:" (str (guf/parent-dir f))))
+            (oprintln :out "Directory available:" (str (guf/parent f))))
           (when-not (alert-on-missing-swap file-info_)
             (oprintln :out "Swap file available:" (str f)))
           (set-alert-on-missing-dir file-info_ true)
@@ -146,7 +146,7 @@
 (defn existing-differing-swap-file
   "Returns the swap-file and it's content as e 2-item vector, if a swap-file is found for the file, in the expected location, and its content differs from the file. else nil."
   [f content]
-  (let [p-dir (guf/parent-dir f)
+  (let [p-dir (guf/parent f)
         n (.getName f)
         swapf (cio/file p-dir (gaf/swap-wrap n))]
     (when (.exists swapf)
@@ -211,7 +211,7 @@ Swap file content:"
 
 (defn clean-and-clear [file-info_]
   (when-let [f (:swap-file @file-info_)]
-    (guf/delete-file f))
+    (guf/delete f))
   (swap! file-info_ assoc :swap-file nil :file nil :saved? true :swap-saved? true)
   true)
 
@@ -463,5 +463,5 @@ Load code.  %s-L (Similar to \"Run\", but silent.)" u/SHORTCUT_KEY u/SHORTCUT_KE
 
 ;;; DEV ;;;
 
-;(when (env :repl?) (println "WARNING: Running george.editor/create-stage" (create-stage true)))
+;(when (env :repl?) (println "Warning: Running george.editor/create-stage" (create-stage true)))
 

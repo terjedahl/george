@@ -34,7 +34,6 @@
     [george.javafx :as fx]
     [george.javafx.util :as fxu]
     [george.util :as gu]
-    [george.application.output :as output]
     [clojure.string :as cs]
     [george.turtle.aux :as aux])
   (:import
@@ -2220,7 +2219,7 @@ There are a number of optional ways to set font:
            moves# (count positions#)]
        (if (< moves# 3)
          (binding [*out* *err*] 
-           (printf "WARNING! The turtle used for 'filled' needs to move at least twice. Got %s\n" (dec moves#)))
+           (printf "Warning! The turtle used for 'filled' needs to move at least twice. Got %s\n" (dec moves#)))
          ;; Get the turtles fill.  (Setting fill to nil is a way of preventing fill)
          (when-let [fill# (get-fill ~t)]
            ;; Build a polygon

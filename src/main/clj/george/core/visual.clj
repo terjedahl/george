@@ -4,25 +4,14 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns
-  ^{:author "Terje Dahl"}
   george.core.visual
   (:require
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
-    [george.javafx.util :as fxu]
     [george.javafx.3d :as fx3d])
-    ;[george.application.turtle.turtle3D :as tr])
-
-
-  (:import (javafx.scene DepthTest PerspectiveCamera CacheHint)
-           (javafx.scene.transform Translate Rotate)
-           (javafx.scene.paint Color PhongMaterial)
-           (javafx.scene.shape Sphere)
-           (javafx.geometry Point3D)
-           (javafx.scene.text Font)))
-
-
-
+  (:import 
+    [javafx.scene DepthTest PerspectiveCamera CacheHint]
+    [javafx.scene.transform Translate Rotate]
+    [javafx.scene.paint Color]))
 
 
 (defn- create-origo []
@@ -131,10 +120,10 @@
 
 (defn -main
   "Launches an input-stage as a stand-alone application."
-  [& args]
+  [& _]
   (fx/later (create-stage)))
 
 
 ;;; DEV ;;;
 
-;(println "WARNING: Running george.core.visual/-main" (-main))
+;(println "Warning: Running george.core.visual/-main" (-main))

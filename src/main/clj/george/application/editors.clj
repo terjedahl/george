@@ -12,7 +12,6 @@
   (:require
     [clojure.core.async :refer [>!! <! chan timeout sliding-buffer thread go go-loop close!]]
     [environ.core :refer [env]]
-    [george.util.singleton :as singleton]
     [george.javafx :as fx]
     [george.javafx.java :as fxj]
     [george.application.ui.styled :as styled]
@@ -92,7 +91,7 @@
         (spit (.toFile p) content)
         (swap! file-info_ assoc :saved-to-swap? true :saved? false :swap-path p)
         (when-not (alert-on-missing-dir file-info_)
-          (oprintln :out "Directory available:" (str (guf/parent-dir (.toFile p)))))
+          (oprintln :out "Directory available:" (str (guf/parent p))))
         (when-not (alert-on-missing-swap file-info_)
           (oprintln :out "Swap file available:" (str p)))
 
@@ -113,14 +112,13 @@
 
 
 (defn state-listener [editor labeled file-info_ save-chan]
-  (let []
-    (add-watch (.getStateAtom editor) labeled
-               (fn [_ _ {pbuffer :buffer} {buffer :buffer}]
-                 (when-not (identical? pbuffer buffer) ;; Comparing the buffers' identity is fastest
-                   (if (:ignore-next-buffer-change @file-info_)
-                     (swap! file-info_ dissoc :ignore-next-buffer-change)  ;; Got the signal  Now removing it.
-                     (do (swap! file-info_ assoc :saved-to-swap? false :saved? false)
-                         (queue-save-to-swap editor file-info_ save-chan))))))))
+  (add-watch (.getStateAtom editor) labeled
+             (fn [_ _ {pbuffer :buffer} {buffer :buffer}]
+               (when-not (identical? pbuffer buffer) ;; Comparing the buffers' identity is fastest
+                 (if (:ignore-next-buffer-change @file-info_)
+                   (swap! file-info_ dissoc :ignore-next-buffer-change)  ;; Got the signal  Now removing it.
+                   (do (swap! file-info_ assoc :saved-to-swap? false :saved? false)
+                       (queue-save-to-swap editor file-info_ save-chan)))))))
 
 
 (defn new-file-info_ [path]
@@ -197,7 +195,7 @@
     (.setText labeled (str " " path " "))))
 
 
-(defn- new-editor-bar [editor file-info_]
+(defn- new-editor-bar [editor file-info_ reveal-fn]
   (let [
         save-fn
         #(save editor file-info_)
@@ -210,8 +208,13 @@
                              :onaction save-fn
                              :tooltip "Save unsaved changes to file.")
         
+        reveal-button
+        (styled/small-button "<-"
+                             :onaction reveal-fn
+                             :tooltip "Reveal in file tree.")
         bar
         (layout/menubar true
+                        reveal-button
                         path-label
                         save-button)]
 
@@ -228,10 +231,10 @@
 
 (defn new-editor-root 
   "The layout that gets inserted into the details-area when the button is selected."
-  [editor file-info_ ns-str]
+  [editor file-info_ ns-str reveal-fn]
   (let [
         {:keys [editor-bar do-save-fn]}
-        (new-editor-bar editor file-info_)
+        (new-editor-bar editor file-info_ reveal-fn)
         
         {:keys [eval-bar do-eval-fn do-load-fn do-interrupt-fn]}
         (new-eval-bar editor file-info_ ns-str)
@@ -259,4 +262,4 @@
 
 ;;; DEV ;;;
 
-;(when (env :repl?) (println "WARNING: Running george/get-or-create-stage" (get-or-create-stage true)))
+;(when (env :repl?) (println "Warning: Running george/get-or-create-stage" (get-or-create-stage true)))

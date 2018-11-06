@@ -19,7 +19,7 @@
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Application Platform]
     [javafx.beans.value ChangeListener WritableValue]
-    [javafx.collections FXCollections ObservableList]
+    [javafx.collections FXCollections ObservableList ListChangeListener]
     [javafx.event EventHandler]
     [javafx.geometry Insets Pos VPos Side Orientation]
     [javafx.scene Group Node Scene]
@@ -45,7 +45,31 @@
     [java.util Collection Optional List]
     [clojure.lang Atom]
     [javafx.fxml FXMLLoader]))
-    
+
+
+"
+Notes on JavaFX
+
+Certain classes touch the native JavaFX runtime system, and must not be used in type-hinting function - args or return - 
+as they will require init-ing the runtime at compile time.
+The same goes for proxy-ing them directly, as proxy is a macro which will touch them at compile-time.
+See my comments here:  https://dev.clojure.org/jira/browse/CLJ-1743
+
+The includes (but is not limited to):
+  ListView
+  TreeView
+  ScrollPane
+  ComboBox
+  ListCell
+  TreeCell
+  TextField
+  TextArea
+  Label
+  Button
+  RadioButton
+  CheckBox  
+  Screen  
+"
 
 
 ;(set! *warn-on-reflection* true)
@@ -272,6 +296,11 @@ and the body is called on 'changed'"
 (defmacro ^ChangeListener new-changelistener
   [& body]
   `(reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body)))
+
+
+(defmacro ^ChangeListener new-listchangelistener
+  [& body]
+  `(reify ListChangeListener (~'onChanged [~'this ~'change] ~@body)))
 
 
 (defn children [parent]

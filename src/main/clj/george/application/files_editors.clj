@@ -13,9 +13,10 @@
     [george.application.editors :as eds]
     [george.files.filetree :as filetree]
     [george.application.ui.styled :as styled]
-    [george.util.singleton :as singleton])
+    [george.util.singleton :as singleton]
+    [george.util.file :refer [ ->path ->file ->string exists? filename]])
   (:import
-    [javafx.scene.control SplitPane ListCell ListView Label]
+    [javafx.scene.control SplitPane ListCell ListView]
     [javafx.geometry Orientation]
     [javafx.scene Node]
     [javafx.scene.paint Color]
@@ -23,29 +24,36 @@
     [javafx.scene.input MouseEvent]
     [java.nio.file Path]
     [javafx.util Callback]
-    [javafx.collections ListChangeListener]
-    [java.util List]))
+    [java.util List]
+    [javafx.scene.layout BorderPane]))
 
 
 (def listview_ (atom nil))
-
 (def editor-pane_ (atom nil))
 
 
 (defn- set-editor! [item]
-  (.setCenter @editor-pane_ (:editor-root item)))
+  (.setCenter ^BorderPane @editor-pane_ (:editor-root item)))
+
+
+(defn- set-open-files [items]
+  (let [open-files
+        (mapv #(-> % :file-info_ deref :path ->string) items)]
+    ;(doseq [f open-files] (prn '-- f))
+    (hist/set-open-files open-files)))
 
 
 (defn rename-file! [^Path old ^Path new]
   (when-let [item (->> @listview_ .getItems (filter #(= old (-> % :file-info_ deref :path) )) first)]
-    (prn 'rename-file item)
+    ;(prn 'rename-file item)
     (let [{:keys [file-info_]} item]
       (swap! file-info_ assoc :path new :swap-path nil :saved? true :saved-to-swap? true))
+    (set-open-files (.getItems @listview_))
     true))
 
 
 (defn close-file! [^Path path save?]
-  (println (str *ns* "/close-file") path save?)
+  ;(println "close-file" path save?)
   (let [lv @listview_
         item (->> lv .getItems (filter #(= path (-> % :file-info_ deref :path) )) first)
         {:keys [editor file-info_]} item]
@@ -71,18 +79,9 @@
       (.setOnMouseExited (fx/event-handler (.setFill x-circle Color/GAINSBORO)))
       (.setOnMouseEntered (fx/event-handler (.setFill x-circle Color/ORANGERED)))
       (.addEventFilter MouseEvent/MOUSE_CLICKED
-        (fx/event-handler-2
-          [_ e]
+        (fx/new-eventhandler
           (when (close-file! (:path @file-info_) true)
-            (.consume e))))))) 
-          ;(let [lv @listview_
-          ;      item (first (filter #(= (:file-info_ %) file-info_) (.getItems lv)))]
-          ;  (println " Do some work before closing file (saving and such) ...")
-          ;  (-> lv .getItems (.remove item))
-          ;  (-> lv .getSelectionModel .clearSelection)
-          ;  (set-editor! {:editor-root (fx/new-label "No file selected")})
-          ;  (.consume e)))))))
-
+            (.consume event))))))) 
 
 
 (def tooltipf
@@ -112,24 +111,46 @@ swap-saved:  %s")
     (fx/set-tooltip labeled tooltip-str)))
 
 
-(defn file-item [path & {:keys [ns] :or {ns "user"}}]
-  (let [content    (slurp (.toFile path))
-        editor     (ed/editor-view content :clj)
+(defn- not-found-pane [path]
+  (fx/borderpane 
+    :center 
+    (fx/new-label 
+      (format "Unable to locate file: 
+
+        %s
+
+
+Has it been renamed, moved, or deleted?
+
+(Remove file from list by clicking the 'x')" (->string path))
+      :color fx/RED
+      :font 16))) 
+                             
+
+(defn file-item [filenav-state_ path & {:keys [ns] :or {ns "user.turtle"}}]
+  (let [found?     (exists? path)
+        
+        content    (when found? (-> path ->file slurp))
+        editor     (if found? (ed/editor-view content :clj) :not-found)
         file-info_ (eds/new-file-info_ path)
-        save-chan  (eds/save-to-swap-channel)
+        save-chan  (when found? (eds/save-to-swap-channel))
         close-x    (new-close-x file-info_)
-        label      (Label.)]
-
-    (eds/state-listener editor label file-info_ save-chan)
-
-    (add-watch file-info_ :indicator #(fx/later (listable-indicate label %4)))
-    (listable-indicate label @file-info_)
+        label      (fx/new-label (filename path) 
+                                 :font 14
+                                 :color (if found? fx/BLACK fx/RED))
+        reveal-fn  #(future (fx/later (->> @file-info_ :path (filetree/reveal filenav-state_))))]
+  
+    (when found? 
+      (eds/state-listener editor label file-info_ save-chan)
+      (add-watch file-info_ :indicator #(fx/later (listable-indicate label %4)))
+      (listable-indicate label @file-info_))
                
-    {;:path path
-     :editor editor 
+    {:editor editor 
      :listable (fx/hbox label (fx/region :hgrow :always) close-x)
      :file-info_ file-info_
-     :editor-root (eds/new-editor-root editor file-info_ ns)}))
+     :editor-root (if found? 
+                    (eds/new-editor-root editor file-info_ ns reveal-fn)
+                    (not-found-pane path))}))
 
 
 (defn opens-listcell 
@@ -146,34 +167,33 @@ swap-saved:  %s")
 
 
 (defn- click-handler []
-  (fx/event-handler-2 [_ e]
-                      (prn 'consumed? (.isConsumed e))
-                      (let [item (-> e .getSource .getSelectionModel .getSelectedItem)]
-                        (user/pprint item)
-                        (set-editor! item))))
+  (fx/new-eventhandler 
+     (let [item (-> event .getSource .getSelectionModel .getSelectedItem)]
+       (set-editor! item))))
 
 
 (defn open-or-reveal
   "Opens content of file in editor if not already open, else reveals the editor displaying the file."
-  [path]
-  (println (str *ns* "/open-or-reveal") (str path))
+  [filenav-state_ path]
+  ;(println "open-or-reveal" (->string path))
   (let [items (.getItems @listview_)
-        item (->> items (filter #(= path (-> % :file-info_ deref :path)) ) first)]
+        ;items (filter #(-> % :file-info_ some?) items)
+        item (->> items 
+                  (filter #(when-let [info (:file-info_ %)] (= path (:path @info)))) 
+                  first)]
     (if (nil? item) 
       (do 
-        (.add items (file-item path))
+        (.add items (file-item filenav-state_ path))
         ;; recursion (quick-and easy)
-        (open-or-reveal path))
+        (open-or-reveal filenav-state_ path))
       (do
         (.select (.getSelectionModel @listview_) item)
         (set-editor! item)))))      
+
+
+(defn- left-root [filenav-state_]
+  (let [files (:rootpane @filenav-state_)
         
-
-
-(defn- left-root []
-  (let [files 
-        (filetree/file-nav)
-   
         opens 
         (doto (ListView.)
           (.setCellFactory (reify Callback (call [_ param] (opens-listcell param)))))
@@ -186,38 +206,36 @@ swap-saved:  %s")
 
     (reset! listview_ opens)
     
-    (-> opens .getItems (.addAll ^List (map #(file-item (filetree/to-path %)) (hist/get-open-files))))
+    (-> opens .getItems 
+        (.addAll ^List (map #(file-item filenav-state_ (->path %)) (hist/get-open-files))))
     
-    (-> opens .getItems (.addListener (reify ListChangeListener 
-                                        (onChanged [_ change]
-                                          (let [open-files 
-                                                (mapv (fn [item] (-> item :file-info_ deref :path filetree/to-string)) (.getList change))]
-                                            (doseq [f open-files]
-                                              (prn '-- f))
-                                            (hist/set-open-files open-files))))))
+    (-> opens .getItems 
+        (.addListener  (fx/new-listchangelistener (set-open-files (.getList change))))) 
     
     (future (Thread/sleep 200)
-            (fx/later (.setDividerPosition splitpane 0 0.67)))
+            (fx/later (.setDividerPosition splitpane 0 0.4)))
 
     splitpane))
 
 
 (defn main-root []
-  (let [lr (left-root)
+  (let [filenav-state_ (filetree/file-nav)
+
+        lr (left-root filenav-state_) 
         ;ed (editors/new-editors-root)
 
         container
         (reset! editor-pane_ (fx/borderpane :center (fx/new-label "No file selected")))
 
         splitpane
-        (doto ;(SplitPane. (fxj/vargs-t Node lr ed))
-          (SplitPane. (fxj/vargs-t Node lr container))
-          (.setOrientation Orientation/HORIZONTAL))]
+        (doto (SplitPane. (fxj/vargs-t Node lr container))
+              (.setOrientation Orientation/HORIZONTAL))]
     
-    (future (Thread/sleep 200)
-            (fx/later (.setDividerPosition splitpane 0 0.4)))
+    (future  (Thread/sleep 333) 
+             (fx/later (.setDividerPosition splitpane 0 0.33)))
+
     ;; set "services" for filetree
-    (reset! filetree/open-or-reveal_ open-or-reveal)
+    (reset! filetree/open-or-reveal_ (fn [path] (open-or-reveal filenav-state_ path)))
     (reset! filetree/rename-file_ rename-file!)
     (reset! filetree/close-file_ close-file!)
 
@@ -225,7 +243,6 @@ swap-saved:  %s")
 
 
 (defn- new-stage []
-  (fx/init)
   (fx/now
     (->
       (fx/stage
@@ -246,12 +263,14 @@ swap-saved:  %s")
 
 ;;; DEV ;;;
 
-;(when (env :repl?) (println "WARNING: Running george.files-editors/get-or-create-stage" (get-or-create-stage)))
+;(when (env :repl?) (println "Warning: Running george.files-editors/get-or-create-stage") (fx/init) (get-or-create-stage))
+;(when (env :repl?) (println "Warning: Running george.files-editors/new-stage") (fx/init) (new-stage))
 
-;; TODO: Ensure that opened files exists, else mark (in red with message).
-;; TODO: Enable showing open file in filetree    
-;; TODO: Implement more sophisticated calculation for width of left pane (and height of bottom pane.)
-;; TODO: Implement storing state and selecting last selected file in editor.
-;; TODO: See about ns of file-item.
+
+;; TODO: Better tooltip in open-file-list,
+;; TODO: Save state of last selected file in editor.
+;; TODO: Save state of open folder in filetree maybe?
 ;; TODO: DnD re-ordering of open files.  And also alphabetical ordering (non-destructive).
+;; TODO: Implement more sophisticated calculation for width of left pane (and height of bottom pane.)
 
+;; TODO: Maintain original create DT when swapping in file.

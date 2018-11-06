@@ -10,7 +10,6 @@
     [george.javafx :as fx]
     [george.core.history :as hist]
     [george.application.repl :as repl]
-    [george.javafx.java :as fxj]
     [george.util :as gu]
     [george.application.output :refer [oprintln]]
     [george.util :as u]
@@ -23,8 +22,7 @@
     [javafx.scene.control Tab Button TabPane]
     [javafx.scene Node Scene]))
 
-;(initfx)
- 
+
 ;(set! *warn-on-reflection* true)
 ;(set! *unchecked-math* :warn-on-boxed)
 ;(set! *unchecked-math* true)
@@ -344,5 +342,5 @@ Next global history.  SHIFT-CLICK")
 ;;; DEV ;;;
 
 
-;(when (env :repl?) (println "WARNING: Running george.application.input/new-input-stage") (new-input-stage))
+;(when (env :repl?) (println "Warning: Running george.application.input/new-input-stage") (new-input-stage))
 

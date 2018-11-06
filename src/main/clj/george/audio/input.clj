@@ -6,7 +6,7 @@
 (ns
   george.audio.input
   (:require
-    [clojure.pprint :refer [pprint pp] :as cpp]
+    [clojure.pprint :refer [pprint pp]]
     [clojure.data :as data]
     [clojure.core.async :refer [>!! <! chan timeout sliding-buffer thread go go-loop]]
     [george.javafx :as fx])
@@ -572,4 +572,4 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 
 ;;
 
-;(do (println "WARNING! Running george.audio.input/inputs-stage")  (input-selector-stage) (create-selected-input-stage))
+;(do (println "Warning! Running george.audio.input/inputs-stage")  (input-selector-stage) (create-selected-input-stage))

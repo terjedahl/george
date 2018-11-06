@@ -48,6 +48,16 @@ all platforms: $HOME/George"
   ^File #(guf/ensure-dir (cio/file (user-home) "George")))
 
 
+(def file-sep
+  "Returns '/' or '\\'"
+  ^String #(File/separator))
+
+
+(def path-sep
+  "Returns ':' or maybe something else"
+  ^String #(File/pathSeparator))
+
+
 (def appdata-dir
   "Returns the ensured default directory for storing app-data:
 Windows: $HOME/AppData/Roaming/George

@@ -7,16 +7,17 @@
     "A Clojure implementation of
     https://jaxenter.com/tutorial-a-glimpse-at-javafxs-canvas-api-105696.html
     "
-    (:require [george.javafx :as fx]
-              [clojure.string :as cs])
-    (:import (javafx.animation AnimationTimer)
-             (javafx.scene.canvas Canvas GraphicsContext)
-             (javafx.scene.paint Color)
-             (java.util Random Date)
-             (javafx.scene.shape ArcType)
-             (java.text SimpleDateFormat)
-             (javafx.scene.text Font TextAlignment)
-             (javafx.stage Stage)))
+    (:require 
+      [george.javafx :as fx])
+    (:import 
+      [javafx.animation AnimationTimer]
+      [javafx.scene.canvas Canvas GraphicsContext]
+      [javafx.scene.paint Color]
+      [java.util Random Date]
+      [javafx.scene.shape ArcType]
+      [java.text SimpleDateFormat]
+      [javafx.scene.text Font TextAlignment]
+      [javafx.stage Stage]))
 
 ;; primitive math is faster
 ;(set! *unchecked-math* :warn-on-boxed)
@@ -170,8 +171,6 @@
                     (.translate gc (+ DIAMETER SPACE) 0))
 
                 (.restore gc))))
-            ;))
-
 
 
 (defn -main [& _]
@@ -184,17 +183,15 @@
                     (list [BLUE1 BLUE2] [BLUE1 GREEN1] [BLUE1 RED1]))
 
               stage
-               (fx/now
-                  (fx/stage
-                      :title "ArcClocks"
-                      :resizable false
-                      :scene (fx/scene (fx/borderpane :center canvas :insets SPACE)
-                                       :size [(+ (* 3 DIAMETER) (* 4 SPACE))
-                                              (+ DIAMETER (* 2 SPACE))]
-                                       :fill Color/BLACK)))
-
-
-
+              (fx/now
+                 (fx/stage
+                     :title "ArcClocks"
+                     :resizable false
+                     :scene (fx/scene (fx/borderpane :center canvas :insets SPACE)
+                                      :size [(+ (* 3 DIAMETER) (* 4 SPACE))
+                                             (+ DIAMETER (* 2 SPACE))]
+                                      :fill Color/BLACK)))
+              
               timer
               ^AnimationTimer (animation-timer three-clock-atoms gc stage)]
 
@@ -209,4 +206,4 @@
 
 
 ;;; DEV ;;;
-;(println "WARNING: Running george.example.arcclock/-main" (-main))
+;(println "Warning: Running george.example.arcclock/-main" (-main))
