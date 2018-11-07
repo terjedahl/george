@@ -982,6 +982,12 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 
 ;;;; FUTURE RELEASE
 
+;; TODO: Update files when they are moved with DnD
+
+;; TODO: Make "shortcut" back to "George" folder.  (Also note that it was confusing that double-clicking stepped pupils inn to sub-folder.)
+
+;; TODO: Ensure that there is always an ending on the file. ('.clj' or similar)
+
 ;; TODO: Implement cut/copy/paste
 ;; TODO: Insert cut/copy/paste into item-menu
 

@@ -159,6 +159,9 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 (def Pos_CENTER Pos/CENTER)
 (def Pos_CENTER_LEFT Pos/CENTER_LEFT)
 (def Pos_CENTER_RIGHT Pos/CENTER_RIGHT)
+(def Pos_BOTTOM_LEFT Pos/BOTTOM_LEFT)
+(def Pos_BOTTOM_RIGHT Pos/BOTTOM_RIGHT)
+
 (def VPos_TOP VPos/TOP)
 (def VPos_CENTER VPos/CENTER)
 
@@ -941,9 +944,21 @@ and the body is called on 'changed'"
 
 (defn set-padding
     ([pane v]
-     (.setPadding pane (insets v)))
+     (.setPadding pane (insets v))
+     pane)
     ([pane t r b l]
-     (.setPadding pane (insets t r b l))))
+     (.setPadding pane (insets t r b l))
+     pane))
+
+
+(defn set-spacing [box n]
+  (.setSpacing box n)
+  box)
+
+
+(defn set-alignment [box pos]
+  (.setAlignment box pos)
+  box)
 
 
 (defn box [vertical? & args]
@@ -963,7 +978,7 @@ and the body is called on 'changed'"
           
       (doto box
           (BorderPane/setMargin (insets (:insets kwargs)))
-          (.setAlignment  (:alignment kwargs)))
+          (set-alignment  (:alignment kwargs)))
       
       ;(.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
       (if (number? padding)

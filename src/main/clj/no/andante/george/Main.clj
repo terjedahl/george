@@ -5,7 +5,7 @@
 
 (ns no.andante.george.Main
   (:require
-    [george.javafx.java :as fxj]
+    [george.javafx :as fx]
     [george.application.launcher :as launcher])
   (:import
     [javafx.application Preloader$ProgressNotification])
@@ -40,7 +40,9 @@
       (.notifyPreloader this (Preloader$ProgressNotification. (+ 0.0 (* 0.02 i))));
       (Thread/sleep 50))
     (.notifyPreloader this (Preloader$ProgressNotification. 1.0)));
-
+  
+  (fx/preload-fonts)
+  
   (let [root (launcher/application-root)]
     (swap! state_ assoc :root root)))
 

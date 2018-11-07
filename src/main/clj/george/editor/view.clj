@@ -160,6 +160,7 @@
 
 
 (defn- new-text [char]
+  ;; TODO: 'case' may be faster than 'cond'
   (cond
     (= char \newline)
     (doto (Text. (str " " \u21A9))  ;\u23CE
