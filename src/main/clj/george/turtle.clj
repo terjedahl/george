@@ -35,7 +35,8 @@
     [george.javafx.util :as fxu]
     [george.util :as gu]
     [clojure.string :as cs]
-    [george.turtle.aux :as aux])
+    [george.turtle.aux :as aux]
+    [george.application.core :as core])
   (:import
     [javafx.scene.paint Color]
     [javafx.scene Group Node Scene]
@@ -2795,7 +2796,7 @@ See topic [Clojure](:Clojure) for more information."
 
 
 (defn is-screen-visible
-  "Returns `true` or `false` for whether the screen is visible ornot."
+  "Returns `true` or `false` for whether the screen is visible or not."
  ([]
   (is-screen-visible (get-screen)))
 
@@ -2845,8 +2846,13 @@ See topic [Clojure](:Clojure) for more information."
             :sizetoscene true
             :tofront true
             :alwaysontop true
+            :owner (core/get-application-stage)
             :onhidden #(set-screen-visible screen false)))]
-
+       
+       (core/add-quit-dialog-listener 
+         :turtle-screen 
+         #(fx/later (.setAlwaysOnTop stage (not= % :show))))
+         
        (doto ^Rectangle border
          (-> .widthProperty (.bind (-> scene .widthProperty (.subtract 4))))
          (-> .heightProperty (.bind (-> scene .heightProperty (.subtract 4)))))

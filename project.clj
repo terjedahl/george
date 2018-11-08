@@ -1,5 +1,5 @@
 
-(defproject no.andante.george/george-application  "2018.8-SNAPSHOT"
+(defproject no.andante.george/george-application  "2018.9-SNAPSHOT"
 
   :description "George - Application"
   :url "https://bitbucket.org/andante-george/george-application"
@@ -8,7 +8,7 @@
 
 
   :dependencies [;; https://clojure.org/community/downloads
-                 [org.clojure/clojure "1.10.0-beta4"]
+                 [org.clojure/clojure "1.10.0-beta5"]
                  ;; https://github.com/clojure/core.async
                  [org.clojure/core.async "0.4.474"]
                  ;; https://github.com/clojure/tools.reader

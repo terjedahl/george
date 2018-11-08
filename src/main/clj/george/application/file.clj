@@ -13,7 +13,7 @@
     [george.application.config :as conf]
     [george.util.time :as t]
     [george.application.output :refer [oprintln]]
-    [george.application.launcher :as appl])
+    [george.application.core :as core])
   (:import 
     [java.io File]))
 
@@ -30,7 +30,7 @@
       :title title
       :header (format "The %s has gone missing!" thing)
       :text "Don't know what to do about that, exactly. :-( \nCan you fix it?"
-      :owner (appl/current-application-stage)
+      :owner (core/get-application-stage)
       :type :error)))
 
 
@@ -43,7 +43,7 @@
   "Returns (an existing) selected file or nil"
   []
   (let [fc (doto clj-filechooser (.setTitle "Select a file ..."))
-        owner (appl/current-application-stage)]
+        owner (core/get-application-stage)]
     (when-let [^File f
                (try (.showOpenDialog fc owner)
                     (catch IllegalArgumentException _
@@ -60,7 +60,7 @@
   "Returns a new created file or nil"
   []
   (let [fc (doto clj-filechooser (.setTitle "Save file as ..."))
-        owner (appl/current-application-stage)]
+        owner (core/get-application-stage)]
     (when-let [^File f
                (try (.showSaveDialog fc owner)
                     (catch IllegalArgumentException e

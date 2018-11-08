@@ -258,6 +258,17 @@ and the body is called on 'handle'"
     `(reify EventHandler (~'handle ~args-vec ~@body)))
 
 
+;; LEGACY. Preserved only for Språklab!  Use 'new-eventhandler' in stead.
+;; TODO: Remove from Språklab
+(defmacro ^EventHandler eventhandler
+  "Returns an instance of javafx.event.EventHander.
+   The the body is called on 'handle'.
+    'this' and 'event' are implicitly available in the body (similar to 'this' in clojure.core/proxy."
+
+  [& body]
+  `(reify EventHandler (~'handle [~'this ~'event] ~@body)))
+
+
 (defmacro ^EventHandler new-eventhandler
           "Returns an instance of javafx.event.EventHander.
         Evaluates body in handle-method.  'this' and 'event' are implicitly."

@@ -996,8 +996,10 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 ;; TODO: When an item is moved, the wrong item is marked with an outline afterwards
 
 ;; TODO: Ensure that children are also "ghosted" when dragging
+;; TODO: No triangle if folder is empty
 
 ;; TODO: Better graphics !!!
+;; TODO: Custom folder/file icons for locked folders/files
 ;; TODO: Use graphic for watch-indicator (with tooltip)
 ;; TODO: Replace refresh-button with click on watch-indicator
 ;; TODO: Make dirs-combo "small"

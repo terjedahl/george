@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2018.8] - 2018-11-07
+
+## Added
+- A file tree similar to other IDEs; with DnD and other common features.
+- A list of open files which replace "tabs".
+- Obligatory file creation; no more forgetting to save or lost data.
+- Preservation of state; files are re-opened as they were.
+
+## Changed
+- Default project path: \<home>/Documents/George -> \<home>/George.
+
+## Removed
+- Tabbed editors; replaced by "opened" list.
+- Unnamed (unsaved) files; a file must be created.
+
+
 ## [2018.7] - 2018-10-14
 
 ## Added
