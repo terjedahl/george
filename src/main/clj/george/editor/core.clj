@@ -79,9 +79,13 @@
             (fx/changelistener [_ _ prev-w w]
                                ;; to re-layout so as to ensure-visible on caret after flow has been made visible.
                                (when (and (zero? ^double prev-w) (pos? ^double w))
-                                 (swap! state_ assoc :triggering-hack :hacked))))))
+                                 (swap! state_ assoc :triggering-hack :hacked)))))
 
-
+      (-> .focusedProperty 
+          (.addListener  
+            (fx/new-changelistener  
+              (if new-value  (st/start-blink state_) (st/stop-blink state_))))))
+    
     [flow state_])))
 
 

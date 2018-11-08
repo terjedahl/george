@@ -6,21 +6,21 @@
 (ns george.editor.view
   (:require
     [clojure.pprint :refer [pprint]]
-    [clojure.core.async :as a]
     [george.javafx.java :as fxj]
     [george.javafx :as fx]
     [george.editor.state :as st]
     [george.util :as u]
     [george.util.text :as ut])
-
-  (:import (org.fxmisc.flowless Cell VirtualFlow)
-           (javafx.scene.text Text)
-           (javafx.scene.layout Region StackPane Pane)
-           (javafx.geometry Pos Insets BoundingBox Bounds)
-           (javafx.scene Node Group Parent)
-           (javafx.scene.paint Color)
-           (javafx.scene.shape Ellipse Rectangle)
-           (javafx.scene.control Label)))
+  (:import 
+    [org.fxmisc.flowless Cell VirtualFlow]
+    [javafx.scene.text Text]
+    [javafx.scene.layout Region StackPane Pane]
+    [javafx.geometry Pos Insets BoundingBox Bounds]
+    [javafx.scene Node Group Parent]
+    [javafx.scene.paint Color]
+    [javafx.scene.shape Ellipse Rectangle]
+    [javafx.scene.control Label]
+    [java.util List]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -98,11 +98,9 @@
         (-> .getStyleClass (.add "caret"))))
         
 
-
 (defn- cursor-factory [height]
   (doto (fx/rectangle :size [3 height])
         (-> .getStyleClass (.add "caret"))))
-
 
 
 (def DEFAULT_CURSOR_FACTORY cursor-factory)
@@ -181,7 +179,7 @@
   "Inserts chars into Text-nodes, and lays them out in parent"
   [^StackPane pane chars]
   (let [texts (mapv new-text chars)]
-    (-> pane .getChildren (.setAll (fxj/vargs-t* Text texts)))
+    (-> pane .getChildren (.setAll ^List texts))
     (loop [i 0 x 0.0]
       (when-let [text ^Text (get texts i)]
           (recur (inc i)
@@ -299,7 +297,7 @@
 
 (defn- set-marks
   "Inserts and lays out markings (caret, anchor, select) if any, on the passed-in pane."
-  [^StackPane pane {:keys [caret anchor caret-pos anchor-pos lines]} row chars texts]
+  [^StackPane pane {:keys [caret anchor caret-pos anchor-pos lines caret-visible]} row chars texts]
   (let [
         [crow ccol] caret-pos
         [arow acol] anchor-pos
@@ -318,12 +316,12 @@
               (-> pane .getChildren (.add marking))))
           (recur (inc i) (+ x w)))))
 
-    (when (= arow row)
+    (when (and (= arow row) caret-visible)
       (let [anchor (anchor-factory DEFAULT_LINE_HEIGHT)]
         (.setTranslateX anchor (- ^double (calculate-offset texts acol) 0.25))
         (-> pane .getChildren (.add anchor))))
 
-    (when (= crow row)
+    (when (and (= crow row) caret-visible) 
       (let [caret ^Node (DEFAULT_CURSOR_FACTORY DEFAULT_LINE_HEIGHT)]
         (.setTranslateX caret (- ^double (calculate-offset texts ccol) 1.0)) ;; negative offset for cursor width
         (-> pane .getChildren (.add caret))))))

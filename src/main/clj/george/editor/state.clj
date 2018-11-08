@@ -21,7 +21,8 @@
     [java.util List]
     [clojure.core.rrb_vector.rrbt Vector]
     [clojure.lang PersistentVector Keyword Atom IPersistentMap]
-    [java.awt Toolkit]))
+    [java.awt Toolkit]
+    [javafx.animation Animation Timeline]))
 
 
 (set! *warn-on-reflection* true)
@@ -222,6 +223,7 @@
         olist (FXCollections/observableArrayList ^List lines)
         state
         {
+         :state_ nil ;; Yes, state contains a reference to its own containing atom, set by new-state-atom.  Beware if printing!
          ;; These are the actual values that the state must have.
          :buffer   buf
          :list     olist
@@ -229,7 +231,10 @@
          :caret    0
          :anchor   0
          :prefcol  0  ;; used when up/down cause cursor to shift sideways.
-
+         
+         :caret-visible true  ;; controlled by blink-timer
+         :blinker_ (atom nil)  ;; set by start-blink/stop-blink
+         
          ;; history is in its own atom, so as not to trigger any state-watchers when updated.
          :history_ (atom {:items []                ;; Holds the actual histories
                           :pointer -1              ;; Points to the current version
@@ -260,7 +265,9 @@
 
 
 (defn new-state-atom [^Vector buffer ^String line-sep ^Keyword content-type]
-  (atom (new-state_ buffer line-sep content-type)))
+  (let [state_ (atom (new-state_ buffer line-sep content-type))]
+    (swap! state_ assoc :state_ state_)
+    state_))
 
 
 (defn content-type_ [state]
@@ -307,6 +314,28 @@
     state
     (assoc state :caret-pos nil
                  :anchor-pos nil)))
+
+
+(defn- ^Timeline new-blinker 
+  [state]
+  (let [state_ (:state_ state)  ; state contains a reference to its containing atom!
+        f #(swap! state_ assoc :caret-visible (-> @state_ :caret-visible not))]
+    (doto (fx/timeline  nil (fx/new-keyframe  500 f))
+      (.setCycleCount Animation/INDEFINITE))))
+
+
+(defn- stop-blink_ [state]
+  (when-let [blinker ^Timeline (first (reset-vals! (:blinker_ state) nil))]
+    (.stop blinker))
+  (assoc state :caret-visible true))
+
+
+(defn- start-blink_ [state]
+  ;; Stop and remove old blink-thread
+  (let [state (stop-blink_ state)]
+    ;; Insert new running blink-timer
+    (reset! (:blinker_ state)  (doto (new-blinker state) (.play)))
+    state))  
 
 
 (defn ensure-derived_ [state]
@@ -476,6 +505,7 @@
         (set-caret_ (clamper index))
         (#(if move-prefcol? (set-prefcol_ % (clamper index)) %))
         (#(if move-anchor? (set-anchor_ % (clamper anc)) %))
+        start-blink_
         invalidate-derived_)))
 
 
@@ -843,3 +873,15 @@
 (defn mouseaction [^Atom state_ prev-e-typ e-typ sel-typ loc]
   (swap! state_ mouseaction_ prev-e-typ e-typ sel-typ loc))
 
+
+(defn start-blink 
+  "Called by editor.core when view receives focus."
+  [^Atom state_]
+  (start-blink_ @state_))    
+
+
+(defn stop-blink
+  "Called by editor.core when view looses focus."
+  [^Atom state_]
+  (swap! state_ stop-blink_))    
+  
