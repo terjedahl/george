@@ -1,14 +1,15 @@
-# types
-.*.iml
-
 # directories
 .idea/
 target/
-checkouts/
+src/arm-spraklab/
 
 # files
 .*.DS_Store
-.lein-repl-history
-.lein-env
+.lein-*
 .nrepl-port
 pom.xml
+src/main/java/module-info.java
+src/main/rsc/app.properties
+
+# types
+.*.iml

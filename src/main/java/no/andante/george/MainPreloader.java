@@ -30,7 +30,7 @@ public class MainPreloader extends Preloader {
 
 
     @Override
-    public void start(Stage stage) throws Exception {
+    public void start(Stage stage) {
         System.out.println("MainPreloader.start()...");
         this.stage = stage;
         stage.setTitle("Loading George ...");
