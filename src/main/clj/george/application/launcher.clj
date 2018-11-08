@@ -5,6 +5,7 @@
 
 (ns george.application.launcher
   (:require
+    [george.application.core :as core]
     [clojure.repl :refer [doc]]
     [clojure.java
      [io :as cio]
@@ -229,7 +230,7 @@ Powered by open source software.")
         dispose-fn
         #(doseq [applet applet-infos]
            (try ((:dispose applet))
-                (catch Exception e nil)))]
+                (catch Exception _ nil)))]
 
     (doto root
       (.setMaxWidth launcher-width)
@@ -241,9 +242,10 @@ Powered by open source software.")
 
 
 
-(defn- application-close-handler [^Stage application-stage dispose-fn]
-  (fx/event-handler-2 [_ e]
+(defn- stage-close-handler [^Stage application-stage dispose-fn]
+  (fx/new-eventhandler
      (.toFront application-stage)
+     (core/call-quit-dialog-listeners :show)
      (let [repl? (boolean (env :repl?))
            button-index
            (fx/now
@@ -258,31 +260,26 @@ Powered by open source software.")
            exit? (= 0 button-index)]
 
           (if-not exit?
-            (.consume e) ;; do nothing
-            (do (repl-server/stop!)
-                (dispose-fn)
-                (println "Bye for now!" (if repl? " ... NOT" ""))
-                (Thread/sleep 300)
-                (when-not repl?
-                  (fx/now (Platform/exit))
-                  (shutdown-agents)  ;; For any lingering threads after using futures and such.
-                  (System/exit 0)))))))
+            (do     
+              (core/call-quit-dialog-listeners :cancel)
+              (.consume event))
+            (do
+              (core/call-quit-dialog-listeners :quit)
+              (repl-server/stop!)
+              (dispose-fn)
+              (println "Bye for now!" (if repl? " ... NOT" ""))
+              (Thread/sleep 300)
+              (when-not repl?
+                (fx/now (Platform/exit))
+                (shutdown-agents)  ;; For any lingering threads after using futures and such.
+                (System/exit 0)))))))
 
 
 (defn- double-property [init-value value-change-fn]
   (doto (SimpleDoubleProperty. init-value)
     (.addListener
-      (fx/changelistener
-        [_ _ _ new-val]
-        (value-change-fn new-val)))))
-
-
-;; TODO: we really need some sort of global application state!
-(defonce current-application-stage_ (atom nil))
-(defn set-current-application-stage [stage]
-  (reset! current-application-stage_ stage))
-(defn current-application-stage []
-   @current-application-stage_)
+      (fx/new-changelistener
+        (value-change-fn new-value)))))
 
 
 (defn- morphe-launcher-stage [^Stage stage ^Pane application-root [x y w h :as target-bounds]]
@@ -314,8 +311,8 @@ Powered by open source software.")
       (doto stage
         (.setTitle "George")
         (.setResizable true)
-        (set-current-application-stage)
-        (fx/setoncloserequest (application-close-handler stage dispose-fn))))))
+        (core/set-application-stage)
+        (fx/setoncloserequest (stage-close-handler stage dispose-fn))))))
 
 
 (defn starting-stage
@@ -338,6 +335,7 @@ Powered by open source software.")
   []
   (let [[master-detail-root master-setter detail-setter] (layout/master-detail)
         [l-root dispose-fn] (launcher-root detail-setter)]
+    (core/init-state)
     (master-setter l-root)
     [master-detail-root dispose-fn]))
 
@@ -349,7 +347,6 @@ Powered by open source software.")
   ([stage]
    (start stage (application-root)))
   ([stage root]
-   (fx/init)
    (morphe-launcher-stage
      (styled/style-stage stage)
      root
@@ -369,7 +366,7 @@ Powered by open source software.")
 
 ;;; DEV ;;;
 
-;(when (env :repl?)  (-main))
-;(when (env :repl?)  (start))
-;(when (env :repl?)  (start (starting-stage)))
+;(when (env :repl?)  (fx/init) (-main))
+;(when (env :repl?)  (fx/init) (start))
+;(when (env :repl?)  (fx/init) (start (starting-stage)))
 

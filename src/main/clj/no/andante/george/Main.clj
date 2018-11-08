@@ -5,7 +5,6 @@
 
 (ns no.andante.george.Main
   (:require
-    [george.javafx.java :as fxj]
     [george.application.launcher :as launcher])
   (:import
     [javafx.application Preloader$ProgressNotification])

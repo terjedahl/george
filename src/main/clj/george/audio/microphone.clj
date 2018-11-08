@@ -17,7 +17,7 @@
     [clojure.core.async :as async]
 
     [george.javafx :as fx]
-    [george.application.launcher :as appl])
+    [george.application.core :as core])
 
   (:import
     [org.xiph.speex.spi SpeexEncoding]
@@ -461,7 +461,7 @@
       (.printStackTrace lue)
       (fx/later
             (fx/alert
-              :owner (appl/current-application-stage)
+              :owner (core/get-application-stage)
               :type :error
               :title "Line unavailable"
               :header "The selected line is \"unavailable\""
