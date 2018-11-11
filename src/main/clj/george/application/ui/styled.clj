@@ -60,7 +60,7 @@
 (defn skin-scene [^Scene scene]
   (fx/clear-stylesheets scene)
   (fx/set-Modena)  ;; This should clear the StyleManager's "cache" so everything is reloaded.
-  (fx/add-stylesheets scene "styles/basic.css"))
+  (fx/add-stylesheets scene "styles/application.css"))
 
 
 (defn add-icon [^Stage stage]

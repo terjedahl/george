@@ -34,7 +34,7 @@
 (defn sample-code-editor []
   (test-stage
     (e/editor-view
-      "(defn foo\n  \"hello, this is a docstring\"\n  [a b]\n  (let [sum (+ a b)\n        prod (* a b)]\n     {:sum sum\n      :prod prod}))"
+      "(defn foo\n  \"hello, this is a docstring\"\n  [a b]\n  ;; a comment\n  (let [sum (+ a b)\n        prod (* a b)]\n     {:sum sum\n      :prod prod}))"
       :clj)))
 
 (defn triangle-code-editor []

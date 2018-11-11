@@ -11,17 +11,19 @@
     [george.editor.state :as st]
     [george.util :as u]
     [george.util.text :as ut])
-  (:import 
+  (:import
     [org.fxmisc.flowless Cell VirtualFlow]
     [javafx.scene.text Text]
     [javafx.scene.layout Region StackPane Pane]
     [javafx.geometry Pos Insets BoundingBox Bounds]
-    [javafx.scene Node Group Parent]
-    [javafx.scene.paint Color]
-    [javafx.scene.shape Ellipse Rectangle]
+    [javafx.scene Node Group]
+    [javafx.scene.shape Ellipse Rectangle ArcType]
     [javafx.scene.control Label]
-    [java.util List]))
-
+    [java.util List]
+    [javafx.collections ObservableList]
+    [javafx.scene.canvas Canvas] 
+    [javafx.scene.paint Color]))
+  
 
 ;(set! *warn-on-reflection* true)
 ;(set! *unchecked-math* :warn-on-boxed)
@@ -35,35 +37,6 @@
 (def DEFAULT_LINE_INSETS (fx/insets 0.0, 24.0, 0.0, 12.0))
 
 (def DEFAULT_TAB_WIDTH (/ ^int DEFAULT_FONT_SIZE 2.0))
-
-(def DEFAULT_TEXT_COLOR fx/ANTHRECITE)
-(def DEFAULT_HIDDEN_CHAR_COLOR Color/DARKGRAY)
-
-;(def DEFAULT_CARET_COLOR Color/DODGERBLUE)
-(def DEFAULT_CARET_COLOR (Color/rgb 197 54 58))
-;(def DEFAULT_TEXT_SELECTION_COLOR (fx/web-color "#b3d8fd"))
-(def DEFAULT_TEXT_SELECTION_COLOR (.saturate (Color/rgb 237 188 190)))
-
-
-;; https://www.sessions.edu/color-calculator/
-
-(def DEFAULT_BLOCK_BORDER_COLOR (fx/web-color "#0080ff"))
-
-(def DEFAULT_BLOCK_COLORS
-  [
-   (.desaturate (.desaturate (.desaturate (.desaturate DEFAULT_BLOCK_BORDER_COLOR))))
-   (.desaturate (.desaturate (.desaturate DEFAULT_BLOCK_BORDER_COLOR)))
-   (.desaturate (.desaturate DEFAULT_BLOCK_BORDER_COLOR))])
-   ;(.desaturate (.desaturate (.desaturate DEFAULT_BLOCK_BORDER_COLOR)))])
-
-
-;(def DEFAULT_BLOCK_BORDERS (mapv #(.saturate ^Color %) DEFAULT_BLOCK_COLORS))
-(def DEFAULT_BLOCK_BORDERS (vec (repeat (count DEFAULT_BLOCK_COLORS) (.desaturate DEFAULT_BLOCK_BORDER_COLOR))))
-;(def DEFAULT_BLOCK_BORDERS (mapv #(.saturate ^Color %) DEFAULT_BLOCK_COLORS))
-
-
-(def DBCC (count DEFAULT_BLOCK_COLORS))
-
 
 (def DEFAULT_LINE_BACKGROUND_COLOR fx/WHITESMOKE)
 (def DEFAULT_CURRENT_LINE_BACKGROUND_COLOR (fx/web-color "#F0F0FF"))
@@ -95,37 +68,34 @@
 
 (defn- ^Rectangle anchor-factory [height]
   (doto (fx/rectangle :size [0.5 height])
-        (-> .getStyleClass (.add "caret"))))
+        (fx/add-class "caret")))
         
 
-(defn- cursor-factory [height]
+(defn- caret-factory [height]
   (doto (fx/rectangle :size [3 height])
-        (-> .getStyleClass (.add "caret"))))
-
-
-(def DEFAULT_CURSOR_FACTORY cursor-factory)
+        (fx/add-class "caret")))
 
 
 (definterface IRowCell
-  ^int (getColumn [^double offset-x])
+  ^int    (getCellColumn [^double offset-x])
   ;; returns "absolute" offset - compensating for scrolling
-  ^double (getOffsetX [^int col])
-  ;;offset directly from IScrollableText. Used by blocks.
-  ;^double (getRelativeOffsetX [^int col])
-  ^double (getMaxOffsetXforBlocks [])
-  ^double (getGutterWidth [])
-  ^int (getIndex []))
+  ^double (getCellOffsetX [^int col])
+  ;; offset directly from IScrollableText. Used by blocks.
+  ^double (getCellMaxOffsetXforBlocks [])
+  ^double (getCellGutterWidth [])
+  ^int    (getCellIndex []))
+
 
 (definterface IScrollableText
-  ^int (getColumn [^double offset-x])
+  ^int    (getTextColumn [^double offset-x])
   ;; Returns offsets relative to itself.
-  ^double (getOffsetX [^int col])
-  ^double (getMaxOffsetXforBlocks []))
+  ^double (getTextOffsetX [^int col])
+  ^double (getTextMaxOffsetXforBlocks []))
 
 
 (definterface IGutter
-  ^double (getWidth [])
-  (setText [^String s]))
+  ^double (getGutterWidth [])
+          (setGutterText [^String s]))
 
 
 (defn- new-row-gutter
@@ -142,14 +112,14 @@
           (.setBorder DEFAULT_GUTTER_BORDER))
         root
         (proxy [Group IGutter] [(fxj/vargs nr-label)]
-          (getWidth []
-            (.layout this)
+          (getGutterWidth []
+            (.layout ^Group this)
             (.getWidth nr-label))
-          (setText [s]
+          (setGutterText [s]
             (.setText nr-label s)))]
        
-    (-> root .getStyleClass (.add "gutter"))
-    (-> nr-label .getStyleClass (.add "nr-label"))
+    (fx/add-class root "gutter")
+    (fx/add-class nr-label  "nr-label")
 
     root))
 
@@ -158,21 +128,19 @@
 
 
 (defn- new-text [char]
-  ;; TODO: 'case' may be faster than 'cond'
-  (cond
-    (= char \newline)
+  (case char
+    \newline
     (doto (Text. (str " " \u21A9))  ;\u23CE
-      (.setFill DEFAULT_HIDDEN_CHAR_COLOR))
+      (fx/add-class "hidden"))
 
-    (= char \tab)
+    \tab
     (doto (Text. (str \u21E5))
-      (.setWrappingWidth DEFAULT_TAB_WIDTH)
-      (.setFill DEFAULT_HIDDEN_CHAR_COLOR))
-
-    :default
+      (.setWrappingWidth DEFAULT_TAB_WIDTH))
+    
+    ;;default
     (doto (Text. (str char))
       (.setFont DEFAULT_FONT)
-      (.setFill (if (paren-chars char) Color/BLUE DEFAULT_TEXT_COLOR)))))
+      (fx/add-class (if (paren-chars char) "delim" "default")))))
 
 
 (defn- layout-texts
@@ -223,11 +191,11 @@
           (map #(.getCell flow %)  ;; May throw exception
                (range first-row (inc ^int last-row)))
           lengths
-          (mapv #(.getMaxOffsetXforBlocks ^IRowCell %)
-                cells)]
+          (mapv #(.getCellMaxOffsetXforBlocks ^IRowCell %) cells)]
       (apply max lengths))
     (catch IndexOutOfBoundsException _ 0.0)
     (catch ClassCastException _ 0.0)))
+
 
 (defn max-offset-x-mem
   "Implements a memoize functionality, but using an atom from state, which gets reset whenever blocks reset."
@@ -256,43 +224,61 @@
     spans))
 
 
+(defn snap
+  "Ensure that a number is a n.5 of the int base.  
+  Used to avoid fuzzy odd-width lines in canvas.
+  Alternatively use .setStrokeType StrokeType/INSIDE or StrokeType/OUTSIDE"
+  [value]
+  (+ (int value) 0.5))
+
+
+(defn- ^Canvas block-line [^double w ^double h first? last?]
+  ;(prn 'block-line w h first? last?)
+  (let [w (int w)  ;; ensure a clean width
+        c (Canvas. w h)
+        gc (.getGraphicsContext2D c)
+        r 3  ;; arc radius - for lines
+        d (* 2 r)  ;; arc diameter - used in the arc method
+        x1 0.5
+        y1 0.5
+        x2 (- w 0.5)
+        y2 (- h 0.5)
+        y2l (- y2 0)
+        fl-y (snap (* h 0.67))]
+    (doto gc
+      (.setStroke Color/PINK)
+      ;(.strokeRect 0 0 w h)
+      (.setStroke Color/CORNFLOWERBLUE))
+    (when last?
+      (doto gc
+        (.strokeArc x1 (- y2l d) d d 180 90 ArcType/OPEN)
+        (.strokeArc  (- x2 d) (- y2l d) d d 270 90 ArcType/OPEN)
+        (.strokeLine r y2l (- x2 r) y2l)  ;; horizontal line
+        (.strokeLine x2 fl-y x2 (- y2l r))))  ;; end-line
+    (when first?
+      (doto gc
+        (.strokeLine  x1 fl-y x1 (if last? (- y2l r) y2))))
+    (when-not first?
+      (doto gc
+        (.strokeLine x1 y1 x1 (if last? (- y2l r) y2))))
+    
+    c))
+
+
 (defn set-blocks [^StackPane blocks-pane all-ranges mem_ row flow texts]
   (->  blocks-pane .getChildren .clear)
   (let [ranges (get all-ranges row)]
     (when-not (empty? ranges)
       (let [h DEFAULT_LINE_HEIGHT
             spans (find-block-spans ranges mem_ row flow texts)]
-
-        (doseq [[i [^double x1 ^double x2 first? last?]] (map-indexed vector spans)]
-          (let [padding-left 0.5 ;; slightly more generous to the left
-                x (- x1 padding-left)
-                y (if first? 0.5 0)
-                w (+ ^double (* (- x2 x)) padding-left)
-                h (if (or first? last?) (- h 0.5) h)
-                r 6.0
-                b 1.5
-                corner-radii
-                (if (and first? last?)
-                    [r r r r]
-                    (if first?
-                        [r r 0 0]
-                        (if last?
-                            [0 0 r r]
-                            0)))
-                background
-                (fx/color-background (DEFAULT_BLOCK_COLORS (mod i DBCC)) corner-radii)
-                background-region
-                (doto (Region.)
-                      (.setMaxSize w h)
-                      (.setMinSize w h)
-                      (fx/set-translate-XY [x y])
-                      (fx/set-background background)
-                      (.setBorder
-                        (fx/new-border
-                          (DEFAULT_BLOCK_BORDERS (mod i DBCC)) ;; color
-                          [(if first? b 0) b (if last? b 0) b] ;; widths
-                          corner-radii)))]
-            (-> blocks-pane .getChildren (.add background-region))))))))
+        (doseq [[^double x1 ^double x2 first? last?] spans]
+          (let [x (+ x1 3.5)
+                y 0
+                w (- x2 x 2) 
+                background-canvas 
+                (doto (block-line w h first? last?)
+                      (fx/set-translate-XY [(int x) (int y)]))]
+            (-> blocks-pane .getChildren (.add background-canvas))))))))
 
 
 (defn- set-marks
@@ -321,8 +307,8 @@
         (.setTranslateX anchor (- ^double (calculate-offset texts acol) 0.25))
         (-> pane .getChildren (.add anchor))))
 
-    (when (and (= crow row) caret-visible) 
-      (let [caret ^Node (DEFAULT_CURSOR_FACTORY DEFAULT_LINE_HEIGHT)]
+    (when (and (= crow row) caret-visible)
+      (let [caret ^Node (caret-factory DEFAULT_LINE_HEIGHT)]
         (.setTranslateX caret (- ^double (calculate-offset texts ccol) 1.0)) ;; negative offset for cursor width
         (-> pane .getChildren (.add caret))))))
 
@@ -372,8 +358,8 @@
   (let [[^long row col] (:caret-pos state)
         cell (.getCell flow row)
         ;; The "absolute" offset (of the caret) - i.e. number of pixels from the left of the flow
-        ^double offset-x (.getOffsetX ^IRowCell cell col)
-        ^double gutter-w (.getGutterWidth ^IRowCell cell)
+        ^double offset-x (.getCellOffsetX ^IRowCell cell col)
+        ^double gutter-w (.getCellGutterWidth ^IRowCell cell)
         ;; How much has been scrolled
         ^double scrolled-x (-> flow .breadthOffsetProperty .getValue)
         flow-w (.getWidth flow)
@@ -395,8 +381,8 @@
         ;; And we don't want it to reach the very top or bottom row if avoidable.
         ;; So get the current first and last visible rows.
         visible-cells (.visibleCells flow)
-        ^int first-visible-row (.getIndex ^IRowCell (first visible-cells))
-        ^int last-visible-row (.getIndex ^IRowCell (last visible-cells))]
+        ^int first-visible-row (.getCellIndex ^IRowCell (first visible-cells))
+        ^int last-visible-row (.getCellIndex ^IRowCell (last visible-cells))]
 
     (when-not col-visible?
       ;; Scroll horizontally.
@@ -419,10 +405,10 @@
 
         scrolling-pane
         (doto
-          (proxy [StackPane IScrollableText] [(fxj/vargs blocks-pane marks-pane text-pane)]
+          (proxy [StackPane IScrollableText] [(fxj/vargs  marks-pane blocks-pane text-pane)]
             ;; Impelements IScrollableText
-            (getColumn [^double offset-x] ;; offset-x already considers scrolled offset
-              (let [^double  gw (.getWidth gutter)
+            (getTextColumn [^double offset-x] ;; offset-x already considers scrolled offset
+              (let [^double  gw (.getGutterWidth gutter)
                     offset (- offset-x gw inset-left)
                     col
                     (if (<  (- offset-x ^double @scroll-offset_) gw) ;; offset-x is in/under in gutter.
@@ -430,10 +416,10 @@
                       (calculate-col offset texts))]
                 col))
             ;; Impelements IScrollableText
-            (getOffsetX [col]
+            (getTextOffsetX [col]
               (+ inset-left
                  ^double (calculate-offset texts col)))
-            (getMaxOffsetXforBlocks []
+            (getTextMaxOffsetXforBlocks []
              (+ inset-left
                 ^double (calculate-max-offset-for-block chars texts))))
 
@@ -459,7 +445,7 @@
           (new-row-gutter)
 
           set-gutter-text
-          #(.setText gutter ((:line-count-formatter @state_) (inc ^int @row_)))
+          #(.setGutterText gutter ((:line-count-formatter @state_) (inc ^int @row_)))
 
           text-pane
           (doto ^StackPane (fx/stackpane)
@@ -477,7 +463,7 @@
             (.setAlignment Pos/CENTER_LEFT))
 
           scrolling-part
-          (new-scrolling-part gutter text-pane marks-pane blocks-pane  scroll-offset_ chars texts)
+          (new-scrolling-part gutter text-pane marks-pane blocks-pane scroll-offset_ chars texts)
           
           node
           (proxy [Region] []
@@ -488,7 +474,7 @@
             (computePrefWidth [^double _]
               (.layout ^Region this)
               (let [insets  ^Insets (.getInsets ^Region this)]
-                (+ ^double (.getWidth gutter)
+                (+ ^double (.getGutterWidth gutter)
                    (.prefWidth ^Region scrolling-part -1.0)
                    (.getLeft  insets)
                    (.getRight insets))))
@@ -499,36 +485,28 @@
             ;; @override
             (layoutChildren []
               (let [[^double w h] (-> ^Region this .getLayoutBounds fx/WH)
-                    gw ^double (.getWidth gutter)
+                    gw ^double (.getGutterWidth gutter)
                     go @scroll-offset_]
                 (.resizeRelocate ^StackPane scrolling-part gw 0 (- w gw) h)
                 (.resizeRelocate ^Region gutter go 0 gw h)
                 (.resizeRelocate  line-background-pane go 0 w h))))]
 
-      (.setAll (.getChildren ^Parent node)
-               (fxj/vargs-t Node
-                   line-background-pane
-                   scrolling-part
-                   gutter))
+      (->  node ^ObservableList .getChildren (.setAll ^List (list line-background-pane scrolling-part gutter)))
 
-      (add-watch scroll-offset_ k
-                 (fn [_ _ _ _] (.requestLayout node)))
+      (add-watch scroll-offset_ k #(.requestLayout node))
 
-      (add-watch state_ k
-                 (fn [_ _ {prev-digits :line-count-digits prev-blocks :blocks}
-                          {digits :line-count-digits blocks :blocks :as state}]
-                   (when (not= prev-digits digits)
-                     (set-gutter-text))
-                   (set-marks-and-line line-background-pane marks-pane state @row_ chars texts)
-                   (when (not= prev-blocks blocks)
-                     (set-blocks blocks-pane (:block-ranges state) (:max-offset-x-mem_ state) @row_ @flow_ texts))
-                   (.requestLayout node)))
+      (add-watch 
+        state_ k
+        (fn [_ _ {prev-digits :line-count-digits prev-blocks :blocks} {digits :line-count-digits blocks :blocks :as state}]
+          (when (not= prev-digits digits) (set-gutter-text))
+          (set-marks-and-line line-background-pane marks-pane state @row_ chars texts)
+          (when (not= prev-blocks blocks) (set-blocks blocks-pane (:block-ranges state) (:max-offset-x-mem_ state) @row_ @flow_ texts))
+          (.requestLayout node)))
 
       (reify
         Cell
         ;; implements
-        (getNode [_]
-          node)
+        (getNode [_] node)
         ;; implements
         (updateIndex [_ index]
           (when (not= @row_ index) ;; only update box if index changes
@@ -541,24 +519,19 @@
         (dispose [_]
           (remove-watch scroll-offset_ k)
           (remove-watch state_ k))
+        
         IRowCell
         ;; implements
-        (getColumn [_ offset-x]
-          (.getColumn scrolling-part offset-x))
+        (getCellColumn [_ offset-x] (.getTextColumn scrolling-part offset-x))
         ;; implements
-        (getOffsetX [_ col]
+        (getCellOffsetX [_ col]
           (-
-           (+ ^double (.getWidth gutter)
-              ^double (.getOffsetX scrolling-part col))
+           (+ ^double (.getGutterWidth gutter)
+              ^double (.getTextOffsetX scrolling-part col))
            ^double @scroll-offset_))
         ;; implements
-        (getMaxOffsetXforBlocks [_]
-          (.getMaxOffsetXforBlocks scrolling-part))
+        (getCellMaxOffsetXforBlocks [_] (.getTextMaxOffsetXforBlocks scrolling-part))
         ;; implements
-        (getGutterWidth [_]
-          (.getWidth gutter))
+        (getCellGutterWidth [_] (.getGutterWidth gutter))
         ;; implements
-        (getIndex [_]
-          @row_)))))
-
-
+        (getCellIndex [_] @row_)))))

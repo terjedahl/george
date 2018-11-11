@@ -1,0 +1,53 @@
+/*
+Styling applied to george.editor - both basic editor as well as code highlighting. 
+
+Useful tool:
+https://www.sessions.edu/color-calculator/
+
+*/
+
+
+* {
+
+   -anthrecite: #2b292e;
+
+   -caret-color: #0065F9;
+   -caret-color-grey: #999;
+
+   -selection-color: #B1C9F1;
+   -selection-color-grey: #ccc;
+   
+
+
+}
+
+/* editor-area */
+
+.editor-area .caret{
+    -fx-fill: -caret-color-grey;
+}
+
+.editor-area:focused .caret {
+    -fx-fill: -caret-color;
+}
+
+.editor-area .selection{
+    -fx-fill: -selection-color-grey;
+}
+
+.editor-area:focused .selection {
+    -fx-fill: -selection-color;
+}
+
+/* text elements */
+.hidden               { -fx-fill: DARKGRAY; } 
+.default              { -fx-fill: -anthrecite; } 
+.boolean, .nil        { -fx-fill: #4F7BDE; }
+.error., unpaired     { -fx-fill: #ED1C24;} /* -rtfx-background-color: orange; */ /* Maybe use TextExt from RichTextFX ..*/
+.number               { -fx-fill: #524EAC; } 
+.keyword, .arg        { -fx-fill: #9E1F64; }
+.string, .char        {-fx-fill: #008e00; }  
+.delim                { -fx-fill: BLUE; } 
+.comment              { fx-fill: #708080; }
+macro, .macrodispatch { -fx-fill: #cc7832; }
+.unkown               { -fx-fill: orange; } 

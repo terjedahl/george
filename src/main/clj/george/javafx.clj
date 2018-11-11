@@ -76,7 +76,7 @@ The includes (but is not limited to):
 
 
 (defn set-implicit-exit [b]
-  (println (str *ns*"/set-implicit-exit " b))
+  (println "george.javafx/set-implicit-exit")
   (Platform/setImplicitExit false))
 
 
@@ -88,7 +88,7 @@ The includes (but is not limited to):
 
 ;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
 (defn preload-fonts [& [verbose?]]
-  (println (format "%s/preload-fonts ..." *ns*))
+  (println "george.javafx/preload-fonts")
   (let [dir-path (str (cio/resource "fonts/"))
         list-path "fonts/fonts.txt"
         names (cs/split-lines (slurp (cio/resource list-path)))]
@@ -110,7 +110,7 @@ Memoize-ing it makes it effectively lazy and run only once (unless new/different
 Add any additional random key+value to trigger a new load (as this triggers a new run of the memoize fn)."
   (memoize
     (fn [& {:keys [fonts? classloader] :or {fonts? true}}]
-      (println (str *ns* "/init"))
+      (println "george.fx/init")
       ;; Java10
       ;; ensure synchronicity by de-referencing promises 
       ;(let [st-promise (promise)]
@@ -174,7 +174,7 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 (defn ^CornerRadii corner-radii [rad]
   (when rad
     (if (vector? rad)
-      (let [[tl tr br bl ] rad] (CornerRadii. tl tr br bl false))
+      (let [[tl tr br bl] rad] (CornerRadii. tl tr br bl false))
       (CornerRadii. rad))))
 
 
@@ -456,21 +456,22 @@ and the body is called on 'changed'"
 ;  '[sun.util.logging PlatformLogger$Level])
 
 
-(defn add-stylesheet [^Scene scene path]
+(defn add-stylesheet [scene-or-parent path]
   (let []
         ;logger (Logging/getCSSLogger)
         ;level (.level logger)]
     ;(.setLevel logger PlatformLogger$Level/OFF)  ;; turn off logger. Doesn't work well.
-    (-> scene .getStylesheets (.add path))))  ;; set stylesheet
+    (-> scene-or-parent .getStylesheets (.add path))))  ;; set stylesheet
     ;(.setLevel logger level))) ;; turn logger back to previous level
 
 
-(defn add-stylesheets [scene & paths]
-  (mapv #(add-stylesheet scene %) paths))
+(defn add-stylesheets [scene-or-parent & paths]
+  (mapv #(add-stylesheet scene-or-parent %) paths))
 
 
 (defn clear-stylesheets [scene]
   (-> scene .getStylesheets .clear)) 
+
 
 (defn set-Modena []
     (Application/setUserAgentStylesheet Application/STYLESHEET_MODENA))
@@ -478,7 +479,8 @@ and the body is called on 'changed'"
 
 (defn add-class
   ([node ^String css-class]
-   (add-class node css-class false))
+   (-> node .getStyleClass  (.add css-class)))
+
   ([node ^String css-class reload?]
    (let [style-class ^List (.getStyleClass node)]
      (when reload? (.remove style-class css-class))

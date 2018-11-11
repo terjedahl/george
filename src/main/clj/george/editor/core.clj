@@ -59,14 +59,11 @@
 
       ;; Important! Otherwise the flow can not receive events.
       (.setFocusTraversable true)
-      (-> .getStyleClass (.add "editor-area"))
-      (-> .breadthOffsetProperty
-          (.addListener (fx/changelistener [_ _ _ offset]
-                                           (reset! scroll-offset_ offset))))
+      (fx/add-stylesheet "styles/editor.css")
+      (fx/add-class "editor-area")
+      (-> .breadthOffsetProperty (.addListener  (fx/new-changelistener (reset! scroll-offset_ new-value)))) ;; offset
 
-      (.addEventHandler KeyEvent/ANY (i/key-event-handler
-                                       (partial st/keypressed state_)
-                                       (partial st/keytyped state_)))
+      (.addEventHandler KeyEvent/ANY (i/key-event-handler (partial st/keypressed state_) (partial st/keytyped state_)))
 
       (.setOnMousePressed mouse-event-handler)
       (.setOnMouseDragged mouse-event-handler)
@@ -74,17 +71,12 @@
       (.setOnMouseReleased mouse-event-handler)
       (.setOnMouseDragReleased mouse-event-handler)
 
+      ;; to re-layout so as to ensure-visible on caret after flow has been made visible.
       (-> .widthProperty
-          (.addListener
-            (fx/changelistener [_ _ prev-w w]
-                               ;; to re-layout so as to ensure-visible on caret after flow has been made visible.
-                               (when (and (zero? ^double prev-w) (pos? ^double w))
-                                 (swap! state_ assoc :triggering-hack :hacked)))))
-
+          (.addListener (fx/new-changelistener  (when (and (zero? ^double old-value) (pos? ^double new-value))
+                                                  (swap! state_ assoc :triggering-hack :hacked)))))
       (-> .focusedProperty 
-          (.addListener  
-            (fx/new-changelistener  
-              (if new-value  (st/start-blink state_) (st/stop-blink state_))))))
+          (.addListener  (fx/new-changelistener  (if new-value  (st/start-blink state_) (st/stop-blink state_))))))
     
     [flow state_])))
 
@@ -92,6 +84,7 @@
 (definterface IEditorPane
   (getStateAtom [])
   (getFlow []))
+
 
 (defn editor-view
  "Returns a subclass of VirtualizedScrollPane.
