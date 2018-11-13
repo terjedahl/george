@@ -31,8 +31,8 @@
                  ;(prefWidth [h] (.getWidth this))
                  ;(prefHeight [w] (.getHeight this)))]
         (doto rc
-            (-> .widthProperty (.addListener (fx/changelistener [_ _ _ _] (draw-red-x-box rc))))
-            (-> .heightProperty (.addListener (fx/changelistener [_ _ _ _] (draw-red-x-box rc)))))))
+            (-> .widthProperty (fx/add-changelistener (draw-red-x-box rc)))
+            (-> .heightProperty (fx/add-changelistener (draw-red-x-box rc))))))
 
 
 

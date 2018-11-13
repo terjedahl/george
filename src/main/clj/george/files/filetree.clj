@@ -775,7 +775,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
       (.requestFocus)
       (.selectRange 0 
                     (- (count name) (if file? 4 0)))
-      (-> .textProperty (.addListener ^ChangeListener (fx/new-changelistener (do-checks)))))
+      (-> .textProperty (fx/add-changelistener (do-checks))))
     
     ;; process the return-value from the alert    
     (when (fx/option-index (.showAndWait alert) options)
@@ -814,8 +814,8 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         (map-indexed #(assoc (->Labeled (path-label %1 %2) %2) :ind %1) paths)]
     ;(pprint ['paths paths])
     ;; Run this on a separate thread - outside of the action-event
-    (future (fx/later (doto combo (-> .getItems (.setAll ^List labeled-paths))
-                                  (-> .getSelectionModel .selectLast))))))
+    (fx/future-later (doto combo (-> .getItems (.setAll ^List labeled-paths))
+                                 (-> .getSelectionModel .selectLast)))))
 
 
 (def default-state
@@ -855,7 +855,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         ;refresh-button
         ;(styled/small-button "R"
         ;                     :tooltip "Manually refresh file-tree"
-        ;                     :onaction #(future (fx/later (-> state_  <-root .refresh))))
+        ;                     :onaction #(fx/future-later (-> state_  <-root .refresh))))
 
         location-bar
         (fx/hbox dirs-combo ;watched-label refresh-button
@@ -981,6 +981,12 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 ;; TODO: Ensure that long filenames compress rather than activating horizontal scrolling - both in filetree and openlist.
 
 ;;;; FUTURE RELEASE
+
+;; TODO: Update files when they are moved with DnD
+
+;; TODO: Make "shortcut" back to "George" folder.  (Also note that it was confusing that double-clicking stepped pupils inn to sub-folder.)
+
+;; TODO: Ensure that there is always an ending on the file. ('.clj' or similar)
 
 ;; TODO: Implement cut/copy/paste
 ;; TODO: Insert cut/copy/paste into item-menu

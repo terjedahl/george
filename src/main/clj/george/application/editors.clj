@@ -20,13 +20,15 @@
     [george.application.output :refer [oprint oprintln]]
     [george.application.ui.layout :as layout]
     [george.util :as u]
-    [george.util.file :as guf :refer [->file ->path]]
+    [george.util.file :as guf :refer [->file ->path ->string filename]]
     [george.application.file :as gaf]
     [clojure.java.io :as cio])
   (:import
     [javafx.scene.control SplitMenuButton]
     [javafx.geometry Side]
-    [javafx.scene.input KeyEvent]))
+    [javafx.scene.input KeyEvent]
+    [javafx.scene.text TextFlow Text]
+    [java.util List]))
 
 
 (defn save-to-swap-channel []
@@ -198,9 +200,15 @@
      :do-interrupt-fn #(.fire interrupt-button)}))   
 
 
-(defn- path-indicate [labeled file-info]
-  (let [path (:path file-info)]
-    (.setText labeled (str " " path " "))))
+(defn- path-indicate [textflow file-info]
+  (let [path      (:path file-info)
+        path-str  (->string path)
+        nam       (filename path)
+        dir-txt   (doto (Text. (-> path str (subs 0 (- (count path-str) (count nam)))))
+                        (.setStyle "-fx-font-size: 14; -fx-fill: gray;"))
+        nam-txt   (doto (Text. nam)
+                        (.setStyle "-fx-font-size: 14; -fx-fill: black;"))]
+    (-> textflow .getChildren (.setAll ^List [dir-txt nam-txt]))))
 
 
 (defn- new-editor-bar [editor file-info_ reveal-fn]
@@ -208,9 +216,9 @@
         save-fn
         #(save editor file-info_)
         
-        path-label
-        (styled/path-label)
-        
+        path-textflow
+        (doto (TextFlow.)
+              (fx/set-padding 3 6 0 6))
         save-button
         (styled/small-button "Save"
                              :onaction save-fn
@@ -221,16 +229,16 @@
                              :onaction reveal-fn
                              :tooltip "Reveal in file tree.")
         bar
-        (layout/menubar true
-                        reveal-button
-                        path-label
-                        save-button)]
+        (fx/hbox reveal-button path-textflow save-button
+                 :spacing 5
+                 :padding 10
+                 :alignment fx/Pos_CENTER_LEFT)]
 
     (add-watch file-info_ :path-indicator 
-               #(fx/later (path-indicate path-label %4)
+               #(fx/later (path-indicate path-textflow %4)
                           (.setVisible save-button (not (:saved? %4)))))
 
-    (path-indicate path-label @file-info_)
+    (path-indicate path-textflow @file-info_)
     (.setVisible save-button false)
                                                    
     {:editor-bar bar

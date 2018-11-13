@@ -44,7 +44,8 @@
     [javafx.util Duration]
     [java.util Collection Optional List]
     [clojure.lang Atom]
-    [javafx.fxml FXMLLoader]))
+    [javafx.fxml FXMLLoader]
+    [javafx.beans Observable]))
 
 
 "
@@ -76,7 +77,7 @@ The includes (but is not limited to):
 
 
 (defn set-implicit-exit [b]
-  (println (str *ns*"/set-implicit-exit " b))
+  (println "george.javafx/set-implicit-exit")
   (Platform/setImplicitExit false))
 
 
@@ -88,7 +89,7 @@ The includes (but is not limited to):
 
 ;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
 (defn preload-fonts [& [verbose?]]
-  (println (format "%s/preload-fonts ..." *ns*))
+  (println "george.javafx/preload-fonts")
   (let [dir-path (str (cio/resource "fonts/"))
         list-path "fonts/fonts.txt"
         names (cs/split-lines (slurp (cio/resource list-path)))]
@@ -110,7 +111,7 @@ Memoize-ing it makes it effectively lazy and run only once (unless new/different
 Add any additional random key+value to trigger a new load (as this triggers a new run of the memoize fn)."
   (memoize
     (fn [& {:keys [fonts? classloader] :or {fonts? true}}]
-      (println (str *ns* "/init"))
+      (println "george.fx/init")
       ;; Java10
       ;; ensure synchronicity by de-referencing promises 
       ;(let [st-promise (promise)]
@@ -159,6 +160,9 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 (def Pos_CENTER Pos/CENTER)
 (def Pos_CENTER_LEFT Pos/CENTER_LEFT)
 (def Pos_CENTER_RIGHT Pos/CENTER_RIGHT)
+(def Pos_BOTTOM_LEFT Pos/BOTTOM_LEFT)
+(def Pos_BOTTOM_RIGHT Pos/BOTTOM_RIGHT)
+
 (def VPos_TOP VPos/TOP)
 (def VPos_CENTER VPos/CENTER)
 
@@ -171,7 +175,7 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 (defn ^CornerRadii corner-radii [rad]
   (when rad
     (if (vector? rad)
-      (let [[tl tr br bl ] rad] (CornerRadii. tl tr br bl false))
+      (let [[tl tr br bl] rad] (CornerRadii. tl tr br bl false))
       (CornerRadii. rad))))
 
 
@@ -200,22 +204,20 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
         (Platform/runLater #(try (expr) (catch Throwable e e (println e))))))
 
 
-;(defmacro ^:deprecated thread
-;    "Ensure running body in JavaFX thread: javafx.application.Platform/runLater"
-;    [& body]
-;    `(later* (fn [] ~@body)))
-
-
 (defmacro later
     "Ensure running body in JavaFX thread: javafx.application.Platform/runLater"
     [& body]
     `(later* (fn [] ~@body)))
 
 
-;(defmacro thread-later
-;  "Runs the body in a fn in a later* on a separate thread"
-;  [& body]
-;  `(.start (Thread. (later* (fn [] ~@body)))))
+(defmacro future-later
+  ([& body]
+   `(future (later* (fn [] ~@body)))))
+
+
+(defmacro future-sleep-later
+  ([ms & body]
+   `(future (Thread/sleep ~ms) (later* (fn [] ~@body)))))
 
 
 (defn now*
@@ -307,6 +309,10 @@ and the body is called on 'changed'"
 (defmacro ^ChangeListener new-changelistener
   [& body]
   `(reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body)))
+
+
+(defmacro add-changelistener [^Observable observable & body]
+  `(.addListener ~observable (reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body))))
 
 
 (defmacro ^ChangeListener new-listchangelistener
@@ -453,33 +459,40 @@ and the body is called on 'changed'"
 ;  '[sun.util.logging PlatformLogger$Level])
 
 
-(defn add-stylesheet [^Scene scene path]
+(defn add-stylesheet [scene-or-parent path]
   (let []
         ;logger (Logging/getCSSLogger)
         ;level (.level logger)]
     ;(.setLevel logger PlatformLogger$Level/OFF)  ;; turn off logger. Doesn't work well.
-    (-> scene .getStylesheets (.add path))))  ;; set stylesheet
+    (-> scene-or-parent .getStylesheets (.add path))))  ;; set stylesheet
     ;(.setLevel logger level))) ;; turn logger back to previous level
 
 
-(defn add-stylesheets [scene & paths]
-  (mapv #(add-stylesheet scene %) paths))
+(defn add-stylesheets [scene-or-parent & paths]
+  (mapv #(add-stylesheet scene-or-parent %) paths))
 
 
 (defn clear-stylesheets [scene]
   (-> scene .getStylesheets .clear)) 
 
+
 (defn set-Modena []
     (Application/setUserAgentStylesheet Application/STYLESHEET_MODENA))
 
 
-(defn add-class
+(defn remove-class
   ([node ^String css-class]
-   (add-class node css-class false))
-  ([node ^String css-class reload?]
-   (let [style-class ^List (.getStyleClass node)]
-     (when reload? (.remove style-class css-class))
-     (.add style-class css-class))))
+   (-> node .getStyleClass (.remove css-class))))
+
+
+(defn add-class [node ^String css-class]
+   (-> node .getStyleClass  (.add css-class)))
+
+
+(defn re-add-class [node ^String css-class]
+  (doto (.getStyleClass node)
+    (.remove css-class)
+    (.add css-class)))
 
 
 (defn ^KeyFrame keyframe*
@@ -936,25 +949,31 @@ and the body is called on 'changed'"
     label))
 
 
-(defn insets* [[top right bottom left]]
-    (Insets. top right bottom left))
-
-
 (defn insets
     ([v]
-     (if (vector? v)
-         (insets* v)
-         (Insets. v)))
+     (if (sequential? v) (apply insets v) (Insets. v)))
   
     ([top right bottom left]
-     (insets* [top right bottom left])))
+     (Insets. top right bottom left)))
 
 
 (defn set-padding
     ([pane v]
-     (.setPadding pane (insets v)))
+     (.setPadding pane (insets v))
+     pane)
     ([pane t r b l]
-     (.setPadding pane (insets t r b l))))
+     (.setPadding pane (insets t r b l))
+     pane))
+
+
+(defn set-spacing [box n]
+  (.setSpacing box n)
+  box)
+
+
+(defn set-alignment [box pos]
+  (.setAlignment box pos)
+  box)
 
 
 (defn box [vertical? & args]
@@ -974,7 +993,7 @@ and the body is called on 'changed'"
           
       (doto box
           (BorderPane/setMargin (insets (:insets kwargs)))
-          (.setAlignment  (:alignment kwargs)))
+          (set-alignment  (:alignment kwargs)))
       
       ;(.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
       (if (number? padding)
@@ -1326,6 +1345,8 @@ Use :SHIFT :SHORTCUT :ALT for platform-independent handling of these modifiers (
 If the value is a function, then it will be run, and then the event will be consumed.
 If the value is an EventHandler, then it will be called with the same args as this handler, and it must itself consume the event if required.
 
+See:  https://docs.oracle.com/javase/8/javafx/api/javafx/scene/input/KeyCode.html
+
 Example of codes-map:
 {   #{:S}              #(println \"S\")  ;; event consumed
     #{:S :SHIFT}       #(println \"SHIFT-S\")
@@ -1333,9 +1354,8 @@ Example of codes-map:
     #{:SHORTCUT :ENTER}    (fx/event-handler-2 [_ event] (println \"CTRL/CMD-ENTER\") (.consume event ))
     }"
     [codes-map & {:keys [handle-type consume-types]}]
-    (event-handler-2
-        [inst event]
-        ;(println "  ## inst:" inst "  source:" (.getSource event ))
+    (new-eventhandler
+        ;(println "  ## this:" this "  source:" (.getSource event ))
         (let [
               ev-typ (.getEventType event)
               combo (ufx/code-modifier-set event)
@@ -1377,8 +1397,7 @@ Example of codes-map:
         }"
     [chars-map]
 
-    (event-handler-2
-        [_  event]
+    (new-eventhandler
         (let [ch-str (.getCharacter ^KeyEvent event)
               chars-map1 (if (instance? Atom chars-map) @chars-map chars-map)]
           (when-let [v  (chars-map1 ch-str)]

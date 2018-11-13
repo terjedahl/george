@@ -138,7 +138,7 @@ Has it been renamed, moved, or deleted?
         label      (fx/new-label (filename path) 
                                  :font 14
                                  :color (if found? fx/BLACK fx/RED))
-        reveal-fn  #(future (fx/later (->> @file-info_ :path (filetree/reveal filenav-state_))))]
+        reveal-fn  #(fx/future-later (->> @file-info_ :path (filetree/reveal filenav-state_)))]
   
     (when found? 
       (eds/state-listener editor label file-info_ save-chan)
@@ -213,7 +213,7 @@ Has it been renamed, moved, or deleted?
         (.addListener  (fx/new-listchangelistener (set-open-files (.getList change))))) 
     
     (future (Thread/sleep 200)
-            (fx/later (.setDividerPosition splitpane 0 0.4)))
+            (fx/later (.setDividerPosition splitpane 0 0.6)))
 
     splitpane))
 
@@ -266,10 +266,11 @@ Has it been renamed, moved, or deleted?
 ;(when (env :repl?) (println "Warning: Running george.files-editors/new-stage") (fx/init) (new-stage))
 
 
-
 ;; TODO: When file selected, editor should get focus
 
-;; TODO: Better tooltip in open-file-list,
+;; TODO: Handle case where file has moved and #swap#/file cannot save but cannot close.
+
+;; TODO: Better tooltip in open-list,
 ;; TODO: Save state of last selected file in editor.
 ;; TODO: Save state of open folder in filetree maybe?
 ;; TODO: DnD re-ordering of open files.  And also alphabetical ordering (non-destructive).

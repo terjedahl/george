@@ -5,6 +5,7 @@
 
 (ns george.editor.demos
   (:require
+    [environ.core :refer [env]]
     [george.editor.core :as e]
     [george.javafx :as fx]
     [george.editor.buffer :as b]
@@ -33,7 +34,7 @@
 (defn sample-code-editor []
   (test-stage
     (e/editor-view
-      "(defn foo\n  \"hello, this is a docstring\"\n  [a b]\n  (let [sum (+ a b)\n        prod (* a b)]\n     {:sum sum\n      :prod prod}))"
+      "(defn foo\n  \"hello, this is a docstring\"\n  [a b]\n  ;; a comment\n  (let [sum (+ a b)\n        prod (* a b)]\n     {:sum sum\n      :prod prod}))"
       :clj)))
 
 (defn triangle-code-editor []
@@ -48,9 +49,9 @@
     (test-stage view)))
 
 
-;(no-text-editor)
-;(small-text-editor)
-;(sample-code-editor)
-;(triangle-code-editor)
-;(large-text-editor)
-;(large-text-editor :clj)
+;(when (env :repl?)  (fx/init) (no-text-editor))
+;(when (env :repl?) (fx/init) (small-text-editor))
+;(when (env :repl?)  (fx/init) (sample-code-editor))
+;(when (env :repl?)  (fx/init) (triangle-code-editor))
+;(when (env :repl?)  (fx/init) (large-text-editor))
+;(when (env :repl?)  (fx/init) (large-text-editor :clj))

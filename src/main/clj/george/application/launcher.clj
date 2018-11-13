@@ -277,9 +277,7 @@ Powered by open source software.")
 
 (defn- double-property [init-value value-change-fn]
   (doto (SimpleDoubleProperty. init-value)
-    (.addListener
-      (fx/new-changelistener
-        (value-change-fn new-value)))))
+    (fx/add-changelistener (value-change-fn new-value))))
 
 
 (defn- morphe-launcher-stage [^Stage stage ^Pane application-root [x y w h :as target-bounds]]

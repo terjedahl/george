@@ -501,13 +501,11 @@ It there a need / purpose for for this, though, as long as whatever data they ar
         togglegroup
         (doto (ToggleGroup.)
             (-> .selectedToggleProperty
-                (.addListener
-                    (fx/changelistener
-                        [_ _ _ monitor-radiobutton]
-                        (let [MID (-> monitor-radiobutton .getParent .getUserData :MID)]
-                            ;(println "selected MID:" MID)
-                            (when-not(= @selected-MID-atom MID)
-                                (reset! selected-MID-atom MID)))))))
+                (fx/add-changelistener
+                   (let [MID (-> new-value .getParent .getUserData :MID)]
+                       ;(println "selected MID:" MID)
+                       (when-not(= @selected-MID-atom MID)
+                           (reset! selected-MID-atom MID))))))
 
         monitors-vbox
         (doto (fx/vbox)

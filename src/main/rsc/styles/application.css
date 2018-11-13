@@ -1,29 +1,29 @@
-* {
-/*
+/* 
+Global styling for application - widgets, styles, colors, layouts, etc. 
+
+Useful tool:
 https://www.sessions.edu/color-calculator/
-*/
-   -g-anthrecite: #2b292e;
-   -g-anthrecite-ish:#3b3248; /* slightly more purple */
-   -g-light-border: GAINSBORO;
-   
-   -g-caret-color: rgb(197, 54, 58);
-   -g-caret-color-grey: #999;
 
-   -g-selection-color: derive(rgb(237, 188, 190), -7%);
-   -g-selection-color-grey: #bbb;
-    
-}
 
-/*
-Modena:
+Original Java 8 Modena stylesheet:
   https://gist.github.com/maxd/63691840fc372f22f470
+
 Tutorial:
   http://code.makery.ch/library/javafx-8-tutorial/part4/
 */
+
+
+* {
+   -anthrecite: #2b292e;
+   -anthrecite-ish:#3b3248; /* slightly more purple */
+   -light-border: GAINSBORO;
+   
+}
+
 .root {
     -fx-font-size: 11pt;
     -fx-font-family: "Roboto";
-    -fx-text-base-color: -g-anthrecite-ish;
+    -fx-text-base-color: -anthrecite-ish;
     -fx-background-color: WHITESMOKE;
 }
 
@@ -87,24 +87,4 @@ http://blog.ngopal.com.np/2012/07/11/customize-scrollbar-via-css/
 .scroll-bar .decrement-arrow {
 	-fx-shape: " ";	
 	-fx-padding: 0;
-}
-
-
-/* editor */
-
-
-.editor-area .caret{
-    -fx-fill: -g-caret-color-grey;
-}
-
-.editor-area:focused .caret {
-    -fx-fill: -g-caret-color;
-}
-
-.editor-area .selection{
-    -fx-fill: -g-selection-color-grey;
-}
-
-.editor-area:focused .selection {
-    -fx-fill: -g-selection-color;
 }

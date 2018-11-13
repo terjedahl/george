@@ -112,6 +112,7 @@
             "clocks" ["run" "-m" "george.example.arcclocks"]
             "graph" ["run" "-m" "george.sandbox.graph"]}
 
+  ;; to get process on port 55055:   sudo lsof -n -i :55055
   :repl-options {:port 55055}
   :codox {
           :doc-paths ["docs"]
