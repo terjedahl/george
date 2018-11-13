@@ -333,7 +333,7 @@
         col))))  ;; Ran out of nodes.  Just return what we have.
 
 
-(defn ensure-caret-visible [^VirtualFlow flow state]
+(defn ensure-scrolled-to-caret [^VirtualFlow flow state]
   (let [line-height (-> state :font-size (derived-line-height))
         [^long row col] (:caret-pos state)
         cell (.getCell flow row)
@@ -477,7 +477,7 @@
 
       (->  node ^ObservableList .getChildren (.setAll ^List (list line-background-pane scrolling-part gutter)))
 
-      (add-watch scroll-offset_ k #(.requestLayout node))
+      (add-watch scroll-offset_ k (constantly (.requestLayout node)))
 
       (add-watch 
         state_ k
