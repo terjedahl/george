@@ -7,7 +7,6 @@
   (:require
     [clojure.string :as cs]
     [clojure.pprint :refer [pprint]]
-    [clojure.core.async :as a]
     [clj-diff.core :as diff]
     [george.util :as u]
     [george.util.text :as ut]
@@ -22,11 +21,12 @@
     [clojure.core.rrb_vector.rrbt Vector]
     [clojure.lang PersistentVector Keyword Atom IPersistentMap]
     [java.awt Toolkit]
-    [javafx.animation Animation Timeline]))
+    [javafx.animation Animation Timeline]
+    [java.util.function UnaryOperator]))
 
 
-(set! *warn-on-reflection* true)
-(set! *unchecked-math* :warn-on-boxed)
+;(set! *warn-on-reflection* true)
+;(set! *unchecked-math* :warn-on-boxed)
 ;(set! *unchecked-math* true)
 
 
@@ -44,6 +44,7 @@
   caret-anchor_
   apply-formatter_
   set-content-type_
+  ^ObservableList observable-list_
   do-update-list_)
 
 
@@ -235,6 +236,8 @@
          :caret-visible true  ;; controlled by blink-timer
          :blinker_ (atom nil)  ;; set by start-blink/stop-blink
          
+         :font-size 16
+         
          ;; history is in its own atom, so as not to trigger any state-watchers when updated.
          :history_ (atom {:items []                ;; Holds the actual histories
                           :pointer -1              ;; Points to the current version
@@ -316,6 +319,14 @@
                  :anchor-pos nil)))
 
 
+(defn- touch-all 
+  "Touches all elements in list with the purpose of refreshing the listcell."
+  [state]
+  (let [l (observable-list_ state)]
+    (.replaceAll l (UnaryOperator/identity))  
+    state))
+
+
 (defn- ^Timeline new-blinker 
   [state]
   (let [state_ (:state_ state)  ; state contains a reference to its containing atom!
@@ -379,7 +390,7 @@
   (swap! state_ set-text_ txt))
 
 
-(defn- observable-list_ [state]
+(defn- ^ObservableList observable-list_ [state]
   (:list state))
 
 
@@ -856,7 +867,7 @@
            (and (= typ :move) (= e-typ :pressed))])]
 
        (-> state
-           (set-marks_  c1 true move? a1)
+           (set-marks_ c1 true move? a1)
            (apply-formatter_ false)
            ensure-derived_
            (append-history_ true))))
@@ -884,4 +895,23 @@
   "Called by editor.core when view looses focus."
   [^Atom state_]
   (swap! state_ stop-blink_))    
+
+
+(defn font-size-set [^Atom state_ new-size]
+  (let [^int size (:font-size @state_)]
+    (when-not (= size new-size)
+      (swap! state_ assoc :font-size new-size)
+      (touch-all @state_))))
+            
+
+(defn font-size-step
+  "Called by editor.core to increase or decrease font size."
+  [^Atom state_ inc?]
+  (let [
+        ^int size (:font-size @state_)
+        new-size (u/clamp-int 8 (+ size (if inc? 2 -2)) 48)]
+    (if (= size new-size)
+        (.beep (Toolkit/getDefaultToolkit))
+        (font-size-set state_ new-size))))
+
   

@@ -477,14 +477,19 @@ and the body is called on 'changed'"
     (Application/setUserAgentStylesheet Application/STYLESHEET_MODENA))
 
 
-(defn add-class
+(defn remove-class
   ([node ^String css-class]
+   (-> node .getStyleClass (.remove css-class))))
+
+
+(defn add-class [node ^String css-class]
    (-> node .getStyleClass  (.add css-class)))
 
-  ([node ^String css-class reload?]
-   (let [style-class ^List (.getStyleClass node)]
-     (when reload? (.remove style-class css-class))
-     (.add style-class css-class))))
+
+(defn re-add-class [node ^String css-class]
+  (doto (.getStyleClass node)
+    (.remove css-class)
+    (.add css-class)))
 
 
 (defn ^KeyFrame keyframe*
@@ -941,18 +946,12 @@ and the body is called on 'changed'"
     label))
 
 
-(defn insets* [[top right bottom left]]
-    (Insets. top right bottom left))
-
-
 (defn insets
     ([v]
-     (if (vector? v)
-         (insets* v)
-         (Insets. v)))
+     (if (sequential? v) (apply insets v) (Insets. v)))
   
     ([top right bottom left]
-     (insets* [top right bottom left])))
+     (Insets. top right bottom left)))
 
 
 (defn set-padding
@@ -1343,6 +1342,8 @@ Use :SHIFT :SHORTCUT :ALT for platform-independent handling of these modifiers (
 If the value is a function, then it will be run, and then the event will be consumed.
 If the value is an EventHandler, then it will be called with the same args as this handler, and it must itself consume the event if required.
 
+See:  https://docs.oracle.com/javase/8/javafx/api/javafx/scene/input/KeyCode.html
+
 Example of codes-map:
 {   #{:S}              #(println \"S\")  ;; event consumed
     #{:S :SHIFT}       #(println \"SHIFT-S\")
@@ -1350,9 +1351,8 @@ Example of codes-map:
     #{:SHORTCUT :ENTER}    (fx/event-handler-2 [_ event] (println \"CTRL/CMD-ENTER\") (.consume event ))
     }"
     [codes-map & {:keys [handle-type consume-types]}]
-    (event-handler-2
-        [inst event]
-        ;(println "  ## inst:" inst "  source:" (.getSource event ))
+    (new-eventhandler
+        ;(println "  ## this:" this "  source:" (.getSource event ))
         (let [
               ev-typ (.getEventType event)
               combo (ufx/code-modifier-set event)
@@ -1394,8 +1394,7 @@ Example of codes-map:
         }"
     [chars-map]
 
-    (event-handler-2
-        [_  event]
+    (new-eventhandler
         (let [ch-str (.getCharacter ^KeyEvent event)
               chars-map1 (if (instance? Atom chars-map) @chars-map chars-map)]
           (when-let [v  (chars-map1 ch-str)]

@@ -8,36 +8,26 @@ https://www.sessions.edu/color-calculator/
 
 
 * {
-
-   -anthrecite: #2b292e;
-
-   -caret-color: #0065F9;
-   -caret-color-grey: #999;
-
-   -selection-color: #B1C9F1;
-   -selection-color-grey: #ccc;
+    -anthrecite: #2b292e;
+    
+    -caret-color:      #0065f9;
+    -caret-color-grey: #999;
+    
+    -selection-color:      #b1c9f1;
+    -selection-color-grey: #ccc;   
    
-
-
+    -default-line-background-color: WHITESMOKE;
+    -current-line-background-color: #f0f0ff;
+    -current-line-border-color:     #e5e5ff;    
 }
 
 /* editor-area */
 
-.editor-area .caret{
-    -fx-fill: -caret-color-grey;
-}
+.editor-area         .caret { -fx-fill: -caret-color-grey; }
+.editor-area:focused .caret { -fx-fill: -caret-color; }
 
-.editor-area:focused .caret {
-    -fx-fill: -caret-color;
-}
-
-.editor-area .selection{
-    -fx-fill: -selection-color-grey;
-}
-
-.editor-area:focused .selection {
-    -fx-fill: -selection-color;
-}
+.editor-area         .selection { -fx-fill: -selection-color-grey; }
+.editor-area:focused .selection { -fx-fill: -selection-color; }
 
 /* text elements */
 .hidden               { -fx-fill: DARKGRAY; } 
@@ -51,3 +41,24 @@ https://www.sessions.edu/color-calculator/
 .comment              { fx-fill: #708080; }
 macro, .macrodispatch { -fx-fill: #cc7832; }
 .unkown               { -fx-fill: orange; } 
+
+
+.gutter .nr-label {
+    -fx-text-fill:        #999;
+    -fx-background-color: -default-line-background-color; /**/
+    -fx-padding:          0 14 0 14;
+    -fx-border-color:     -current-line-border-color;
+    -fx-border-width:     0 1 0 0; 
+}
+
+.row { -fx-border-width: 1 0 1 0; }
+
+.default-row {
+    -fx-background-color: -default-line-background-color;  
+    -fx-border-color:     -default-line-background-color;
+}
+
+.current-row {
+    -fx-background-color: -current-line-background-color;  
+    -fx-border-color:     -current-line-border-color;
+}

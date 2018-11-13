@@ -27,6 +27,17 @@
 (declare set-content-type)
 
 
+(defn- text-size-handler [state_]
+  (fx/new-eventhandler
+    (let [ch (.getCharacter event)
+          shortcut? (.isShortcutDown event)]
+      (when (and (#{"+" "-"} ch) shortcut?)
+        (let [inc? (= "+" ch)]
+          ;(prn 'text-size-handler 'inc? inc?)
+          (st/font-size-step state_ inc?))
+        (.consume event)))))
+
+
 (defn- editor
  ([s typ]
   (let [
@@ -48,12 +59,10 @@
 
         ;;  Needs to get some information from 'flow'
         ;; (and from clicked-in 'cell') before determining appropriate action.
-        mouse-event-handler
+        mouse-event-handler 
         (i/mouse-event-handler flow (partial st/mouseaction state_))]
   
-    (add-watch state_ :ensure-caret-visible
-               (fn [_ _ _ state]
-                 (v/ensure-caret-visible flow state)))
+    (add-watch state_ :ensure-caret-visible #(v/ensure-caret-visible flow %4))
 
     (doto flow
 
@@ -61,10 +70,10 @@
       (.setFocusTraversable true)
       (fx/add-stylesheet "styles/editor.css")
       (fx/add-class "editor-area")
-      (-> .breadthOffsetProperty (.addListener  (fx/new-changelistener (reset! scroll-offset_ new-value)))) ;; offset
+      (-> .breadthOffsetProperty  (.addListener  (fx/new-changelistener (reset! scroll-offset_ new-value)))) ;; offset
 
       (.addEventHandler KeyEvent/ANY (i/key-event-handler (partial st/keypressed state_) (partial st/keytyped state_)))
-
+      
       (.setOnMousePressed mouse-event-handler)
       (.setOnMouseDragged mouse-event-handler)
       (.setOnMouseDragOver mouse-event-handler)
@@ -76,7 +85,9 @@
           (.addListener (fx/new-changelistener  (when (and (zero? ^double old-value) (pos? ^double new-value))
                                                   (swap! state_ assoc :triggering-hack :hacked)))))
       (-> .focusedProperty 
-          (.addListener  (fx/new-changelistener  (if new-value  (st/start-blink state_) (st/stop-blink state_))))))
+          (.addListener  (fx/new-changelistener  (if new-value  (st/start-blink state_) (st/stop-blink state_)))))
+
+      (.addEventFilter KeyEvent/KEY_TYPED (text-size-handler state_)))
     
     [flow state_])))
 
