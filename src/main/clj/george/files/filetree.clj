@@ -814,8 +814,8 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         (map-indexed #(assoc (->Labeled (path-label %1 %2) %2) :ind %1) paths)]
     ;(pprint ['paths paths])
     ;; Run this on a separate thread - outside of the action-event
-    (future (fx/later (doto combo (-> .getItems (.setAll ^List labeled-paths))
-                                  (-> .getSelectionModel .selectLast))))))
+    (fx/future-later (doto combo (-> .getItems (.setAll ^List labeled-paths))
+                                 (-> .getSelectionModel .selectLast)))))
 
 
 (def default-state
@@ -855,7 +855,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         ;refresh-button
         ;(styled/small-button "R"
         ;                     :tooltip "Manually refresh file-tree"
-        ;                     :onaction #(future (fx/later (-> state_  <-root .refresh))))
+        ;                     :onaction #(fx/future-later (-> state_  <-root .refresh))))
 
         location-bar
         (fx/hbox dirs-combo ;watched-label refresh-button

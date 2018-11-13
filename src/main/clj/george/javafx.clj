@@ -203,22 +203,20 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
         (Platform/runLater #(try (expr) (catch Throwable e e (println e))))))
 
 
-;(defmacro ^:deprecated thread
-;    "Ensure running body in JavaFX thread: javafx.application.Platform/runLater"
-;    [& body]
-;    `(later* (fn [] ~@body)))
-
-
 (defmacro later
     "Ensure running body in JavaFX thread: javafx.application.Platform/runLater"
     [& body]
     `(later* (fn [] ~@body)))
 
 
-;(defmacro thread-later
-;  "Runs the body in a fn in a later* on a separate thread"
-;  [& body]
-;  `(.start (Thread. (later* (fn [] ~@body)))))
+(defmacro future-later
+  ([& body]
+   `(future (later* (fn [] ~@body)))))
+
+
+(defmacro future-sleep-later
+  ([ms & body]
+   `(future (Thread/sleep ~ms) (later* (fn [] ~@body)))))
 
 
 (defn now*

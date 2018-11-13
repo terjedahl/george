@@ -138,7 +138,7 @@ Has it been renamed, moved, or deleted?
         label      (fx/new-label (filename path) 
                                  :font 14
                                  :color (if found? fx/BLACK fx/RED))
-        reveal-fn  #(future (fx/later (->> @file-info_ :path (filetree/reveal filenav-state_))))]
+        reveal-fn  #(fx/future-later (->> @file-info_ :path (filetree/reveal filenav-state_)))]
   
     (when found? 
       (eds/state-listener editor label file-info_ save-chan)

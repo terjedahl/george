@@ -30,7 +30,7 @@
 
 (defn- request-focus [^Node focusable]
   (try
-    (future (Thread/sleep 300) (fx/later (.requestFocus focusable)))
+    (fx/future-sleep-later 300 (.requestFocus focusable))
     ;; The focusable may be gone as the interrupt being a result of closing it.
     (catch NullPointerException e nil)))
 
@@ -255,11 +255,9 @@ Next global history.  SHIFT-CLICK")
     ;; TODO: colorcode also when history is the same
     ;; TODO: nicer tooltips.  (monospace and better colors)
 
-    (add-watch selected_ tab
-               #(when (= %4 tab)  (focus-on-editor)))
+    (add-watch selected_ tab #(when (= %4 tab) (focus-on-editor)))
 
-    (add-watch focused_ tab
-               #(when (and %4 (= @selected_ tab))  (focus-on-editor)))
+    (add-watch focused_ tab #(when (and %4 (= @selected_ tab)) (focus-on-editor)))
 
     [border-pane on-closed-fn]))
 
