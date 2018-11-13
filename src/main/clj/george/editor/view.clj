@@ -17,7 +17,7 @@
     [javafx.scene.layout Region StackPane Pane]
     [javafx.geometry Pos Insets BoundingBox Bounds]
     [javafx.scene Node Group]
-    [javafx.scene.shape Ellipse Rectangle ArcType]
+    [javafx.scene.shape Ellipse Rectangle ArcType StrokeLineCap]
     [javafx.scene.control Label]
     [java.util List]
     [javafx.collections ObservableList]
@@ -193,18 +193,27 @@
           x))))
 
 
-(defn find-block-spans [ranges mem_ row flow texts]
+(defn- delim-type [ch]
+  (case ch
+    \( :paren
+    \[ :square
+    \{ :curly
+    nil))
+    
+
+(defn- find-block-spans [ranges mem_ row flow texts]
   (let [;; Get the x-offsets for start and end.
         spans
-        (map #(let [{[frow fcol] :first [lrow lcol] :last} %
-                    first?  (= row frow)
-                    last?   (= row lrow)
-                    start-x (calculate-offset texts fcol)
-                    end-x   (if last?
-                              (calculate-offset texts (inc ^int lcol))
-                              (max-offset-x-mem flow frow lrow mem_))]
-                [start-x end-x first? last?])
-             ranges)]
+        (map 
+          #(let [{[frow fcol] :first [lrow lcol] :last [fch _] :chars } %
+                 first?  (= row frow)
+                 last?   (= row lrow)
+                 start-x (calculate-offset texts fcol)
+                 end-x   (if last?
+                           (calculate-offset texts (inc ^int lcol))
+                           (max-offset-x-mem flow frow lrow mem_))]
+             [start-x end-x first? last? (delim-type fch)])
+           ranges)]
     spans))
 
 
@@ -216,32 +225,40 @@
   (+ (int value) 0.5))
 
 
-(defn- ^Canvas block-line [^double w ^double h first? last?]
-  ;(prn 'block-line w h first? last?)
-  (let [w (int w)  ;; ensure a clean width
+(defn- ^Canvas block-line [w h first? last? typ]
+  ;(prn 'block-line w h first? last? typ)
+  (let [w (int w)
+        h (int h)
+        square? (= typ :square)
+        paren? (= typ :paren)
+        w (int w)  ;; ensure a clean width
         c (Canvas. w h)
         gc (.getGraphicsContext2D c)
-        r 3  ;; arc radius - for lines
+        r (if square? 0 4)  ;; arc radius - for lines
         d (* 2 r)  ;; arc diameter - used in the arc method
-        x1 0.5
-        y1 0.5
-        x2 (- w 0.5)
-        y2 (- h 0.5)
-        y2l (- y2 0)
-        fl-y (snap (* h 0.67))]
+        x1 (if paren? 4 5)
+        y1 0
+        y1f (snap (if paren? (* h 0.75) (* h 0.85)))
+        x2 (- w (if paren? 3 4))
+        y2  h
+        y2l (- y2 1)]
     (doto gc
-      (.setStroke Color/PINK)
+      ;(.setStroke Color/PINK)
       ;(.strokeRect 0 0 w h)
-      (.setStroke Color/CORNFLOWERBLUE))
+      (.setLineWidth 2)
+      (.setLineCap StrokeLineCap/ROUND)
+      (.setStroke Color/LIGHTSTEELBLUE))
     (when last?
+      (when-not square?
+        (doto gc
+          (.strokeArc x1 (- y2l d) d d 180 90 ArcType/OPEN)
+          (.strokeArc  (- x2 d) (- y2l d) d d 270 90 ArcType/OPEN)))
       (doto gc
-        (.strokeArc x1 (- y2l d) d d 180 90 ArcType/OPEN)
-        (.strokeArc  (- x2 d) (- y2l d) d d 270 90 ArcType/OPEN)
-        (.strokeLine r y2l (- x2 r) y2l)  ;; horizontal line
-        (.strokeLine x2 fl-y x2 (- y2l r))))  ;; end-line
+        (.strokeLine (+ x1 r) y2l (- x2 r) y2l)  ;; horizontal line
+        (.strokeLine x2 y1f x2 (- y2l r))))  ;; end-line
     (when first?
       (doto gc
-        (.strokeLine  x1 fl-y x1 (if last? (- y2l r) y2))))
+        (.strokeLine  x1 y1f x1 (if last? (- y2l r) y2))))
     (when-not first?
       (doto gc
         (.strokeLine x1 y1 x1 (if last? (- y2l r) y2))))
@@ -253,14 +270,11 @@
   (let [ranges (get all-ranges row)]
     (when-not (empty? ranges)
       (let [spans (find-block-spans ranges mem_ row flow texts)]
-        (doseq [[^double x1 ^double x2 first? last?] spans]
-          (let [x (+ x1 3.5)
-                y 0
-                w (- x2 x 2) 
-                background-canvas 
-                (doto (block-line w line-height first? last?)
-                      (fx/set-translate-XY [(int x) (int y)]))]
-            (-> blocks-pane .getChildren (.add background-canvas))))))))
+        (doseq [[x1 x2 first? last? typ] spans]
+          (-> blocks-pane .getChildren 
+              (.add 
+                (doto (block-line (- x2 x1) line-height first? last? typ)
+                  (fx/set-translate-XY [(int x1) 0])))))))))
 
 
 (defn- set-marks

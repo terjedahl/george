@@ -30,7 +30,7 @@ https://www.sessions.edu/color-calculator/
 .editor-area:focused .selection { -fx-fill: -selection-color; }
 
 /* text elements */
-.hidden               { -fx-fill: DARKGRAY; } 
+.hidden               { -fx-fill: LIGHTGREY; } 
 .default              { -fx-fill: -anthrecite; } 
 .boolean, .nil        { -fx-fill: #4F7BDE; }
 .error., unpaired     { -fx-fill: #ED1C24;} /* -rtfx-background-color: orange; */ /* Maybe use TextExt from RichTextFX ..*/

@@ -775,7 +775,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
       (.requestFocus)
       (.selectRange 0 
                     (- (count name) (if file? 4 0)))
-      (-> .textProperty (.addListener ^ChangeListener (fx/new-changelistener (do-checks)))))
+      (-> .textProperty (fx/add-changelistener (do-checks))))
     
     ;; process the return-value from the alert    
     (when (fx/option-index (.showAndWait alert) options)

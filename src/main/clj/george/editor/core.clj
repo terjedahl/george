@@ -52,8 +52,7 @@
         flow
         (VirtualFlow/createVertical
           (st/observable-list state_)
-          (j/function
-            (partial v/new-line-cell state_ scroll-offset_ flow_)))
+          (j/function (partial v/new-line-cell state_ scroll-offset_ flow_)))
 
         _ (reset! flow_ flow)
 
@@ -70,7 +69,7 @@
       (.setFocusTraversable true)
       (fx/add-stylesheet "styles/editor.css")
       (fx/add-class "editor-area")
-      (-> .breadthOffsetProperty  (.addListener  (fx/new-changelistener (reset! scroll-offset_ new-value)))) ;; offset
+      (-> .breadthOffsetProperty (fx/add-changelistener (reset! scroll-offset_ new-value))) ;; offset
 
       (.addEventHandler KeyEvent/ANY (i/key-event-handler (partial st/keypressed state_) (partial st/keytyped state_)))
       
@@ -82,10 +81,10 @@
 
       ;; to re-layout so as to ensure-visible on caret after flow has been made visible.
       (-> .widthProperty
-          (.addListener (fx/new-changelistener  (when (and (zero? ^double old-value) (pos? ^double new-value))
-                                                  (swap! state_ assoc :triggering-hack :hacked)))))
+          (fx/add-changelistener  (when (and (zero? ^double old-value) (pos? ^double new-value))
+                                    (swap! state_ assoc :triggering-hack :hacked))))
       (-> .focusedProperty 
-          (.addListener  (fx/new-changelistener  (if new-value  (st/start-blink state_) (st/stop-blink state_)))))
+          (fx/add-changelistener  (if new-value  (st/start-blink state_) (st/stop-blink state_))))
 
       (.addEventFilter KeyEvent/KEY_TYPED (text-size-handler state_)))
     

@@ -44,7 +44,8 @@
     [javafx.util Duration]
     [java.util Collection Optional List]
     [clojure.lang Atom]
-    [javafx.fxml FXMLLoader]))
+    [javafx.fxml FXMLLoader]
+    [javafx.beans Observable]))
 
 
 "
@@ -308,6 +309,10 @@ and the body is called on 'changed'"
 (defmacro ^ChangeListener new-changelistener
   [& body]
   `(reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body)))
+
+
+(defmacro add-changelistener [^Observable observable & body]
+  `(.addListener ~observable (reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body))))
 
 
 (defmacro ^ChangeListener new-listchangelistener

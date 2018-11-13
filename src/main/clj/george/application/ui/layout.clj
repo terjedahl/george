@@ -114,18 +114,14 @@
     (-> tabpane
         .getSelectionModel
         .selectedIndexProperty
-        (.addListener
-          (fx/changelistener [_ _ ip i]
-                             (reset! selected_
-                                     (when-not (neg? i)
-                                       (-> tabpane .getTabs (.get i)))))))
+        (fx/add-changelistener (reset! selected_
+                                       (when-not (neg? new-value)
+                                         (-> tabpane .getTabs (.get new-value))))))
 
     (when focused_
       (-> tabpane
         .focusedProperty
-        (.addListener
-          (fx/changelistener [_ _ _ b]
-                             (reset! focused_ b)))))
+        (fx/add-changelistener (reset! focused_ new-value))))
 
     tabpane))
 

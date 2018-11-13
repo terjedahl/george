@@ -100,7 +100,7 @@
 
 
 (defn update-blocks_ [state]
-  ;; Blocks should only be calculated, if Clojure
+  ;; Blocks should only be calculated if is .clj
   (if (not= (:content-type state) :clj)
     (assoc state :block nil)
     (let [blocks (calculate-blocks (buffer_ state))
