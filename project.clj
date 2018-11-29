@@ -1,5 +1,5 @@
 
-(defproject no.andante.george/george-application  "2018.0-b2-SNAPSHOT"
+(defproject no.andante.george/george-application  "2018.10-SNAPSHOT"
 
   :description "George - Application"
   :url "https://bitbucket.org/andante-george/george-application"
@@ -7,49 +7,58 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
 
-  :dependencies [[org.clojure/clojure "1.8.0"]
+  :dependencies [;; https://clojure.org/community/downloads
+                 [org.clojure/clojure "1.10.0-beta5"]
                  ;; https://github.com/clojure/core.async
-                 [org.clojure/core.async "0.3.465"]
+                 [org.clojure/core.async "0.4.474"]
                  ;; https://github.com/clojure/tools.reader
-                 [org.clojure/tools.reader "1.0.0-alpha1"]
+                 [org.clojure/tools.reader "1.3.0"]
                  ;; https://github.com/mmcgrana/clj-stacktrace
                  [clj-stacktrace "0.2.8"]
                  ;[leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
-                 [org.apache.directory.studio/org.apache.commons.io "2.4"]
+                 [org.apache.directory.studio/org.apache.commons.io "2.4"]  ;; WriterOutputStream in output.clj 
                  ;; https://github.com/clojure/tools.namespace
-                 [org.clojure/tools.namespace "0.3.0-alpha3"]
+                 [org.clojure/tools.namespace "0.3.0-alpha4"]
                  ;; https://github.com/clojure/java.classpath
-                 [org.clojure/java.classpath "0.2.3"]
-                 ;; https://github.com/ccw-ide/ccw/tree/master/paredit.clj
-                 [org.lpetit/paredit.clj "0.19.3" :exclusions [org.clojure/clojure]]
-                 ;; https://github.com/clojure/tools.nrepl
-                 [org.clojure/tools.nrepl "0.2.13"]
-                 ;; https://github.com/clojure-emacs/cider-nrepl
-                 [cider/cider-nrepl "0.14.0"]
+                 [org.clojure/java.classpath "0.3.0"]
+                 ;; https://github.com/cemerick/nREPL
+                 [nrepl "0.4.5"]
                  ;; https://github.com/FXMisc/RichTextFX
-                 [org.fxmisc.richtext/richtextfx "0.7-M5"]
+                 [org.fxmisc.richtext/richtextfx "0.9.1"]
                  ;; https://github.com/TomasMikula/Flowless
-                 [org.fxmisc.flowless/flowless  "0.6"]
-                 ;; https://github.com/brentonashworth/clj-diff
-                 [clj-diff "1.0.0-SNAPSHOT"]
+                 [org.fxmisc.flowless/flowless  "0.6.1"]
+                 ;; https://github.com/droitfintech/clj-diff
+                 [tech.droit/clj-diff "1.0.0"]
                  ;; https://github.com/clojure/core.rrb-vector
-                 [org.clojure/core.rrb-vector "0.0.11"]
+                 [org.clojure/core.rrb-vector "0.0.13"]
                  ;; https://github.com/clojure/data.json
                  [org.clojure/data.json "0.2.6"]
                  ;; https://github.com/weavejester/environ
                  [environ "1.1.0"]
                  ;; https://github.com/ztellman/potemkin
-                 [potemkin "0.4.4"]
+                 [potemkin "0.4.5"]
                  ;; https://github.com/clj-time/clj-time
-                 [clj-time "0.13.0"]]
-                 ;; https://github.com/alexander-yakushev/defprecated]
-                 ; [defprecated "0.1.3"] :exclusions [org.clojure/clojure]]
+                 [clj-time "0.15.0"]
+                 ;; https://github.com/yogthos/markdown-clj
+                 [markdown-clj "1.0.4"]
+                 ;; https://github.com/alexander-yakushev/defprecated
+                 [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
+                 ;; https://github.com/amalloy/ordered
+                 [org.flatland/ordered "1.5.6"]
+                 ;; https://github.com/zcaudate/hara
+                 ;; http://docs.caudate.me/hara/hara-io-watch.html
+                 [zcaudate/hara.common.watch "2.8.7"]
+                 [zcaudate/hara.io.watch "2.8.7"]]
 
+  :jar-exclusions     [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
+  
   :plugins [
             ;; https://github.com/weavejester/environ
             [lein-environ "1.1.0"]
             ;; https://github.com/weavejester/codox
-            [lein-codox "0.10.3"]]
+            [lein-codox "0.10.3"]
+            ;; https://github.com/technomancy/leiningen/tree/stable/lein-pprint
+            [lein-pprint "1.2.0"]]
 
   :repositories [
                  ["jcenter" "https://jcenter.bintray.com"]] ;; apache.commons.io
@@ -58,13 +67,15 @@
                         ["snapshots" :clojars]
                         ["releases" :clojars]]
 
-  :source-paths      ["src/main/clojure"]
-  :java-source-paths ["src/main/java"]
-  :javac-options     ["-target" "1.8" "-source" "1.8"]
+  :source-paths      ["src/main/clj"   "src/arm-spraklab/src/clj"]
+  :java-source-paths ["src/main/java"  "src/arm-spraklab/src/java"]
+  :resource-paths    ["src/main/rsc"   "src/arm-spraklab/src/rsc" 
+                      "include"        "src/arm-spraklab/include"]
+
+  :javac-options     ["-source" "1.8" "-target" "1.8"]
                       ;"-Xlint:unchecked"]
 
-  :test-paths ["src/test/clojure"]
-  :resource-paths ["src/main/resources"]
+  :test-paths ["src/test/clj"]
 
   :main no.andante.george.Main
   :aot [no.andante.george.Main]
@@ -101,6 +112,8 @@
             "clocks" ["run" "-m" "george.example.arcclocks"]
             "graph" ["run" "-m" "george.sandbox.graph"]}
 
+  ;; to get process on port 55055:   sudo lsof -n -i :55055
+  :repl-options {:port 55055}
   :codox {
           :doc-paths ["docs"]
           :output-path "target/docs"
