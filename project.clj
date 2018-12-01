@@ -8,7 +8,7 @@
 
 
   :dependencies [;; https://clojure.org/community/downloads
-                 [org.clojure/clojure "1.10.0-beta5"]
+                 [org.clojure/clojure "1.10.0-RC2"]
                  ;; https://github.com/clojure/core.async
                  [org.clojure/core.async "0.4.474"]
                  ;; https://github.com/clojure/tools.reader
