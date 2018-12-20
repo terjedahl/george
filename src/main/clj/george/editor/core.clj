@@ -27,6 +27,17 @@
 (declare set-content-type)
 
 
+(defn- text-size-handler [state_]
+  (fx/new-eventhandler
+    (let [ch (.getCharacter event)
+          shortcut? (.isShortcutDown event)]
+      (when (and (#{"+" "-"} ch) shortcut?)
+        (let [inc? (= "+" ch)]
+          ;(prn 'text-size-handler 'inc? inc?)
+          (st/font-size-step state_ inc?))
+        (.consume event)))))
+
+
 (defn- editor
  ([s typ]
   (let [
@@ -41,53 +52,49 @@
         flow
         (VirtualFlow/createVertical
           (st/observable-list state_)
-          (j/function
-            (partial v/new-line-cell state_ scroll-offset_ flow_)))
+          (j/function (partial v/new-line-cell state_ scroll-offset_ flow_)))
 
         _ (reset! flow_ flow)
 
         ;;  Needs to get some information from 'flow'
         ;; (and from clicked-in 'cell') before determining appropriate action.
-        mouse-event-handler
+        mouse-event-handler 
         (i/mouse-event-handler flow (partial st/mouseaction state_))]
   
-    (add-watch state_ :ensure-caret-visible
-               (fn [_ _ _ state]
-                 (v/ensure-caret-visible flow state)))
+    (add-watch state_ :ensure-scrolled-to-caret #(v/ensure-scrolled-to-caret flow %4))
 
     (doto flow
 
       ;; Important! Otherwise the flow can not receive events.
       (.setFocusTraversable true)
-      (-> .getStyleClass (.add "editor-area"))
-      (-> .breadthOffsetProperty
-          (.addListener (fx/changelistener [_ _ _ offset]
-                                           (reset! scroll-offset_ offset))))
+      (fx/add-stylesheet "styles/editor.css")
+      (fx/add-class "editor-area")
+      (-> .breadthOffsetProperty (fx/add-changelistener (reset! scroll-offset_ new-value))) ;; offset
 
-      (.addEventHandler KeyEvent/ANY (i/key-event-handler
-                                       (partial st/keypressed state_)
-                                       (partial st/keytyped state_)))
-
+      (.addEventHandler KeyEvent/ANY (i/key-event-handler (partial st/keypressed state_) (partial st/keytyped state_)))
+      
       (.setOnMousePressed mouse-event-handler)
       (.setOnMouseDragged mouse-event-handler)
       (.setOnMouseDragOver mouse-event-handler)
       (.setOnMouseReleased mouse-event-handler)
       (.setOnMouseDragReleased mouse-event-handler)
 
+      ;; to re-layout so as to ensure-visible on caret after flow has been made visible.
       (-> .widthProperty
-          (.addListener
-            (fx/changelistener [_ _ prev-w w]
-                               ;; to re-layout so as to ensure-visible on caret after flow has been made visible.
-                               (when (and (zero? ^double prev-w) (pos? ^double w))
-                                 (swap! state_ assoc :triggering-hack :hacked))))))
+          (fx/add-changelistener  (when (and (zero? ^double old-value) (pos? ^double new-value))
+                                    (swap! state_ assoc :triggering-hack :hacked))))
+      (-> .focusedProperty 
+          (fx/add-changelistener  (if new-value  (st/start-blink state_) (st/stop-blink state_))))
 
-
+      (.addEventFilter KeyEvent/KEY_TYPED (text-size-handler state_)))
+    
     [flow state_])))
 
 
 (definterface IEditorPane
-  (getStateAtom [])
-  (getFlow []))
+  ^Atom        (getStateAtom [])
+  ^VirtualFlow (getFlow []))
+
 
 (defn editor-view
  "Returns a subclass of VirtualizedScrollPane.
@@ -104,8 +111,8 @@
  ([^String content-string & [content-type]]
   (let [[flow state_] (editor content-string content-type)]
     (proxy [VirtualizedScrollPane IEditorPane] [flow]
-      ^Atom (getStateAtom [] state_)
-      ^VirtualFlow (getFlow [] flow)))))
+      (getStateAtom [] state_)
+      (getFlow [] flow)))))
 
 
 (defn text [editor-view]

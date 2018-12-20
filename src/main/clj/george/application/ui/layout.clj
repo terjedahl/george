@@ -114,18 +114,14 @@
     (-> tabpane
         .getSelectionModel
         .selectedIndexProperty
-        (.addListener
-          (fx/changelistener [_ _ ip i]
-                             (reset! selected_
-                                     (when-not (neg? i)
-                                       (-> tabpane .getTabs (.get i)))))))
+        (fx/add-changelistener (reset! selected_
+                                       (when-not (neg? new-value)
+                                         (-> tabpane .getTabs (.get new-value))))))
 
     (when focused_
       (-> tabpane
         .focusedProperty
-        (.addListener
-          (fx/changelistener [_ _ _ b]
-                             (reset! focused_ b)))))
+        (fx/add-changelistener (reset! focused_ new-value))))
 
     tabpane))
 
@@ -140,7 +136,7 @@
       :separator (SeparatorMenuItem.)
       :item      (let [[_ label action] root] (doto (MenuItem. label) (fx/set-onaction action)))
       :button    (let [[_ label side children] root]
-                   (doto (MenuButton. label  nil (fxj/vargs* (map menu children)))
+                   (doto (MenuButton. label  nil (fxj/vargs* (map menu (filter some? children))))
                          (.setStyle "-fx-box-border: -fx-text-box-border;")
                          (.setPopupSide (fx/side side))
                          (.setFocusTraversable false))))))

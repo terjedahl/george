@@ -48,7 +48,7 @@
 
 
 (def clj-filechooser
-    (apply fx/filechooser fx/FILESCHOOSER_FILTERS_CLJ))
+    (apply fx/filechooser (fx/filechooser-filters-clj)))
 
 
 (defn- select-file
@@ -164,7 +164,7 @@
               :spacing 10)
 
           load-fn
-          #(j/thread
+          #(future
               (println (if-let [f (:file @file-meta)]
                            (do (save-file-fn)
                                (load-from-file f (:namespace kwargs)))
@@ -282,5 +282,5 @@
 
 (def c (atom nil))
 
-;(when (env :repl?) (println "WARNING: Running george.code/new-code-stage" (reset! c (new-code-stage))))
+;(when (env :repl?) (println "Warning: Running george.code/new-code-stage" (reset! c (new-code-stage))))
 

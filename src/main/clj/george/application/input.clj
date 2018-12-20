@@ -7,11 +7,9 @@
   (:require
     [clojure.string :as cs]
     [environ.core :refer [env]]
-    [george.javafx-init] ;; Important!
     [george.javafx :as fx]
     [george.core.history :as hist]
     [george.application.repl :as repl]
-    [george.javafx.java :as fxj]
     [george.util :as gu]
     [george.application.output :refer [oprintln]]
     [george.util :as u]
@@ -32,7 +30,7 @@
 
 (defn- request-focus [^Node focusable]
   (try
-    (fxj/thread (Thread/sleep 300) (fx/later (.requestFocus focusable)))
+    (fx/future-sleep-later 300 (.requestFocus focusable))
     ;; The focusable may be gone as the interrupt being a result of closing it.
     (catch NullPointerException e nil)))
 
@@ -54,7 +52,7 @@
                   #(do (repl/interrupt-eval eval-id)
                        (oprintln :system-em "Interrupted!")))))
         ;; do execution
-        (fxj/daemon-thread
+        (future
           (try
             (eval/read-eval-print-in-ns code-str (ns-fn) eval-id file-name update-ns-fn load?)
             (when post-success-fn (post-success-fn))
@@ -135,7 +133,7 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" u/SHORTCUT_
         (.getFlow editor)
 
         focus-on-editor
-        #(fxj/thread
+        #(future
            (Thread/sleep 500)
            ;(println "focus on Input editor")
            (fx/later
@@ -257,11 +255,9 @@ Next global history.  SHIFT-CLICK")
     ;; TODO: colorcode also when history is the same
     ;; TODO: nicer tooltips.  (monospace and better colors)
 
-    (add-watch selected_ tab
-               #(when (= %4 tab)  (focus-on-editor)))
+    (add-watch selected_ tab #(when (= %4 tab) (focus-on-editor)))
 
-    (add-watch focused_ tab
-               #(when (and %4 (= @selected_ tab))  (focus-on-editor)))
+    (add-watch focused_ tab #(when (and %4 (= @selected_ tab)) (focus-on-editor)))
 
     [border-pane on-closed-fn]))
 
@@ -289,7 +285,7 @@ Next global history.  SHIFT-CLICK")
                                                 true)]
     (layout/set-listeners tabpane selected_ focused_)
 
-    (fxj/thread
+    (future
       (Thread/sleep 500)
       ;(println "focus on Inputs"
       (fx/later (.requestFocus tabpane)))
@@ -312,9 +308,9 @@ Next global history.  SHIFT-CLICK")
 
 (defn new-input-stage [& [ns]]
   ;; TODO: consolidate/fix integrations/dependencies
-  ;; TODO: add interupt-posibility (button) to/for run-thread
+  ;; TODO: add interrupt-possibility (button) to/for run-thread
 
-  (fxj/thread (repl/session-ensure! true))
+  (future (repl/session-ensure! true))
   (let [
         repl-nr
         (hist/next-repl-nr)
@@ -344,5 +340,5 @@ Next global history.  SHIFT-CLICK")
 ;;; DEV ;;;
 
 
-;(when (env :repl?) (println "WARNING: Running george.application.input/new-input-stage") (new-input-stage))
+;(when (env :repl?) (println "Warning: Running george.application.input/new-input-stage") (new-input-stage))
 

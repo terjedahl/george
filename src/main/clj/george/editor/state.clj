@@ -7,7 +7,6 @@
   (:require
     [clojure.string :as cs]
     [clojure.pprint :refer [pprint]]
-    [clojure.core.async :as a]
     [clj-diff.core :as diff]
     [george.util :as u]
     [george.util.text :as ut]
@@ -21,11 +20,13 @@
     [java.util List]
     [clojure.core.rrb_vector.rrbt Vector]
     [clojure.lang PersistentVector Keyword Atom IPersistentMap]
-    [java.awt Toolkit]))
+    [java.awt Toolkit]
+    [javafx.animation Animation Timeline]
+    [java.util.function UnaryOperator]))
 
 
-(set! *warn-on-reflection* true)
-(set! *unchecked-math* :warn-on-boxed)
+;(set! *warn-on-reflection* true)
+;(set! *unchecked-math* :warn-on-boxed)
 ;(set! *unchecked-math* true)
 
 
@@ -43,6 +44,7 @@
   caret-anchor_
   apply-formatter_
   set-content-type_
+  ^ObservableList observable-list_
   do-update-list_)
 
 
@@ -98,7 +100,7 @@
 
 
 (defn update-blocks_ [state]
-  ;; Blocks should only be calculated, if Clojure
+  ;; Blocks should only be calculated if is .clj
   (if (not= (:content-type state) :clj)
     (assoc state :block nil)
     (let [blocks (calculate-blocks (buffer_ state))
@@ -222,6 +224,7 @@
         olist (FXCollections/observableArrayList ^List lines)
         state
         {
+         :state_ nil ;; Yes, state contains a reference to its own containing atom, set by new-state-atom.  Beware if printing!
          ;; These are the actual values that the state must have.
          :buffer   buf
          :list     olist
@@ -229,7 +232,12 @@
          :caret    0
          :anchor   0
          :prefcol  0  ;; used when up/down cause cursor to shift sideways.
-
+         
+         :caret-visible true  ;; controlled by blink-timer
+         :blinker_ (atom nil)  ;; set by start-blink/stop-blink
+         
+         :font-size 16
+         
          ;; history is in its own atom, so as not to trigger any state-watchers when updated.
          :history_ (atom {:items []                ;; Holds the actual histories
                           :pointer -1              ;; Points to the current version
@@ -260,7 +268,9 @@
 
 
 (defn new-state-atom [^Vector buffer ^String line-sep ^Keyword content-type]
-  (atom (new-state_ buffer line-sep content-type)))
+  (let [state_ (atom (new-state_ buffer line-sep content-type))]
+    (swap! state_ assoc :state_ state_)
+    state_))
 
 
 (defn content-type_ [state]
@@ -309,6 +319,36 @@
                  :anchor-pos nil)))
 
 
+(defn- touch-all 
+  "Touches all elements in list with the purpose of refreshing the listcell."
+  [state]
+  (let [l (observable-list_ state)]
+    (.replaceAll l (UnaryOperator/identity))  
+    state))
+
+
+(defn- ^Timeline new-blinker 
+  [state]
+  (let [state_ (:state_ state)  ; state contains a reference to its containing atom!
+        f #(swap! state_ assoc :caret-visible (-> @state_ :caret-visible not))]
+    (doto (fx/timeline  nil (fx/new-keyframe  500 f))
+      (.setCycleCount Animation/INDEFINITE))))
+
+
+(defn- stop-blink_ [state]
+  (when-let [blinker ^Timeline (first (reset-vals! (:blinker_ state) nil))]
+    (.stop blinker))
+  (assoc state :caret-visible true))
+
+
+(defn- start-blink_ [state]
+  ;; Stop and remove old blink-thread
+  (let [state (stop-blink_ state)]
+    ;; Insert new running blink-timer
+    (reset! (:blinker_ state)  (doto (new-blinker state) (.play)))
+    state))  
+
+
 (defn ensure-derived_ [state]
   (if (:caret-pos state)
     state
@@ -350,7 +390,7 @@
   (swap! state_ set-text_ txt))
 
 
-(defn- observable-list_ [state]
+(defn- ^ObservableList observable-list_ [state]
   (:list state))
 
 
@@ -476,6 +516,7 @@
         (set-caret_ (clamper index))
         (#(if move-prefcol? (set-prefcol_ % (clamper index)) %))
         (#(if move-anchor? (set-anchor_ % (clamper anc)) %))
+        start-blink_
         invalidate-derived_)))
 
 
@@ -676,18 +717,21 @@
         append-history_)))
 
 
-(def CB (fx/now (Clipboard/getSystemClipboard)))
+(def CB
+  (memoize
+    (fn[]
+      (fx/now (Clipboard/getSystemClipboard)))))
 
 
 (defn clipboard-str []
   ;(println "  ## CB content types:" (fx/now (.getContentTypes CB)))
-  (fx/now (.getString ^Clipboard CB)))
+  (fx/now (.getString ^Clipboard (CB))))
 
 
 (defn set-clipboard-str [s]
   (let [cbc (doto (ClipboardContent.)
               (.putString s))]
-    (fx/now (.setContent ^Clipboard CB cbc))))
+    (fx/now (.setContent ^Clipboard (CB) cbc))))
 
 
 (defn- selection_
@@ -823,7 +867,7 @@
            (and (= typ :move) (= e-typ :pressed))])]
 
        (-> state
-           (set-marks_  c1 true move? a1)
+           (set-marks_ c1 true move? a1)
            (apply-formatter_ false)
            ensure-derived_
            (append-history_ true))))
@@ -840,3 +884,34 @@
 (defn mouseaction [^Atom state_ prev-e-typ e-typ sel-typ loc]
   (swap! state_ mouseaction_ prev-e-typ e-typ sel-typ loc))
 
+
+(defn start-blink 
+  "Called by editor.core when view receives focus."
+  [^Atom state_]
+  (start-blink_ @state_))    
+
+
+(defn stop-blink
+  "Called by editor.core when view looses focus."
+  [^Atom state_]
+  (swap! state_ stop-blink_))    
+
+
+(defn font-size-set [^Atom state_ new-size]
+  (let [^int size (:font-size @state_)]
+    (when-not (= size new-size)
+      (swap! state_ assoc :font-size new-size)
+      (touch-all @state_))))
+            
+
+(defn font-size-step
+  "Called by editor.core to increase or decrease font size."
+  [^Atom state_ inc?]
+  (let [
+        ^int size (:font-size @state_)
+        new-size (u/clamp-int 8 (+ size (if inc? 2 -2)) 48)]
+    (if (= size new-size)
+        (.beep (Toolkit/getDefaultToolkit))
+        (font-size-set state_ new-size))))
+
+  

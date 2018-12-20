@@ -44,7 +44,7 @@
   (coll-delim-chars ch))
 
 
-(defn coll-delim-char-match
+(defn coll-delim-char-complement
   "Returns the coll-delim-char which matches the passed-in char, else nil"
   [ch]
   (case ch
@@ -57,8 +57,8 @@
     nil))
 
 
-(defn coll-delim-char-matches? [ch1 ch2]
-  (= (coll-delim-char-match ch1) ch2))
+(defn coll-delim-char-complement? [ch1 ch2]
+  (= (coll-delim-char-complement ch1) ch2))
 
 
 (defn newline-end? [seq-of-chars-or-string]
@@ -73,7 +73,21 @@
       (str txt \newline))))
 
 
-(defn ppstr
-  "returns the data as a pprint-ed str"
-  [data]
-  (pprint/write data :stream nil))
+(defn ^String pprint
+  "Same as clojure.core/pprint"
+ ([object]
+  (pprint/pprint  object))
+ ([object writer]
+  (pprint/pprint object writer)))
+
+
+(defn ^String pformat
+  "Returns the data as a pprint-ed string."
+  [object]
+  (pprint/write object :stream nil))
+
+
+(defn **
+  "Returns string consisting of n*s"
+  [n s]
+  (apply str (repeat n s)))

@@ -5,6 +5,7 @@
 
 (ns george.application.launcher
   (:require
+    [george.application.core :as core]
     [clojure.repl :refer [doc]]
     [clojure.java
      [io :as cio]
@@ -15,7 +16,6 @@
     [g]
     
     [george
-     [javafx-init] ;; Important!
      [javafx :as fx]
      [applet :as applet]]
 
@@ -27,8 +27,9 @@
      [styled :as styled :refer [hr padding]]]
 
     [george.util.singleton :as singleton]
-    [george.application.repl-server :as repl-server])
+    [george.application.repl-server :as repl-server]
 
+    [george.launch.properties :as p])
 
   (:import
     [javafx.geometry Rectangle2D]
@@ -48,26 +49,35 @@
 (def ABOUT_STAGE_KW ::about-stage)
 
 (def versionf "
-  George: %s
- Clojure: %s
-    Java: %s")
+   George: %s
+  Clojure: %s
+     Java: %s
+       ts: %s")
 
 (def copyright "
 Copyright 2015-2018 Terje Dahl.
 Powered by open source software.")
 
+;(defn resource [n]
+;  (.getResource (ClassLoader/getSystemClassLoader) n))
 
-(defn george-version []
-  (slurp (cio/resource "george-version.txt")))
+(defn george-version-ts []
+  ;(slurp (cio/resource "george-version.txt")))
+  ;(slurp (resource "george-version.txt")))
+  (let [{:keys [version ts]} (-> "app.properties" cio/resource p/load)]
+    [version ts]))
+
 
 (defn- about-stage-create []
-  (let [version-info
+  (let [[version ts] (george-version-ts)
+        version-info
         (doto
           (fx/new-label
             (format versionf
-               (george-version)
+               version
                (clojure-version)
-               (env :java-version))
+               (env :java-version)
+               ts)
             :font (fx/new-font "Roboto Mono" 12)))
 
         copyright-info
@@ -106,16 +116,18 @@ Powered by open source software.")
 
 (def launcher-width (+ ^int tile-width 20))
 
-(def visual-bounds (.getVisualBounds (fx/primary-screen)))
 
-(def xyxy
-  (let [vb ^Rectangle2D visual-bounds]
+(defn xyxy []
+  (let [vb ^Rectangle2D (.getVisualBounds (fx/primary-screen))]
     [(.getMinX vb)
      (.getMinY vb)
      (+ (.getMinX vb) ^int launcher-width)
      (.getMaxY vb)]))
 
-(def launcher-height (- ^int (xyxy 3) ^int (xyxy 1)))
+
+(defn launcher-height []
+  (let [_xyxy (xyxy)]
+    (- ^int (_xyxy 3) ^int (_xyxy 1))))
 
 
 (defn- applet-tile
@@ -138,12 +150,19 @@ Powered by open source software.")
                    res
                    (styled/new-heading (format "'%s' unloaded" (label)))))))
 
+        load-fn
+        (fn []
+          (future ;; avoid lag in button
+            (fx/later (main-wrapper #(styled/scrolling-widget (format "Loading %s ..." (label)))))
+            (Thread/sleep 200)  ;; enough time that the scroller will appear
+            (fx/later (main-wrapper main))))
+
         tile
         (fx/vbox
 
           (doto (Button. nil (icon icon-width icon-width))
             (fx/set-tooltip (description))
-            (fx/set-onaction #(main-wrapper main))
+            (fx/set-onaction load-fn)
             (.setPrefWidth button-width)
             (.setPrefHeight button-width)
             (.setStyle (format "-fx-background-radius: %s;" arc))
@@ -221,11 +240,11 @@ Powered by open source software.")
         dispose-fn
         #(doseq [applet applet-infos]
            (try ((:dispose applet))
-                (catch Exception e nil)))]
+                (catch Exception _ nil)))]
 
     (doto root
       (.setMaxWidth launcher-width)
-      (.setMaxHeight launcher-height))
+      (.setMaxHeight (launcher-height)))
 
     (detail-setter welcome-node)
 
@@ -233,15 +252,16 @@ Powered by open source software.")
 
 
 
-(defn- application-close-handler [^Stage application-stage dispose-fn]
-  (fx/event-handler-2 [_ e]
+(defn- stage-close-handler [^Stage application-stage dispose-fn]
+  (fx/new-eventhandler
      (.toFront application-stage)
+     (core/call-quit-dialog-listeners :show)
      (let [repl? (boolean (env :repl?))
            button-index
            (fx/now
              (fx/alert
                :title "Quit?"
-               :content
+               :text
                (str "Do you want to quit George?"
                     (when repl? "\n\n(You are running from a repl.\n'Quit' will not exit the JVM instance.)"))
                :options ["Quit"]  ;; quit is button-index 0
@@ -250,31 +270,24 @@ Powered by open source software.")
            exit? (= 0 button-index)]
 
           (if-not exit?
-            (.consume e) ;; do nothing
-            (do (repl-server/stop!)
-                (dispose-fn)
-                (println "Bye for now!" (if repl? " ... NOT" ""))
-                (Thread/sleep 300)
-                (when-not repl?
-                  (fx/now (Platform/exit))
-                  (shutdown-agents)  ;; For any lingering threads after using futures and such.
-                  (System/exit 0)))))))
+            (do
+              (core/call-quit-dialog-listeners :cancel)
+              (.consume event))
+            (do
+              (core/call-quit-dialog-listeners :quit)
+              (repl-server/stop!)
+              (dispose-fn)
+              (println "Bye for now!" (if repl? " ... NOT" ""))
+              (Thread/sleep 300)
+              (when-not repl?
+                (fx/now (Platform/exit))
+                (shutdown-agents)  ;; For any lingering threads after using futures and such.
+                (System/exit 0)))))))
 
 
 (defn- double-property [init-value value-change-fn]
   (doto (SimpleDoubleProperty. init-value)
-    (.addListener
-      (fx/changelistener
-        [_ _ _ new-val]
-        (value-change-fn new-val)))))
-
-
-;; TODO: we really need some sort of global application state!
-(defonce current-application-stage_ (atom nil))
-(defn set-current-application-stage [stage]
-  (reset! current-application-stage_ stage))
-(defn current-application-stage []
-   @current-application-stage_)
+    (fx/add-changelistener (value-change-fn new-value))))
 
 
 (defn- morphe-launcher-stage [^Stage stage ^Pane application-root [x y w h :as target-bounds]]
@@ -306,8 +319,8 @@ Powered by open source software.")
       (doto stage
         (.setTitle "George")
         (.setResizable true)
-        (set-current-application-stage)
-        (fx/setoncloserequest (application-close-handler stage dispose-fn))))))
+        (core/set-application-stage)
+        (fx/setoncloserequest (stage-close-handler stage dispose-fn))))))
 
 
 (defn starting-stage
@@ -330,6 +343,7 @@ Powered by open source software.")
   []
   (let [[master-detail-root master-setter detail-setter] (layout/master-detail)
         [l-root dispose-fn] (launcher-root detail-setter)]
+    (core/init-state)
     (master-setter l-root)
     [master-detail-root dispose-fn]))
 
@@ -350,6 +364,7 @@ Powered by open source software.")
 (defn -main
   "Launches George (launcher) as a standalone application."
   [& args]
+  (fx/init)
   (println "george.application.launcher/-main"
            (if (empty? args)
              ""
@@ -359,7 +374,7 @@ Powered by open source software.")
 
 ;;; DEV ;;;
 
-;(when (env :repl?)  (-main))
-;(when (env :repl?)  (start))
-;(when (env :repl?)  (start (starting-stage)))
+;(when (env :repl?)  (fx/init) (-main))
+;(when (env :repl?)  (fx/init) (start))
+;(when (env :repl?)  (fx/init) (start (starting-stage)))
 

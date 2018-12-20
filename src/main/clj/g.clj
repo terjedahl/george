@@ -8,7 +8,7 @@
   g
   (:require
     [clojure.java.io :as cio]
-    [george.application.input :as input]
+    ;[george.application.input :as input]
     [george.javafx :as fx]
     [george.javafx.java :as fxj]
     [george.application.output :as output]))
@@ -130,16 +130,16 @@
 ;; Open \"Output\" and try again.")
 
 
-(defn shared
-  "Same as 'slurp-shared', but opens the resource in a file-browser."
-  [shared-key & [throw-exception?]]
-  (let [ns (str *ns*)]
-    (fxj/thread
-      (let [r   (slurp-shared shared-key throw-exception?)
-            is  (input/new-input-stage ns)])))
-        ;(fx/later
-        ;  (george.editor.core/set-text code-area (if r r (format shared-error-message-f shared-key)))))))
-  nil)
+;(defn shared
+;  "Same as 'slurp-shared', but opens the resource in a file-browser."
+;  [shared-key & [throw-exception?]]
+;  (let [ns (str *ns*)]
+;    (future
+;      (let [r   (slurp-shared shared-key throw-exception?)
+;            is  (input/new-input-stage ns)])))
+;        ;(fx/later
+;        ;  (george.editor.core/set-text code-area (if r r (format shared-error-message-f shared-key)))))))
+;  nil)
 
 
 (defn help

@@ -10,7 +10,7 @@
     [george.javafx :as fx]
     [environ.core :refer [env]])
   (:import
-    [javafx.scene Parent Group Node SnapshotParameters Cursor Scene]
+    [javafx.scene Group Node SnapshotParameters Cursor Scene]
     [javafx.scene.layout Pane StackPane FlowPane]
     [javafx.scene.text Text]
     [javafx.scene.input MouseEvent TransferMode ClipboardContent]
@@ -19,7 +19,7 @@
     [javafx.stage StageStyle Screen Stage]))
 
 
-(defn first-child [^Parent p]
+(defn first-child [p]
   (-> p .getChildren (.get 0)))
 
 
@@ -121,7 +121,7 @@
     (Scene. (StackPane. (j/vargs text)) 200 400)))
 
 
-(defn -main [& args]
+(defn -main [& _]
   (println "dev.dnd/-main")
   (fx/later
      (doto (Stage. StageStyle/UTILITY)
@@ -142,4 +142,4 @@
 ;;;;;;
 
 
-;(when (env :repl?) (println "WARNING: Running dev.labs.dnd-palette/-main") (-main))
+;(when (env :repl?) (println "Warning: Running dev.labs.dnd-palette/-main") (-main))

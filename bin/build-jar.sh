@@ -5,7 +5,7 @@ source bin/_utils.sh
 
 echo "!! Updating version string in src/main/resources ..."
 V=`get_version`
-VF=src/main/resources/george-version.txt
+VF=src/main/rsc/george-version.txt
 echo -n $V > $VF
 cat $VF
 echo

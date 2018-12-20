@@ -3,14 +3,10 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns
-  ^{:author "Terje Dahl"}
-  george.core.overlayed
+(ns george.core.overlayed
   (:require
     [george.javafx :as fx]
-
     [george.javafx.java :as fxj])
-
   (:import
     [javafx.scene.layout StackPane]
     [javafx.scene Node]
@@ -71,10 +67,10 @@ asølkdfja sfd"
     stage))
 
 
-(defn -main [& args]
+(defn -main [& _]
   (the-stage))
 
 
 ;;; DEV ;;;
 
-;(println "WARNING: running george.core.overlayed/-main")  (-main)
+;(println "Warning: running george.core.overlayed/-main")  (-main)

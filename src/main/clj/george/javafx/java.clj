@@ -3,60 +3,7 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns george.javafx.java
-    (:import (javax.swing SwingUtilities)))
-
-
-(defn daemon-thread*
-    "Utility fuction for 'daemon-thread'."
-    [exp]
-    (doto (Thread. exp)
-        (.setDaemon true)
-        (.start)))
-
-(defmacro daemon-thread
-    "Run body in new daemon-thread."
-    [& body]
-    `(daemon-thread* (fn [] ~@body)))
-
-(defn thread*
-    "Utility fuction for 'thread'."
-    [exp]
-    (doto (Thread. exp)
-        (.start)))
-
-(defmacro thread
-    "Run body in new thread."
-    [& body]
-    `(thread* (fn [] ~@body)))
-
-(defn swing*
-    "Runs thunk in the Swing event thread according to schedule:
-    - :later => schedule the execution and return immediately
-    - :now   => wait until the execution completes."
-    [schedule thunk]
-    (cond
-        (= schedule :later)
-        (SwingUtilities/invokeLater thunk)
-        (= schedule :now)
-        (if (SwingUtilities/isEventDispatchThread)
-            (thunk)
-            (SwingUtilities/invokeAndWait thunk)))
-    nil)
-
-
-(defmacro swing
-    "Executes body in the Swing event thread asynchronously. Returns
-    immediately after scheduling the execution."
-    [& body]
-    `(swing* :later (fn [] ~@body)))
-
-
-(defmacro swing-and-wait
-    "Executes body in the Swing event thread synchronously. Returns
-    after the execution is complete."
-    [& body]
-    `(swing* :now (fn [] ~@body)))
+(ns george.javafx.java)
 
 
 (defmacro vargs [& body]
@@ -82,9 +29,9 @@
 (defmacro import! [specs]
     `(import ~@(if (instance? clojure.lang.Symbol specs) (eval specs) specs)))
 
-(defn singlethreadexecutor []
-    (java.util.concurrent.Executors/newSingleThreadExecutor))
+;(defn singlethreadexecutor []
+;    (java.util.concurrent.Executors/newSingleThreadExecutor))
 
-(defn singlethreadexecute-fn []
-    (let [exec (singlethreadexecutor)]
-        (fn [f] (. exec execute f))))
+;(defn singlethreadexecute-fn []
+;    (let [exec (singlethreadexecutor)]
+;        (fn [f] (. exec execute f))))
