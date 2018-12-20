@@ -55,6 +55,21 @@ All notable changes to this project will be documented in this file. This change
 - Dynamic discovery of applets
 
 
+## [2018.6.2] - 2018-09-07
+
+### Fixed
+- Compiling no longer initializes JavaFX runtime.
+- JavaFX runtime now requires explisit intialization in code. As does pre-loading fonts.
+
+
+## [2018.6.1] - 2018-08-28
+
+### Improved
+- Use `future` everywhere in stead of `Thread(...).start()` for improved performance.
+- Improvements to `george.javafx/alert`
+- Improvements to `george.javafx/stage`
+
+
 ## [2018.6] - 2018-07-10
 
 ### Added
