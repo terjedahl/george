@@ -3,10 +3,10 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-;; impementation of: http://blog.netopyr.com/2012/06/14/using-the-javafx-animationtimer/
+;; implementation of: http://blog.netopyr.com/2012/06/14/using-the-javafx-animationtimer/
 
 (ns
-  george.example.stars
+  example.stars
   (:require
     [george.javafx :as fx])
   (:import 

@@ -3,7 +3,7 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns george.example.rcanvas
+(ns example.rcanvas
     ;; inspired by http://dlsc.com/2014/04/10/javafx-tip-1-resizable-canvas/
     ;; but it seems to work even without the overrides !?!
     (:require 

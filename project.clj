@@ -1,30 +1,24 @@
 
-(defproject no.andante.george/george-application  "2018.9"
+(defproject no.andante.george/george-application  "2018.10-SNAPSHOT"
 
   :description "George - Application"
-  :url "https://bitbucket.org/andante-george/george-application"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :url         "https://bitbucket.org/andante-george/george-application"
+  :license     {:name "Eclipse Public License"
+                :url  "http://www.eclipse.org/legal/epl-v10.html"}
 
 
   :dependencies [;; https://clojure.org/community/downloads
-                 [org.clojure/clojure "1.10.0-beta5"]
+                 [org.clojure/clojure "1.10.0"]
                  ;; https://github.com/clojure/core.async
                  [org.clojure/core.async "0.4.474"]
                  ;; https://github.com/clojure/tools.reader
                  [org.clojure/tools.reader "1.3.0"]
                  ;; https://github.com/mmcgrana/clj-stacktrace
                  [clj-stacktrace "0.2.8"]
-                 ;[leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
-                 [org.apache.directory.studio/org.apache.commons.io "2.4"]  ;; WriterOutputStream in output.clj 
-                 ;; https://github.com/clojure/tools.namespace
-                 [org.clojure/tools.namespace "0.3.0-alpha4"]
-                 ;; https://github.com/clojure/java.classpath
-                 [org.clojure/java.classpath "0.3.0"]
                  ;; https://github.com/cemerick/nREPL
                  [nrepl "0.4.5"]
                  ;; https://github.com/FXMisc/RichTextFX
-                 [org.fxmisc.richtext/richtextfx "0.9.1"]
+                 [org.fxmisc.richtext/richtextfx "0.9.2"]
                  ;; https://github.com/TomasMikula/Flowless
                  [org.fxmisc.flowless/flowless  "0.6.1"]
                  ;; https://github.com/droitfintech/clj-diff
@@ -40,11 +34,11 @@
                  ;; https://github.com/clj-time/clj-time
                  [clj-time "0.15.0"]
                  ;; https://github.com/yogthos/markdown-clj
-                 [markdown-clj "1.0.4"]
+                 [markdown-clj "1.0.5"]
                  ;; https://github.com/alexander-yakushev/defprecated
                  [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                  ;; https://github.com/amalloy/ordered
-                 [org.flatland/ordered "1.5.6"]
+                 [org.flatland/ordered "1.5.7"]
                  ;; https://github.com/zcaudate/hara
                  ;; http://docs.caudate.me/hara/hara-io-watch.html
                  [zcaudate/hara.common.watch "2.8.7"]
@@ -56,12 +50,11 @@
             ;; https://github.com/weavejester/environ
             [lein-environ "1.1.0"]
             ;; https://github.com/weavejester/codox
-            [lein-codox "0.10.3"]
+            [lein-codox "0.10.5"]
             ;; https://github.com/technomancy/leiningen/tree/stable/lein-pprint
             [lein-pprint "1.2.0"]]
 
-  :repositories [
-                 ["jcenter" "https://jcenter.bintray.com"]] ;; apache.commons.io
+  :repositories      []
 
   :deploy-repositories [
                         ["snapshots" :clojars]
@@ -75,56 +68,39 @@
   :javac-options     ["-source" "1.8" "-target" "1.8"]
                       ;"-Xlint:unchecked"]
 
-  :test-paths ["src/test/clj"]
+  :test-paths        ["src/test/clj"]
 
-  :main no.andante.george.Main
-  :aot [no.andante.george.Main]
+  :aot               [no.andante.george.Main]
 
-  :jvm-opts ["-Dapple.awt.graphics.UseQuartz=true"]  ;; should give crisper text on Mac
-  :target-path "target/%s"
+  :main              no.andante.george.Main
 
-  ;; http://www.flyingmachinestudios.com/programming/how-clojure-babies-are-made-lein-run/
-  ;; https://clojure.github.io/clojure/branch-master/clojure.main-api.html#clojure.main/main
+  :jvm-opts          [
+                      ;; should give crisper text on Mac
+                      "-Dapple.awt.graphics.UseQuartz=true"]
 
-  :aliases {
-            "preloader"
-            ^{:doc "
-  Triggers the JavaFX preloader mechanism to run 'no.andante.george.MainPreloader'.
-  All args are passed through to main application.
-  Note: The preloader won't appear as fast as when triggered by a normal JAR launch."}
-            ["run" "-m" "no.andante.george.Main" "--with-preloader"]
+  :target-path       "target/%s"
 
-            ;; starts turtle environement directly
-            "turtle" ["run" "-m" "george.application.applet.turtle"]
-            ;; starts general environment directly
-            "general" ["run" "-m" "george.application.applet.general"]
-
-            ;; Simple george.example of staring Clojure from Java
-            "example" ["run" "-m" "george.example.application" "4 5 6"]
-            "examplej" ["run" "-m" "george.example.App" "1 2 3"]
-
-            ;; Test of Clojure and JavaFX performance. See source.
-            "stars" ["run" "-m" "george.example.stars"]
-            ;; And here is the original Java-version - for (visual) comparison
-            "starsj" ["run" "-m" "george.example.Stars"]
-
-            ;; Something cool
-            "clocks" ["run" "-m" "george.example.arcclocks"]
-            "graph" ["run" "-m" "george.sandbox.graph"]}
+  :aliases           {}
 
   ;; to get process on port 55055:   sudo lsof -n -i :55055
-  :repl-options {:port 55055}
-  :codox {
-          :doc-paths ["docs"]
-          :output-path "target/docs"
-          :namespaces [george.application.turtle.turtle]
-          :source-uri
-          ;"https://github.com/weavejester/codox/blob/{version}/codox.example/{filepath}#L{basename}-{line}"
-          "https://bitbucket.org/andante-george/george-application/src/default/{filepath}?at=default#{basename}-{line}"
-          :html {:namespace-list :flat}}
+  :repl-options      {:port 55055}
 
-  :profiles {:repl {:env {:repl? "true"}}
-             :uberjar {:aot :all
-                       :manifest {"Main-Class" "no.andante.george.Main"
-                                  "JavaFX-Preloader-Class" "no.andante.george.MainPreloader"
-                                  "JavaFX-Application-Class" "no.andante.george.Main"}}})
+  :codox             {
+                      :doc-paths ["docs"]
+                      :output-path "target/docs"
+                      :namespaces [george.application.turtle.turtle]
+                      :source-uri
+                      ;"https://github.com/weavejester/codox/blob/{version}/codox.example/{filepath}#L{basename}-{line}"
+                      "https://bitbucket.org/andante-george/george-application/src/default/{filepath}?at=default#{basename}-{line}"
+                      :html {:namespace-list :flat}}
+
+  :profiles          {:repl {:env {:repl? "true"}}
+
+                      :dev {:java-source-paths ["src/dev/java"]
+                            :source-paths      ["src/dev/clj" "src/tasks"]
+                            :resource-paths    ["src/dev/rsc"]}
+
+                      :uberjar {:aot      :all
+                                :manifest {"Main-Class" "no.andante.george.Main"
+                                           "JavaFX-Preloader-Class" "no.andante.george.MainPreloader"
+                                           "JavaFX-Application-Class" "no.andante.george.Main"}}})
