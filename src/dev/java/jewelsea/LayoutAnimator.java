@@ -31,8 +31,9 @@ public class LayoutAnimator implements ChangeListener<Number>, ListChangeListene
    *   animator.observe(myVbox.getChildren());
    * </code>
    *
-   * @param nodes
+   * @param  nodes the nodes to be observed
    */
+  
   public void observe(ObservableList<Node> nodes) {
     for (Node node : nodes) {
       this.observe(node);
@@ -40,20 +41,24 @@ public class LayoutAnimator implements ChangeListener<Number>, ListChangeListene
     nodes.addListener(this);
   }
 
-  public void unobserve(ObservableList<Node> nodes) {
-    nodes.removeListener(this);
-  }
 
   public void observe(Node n) {
     n.layoutXProperty().addListener(this);
     n.layoutYProperty().addListener(this);
   }
 
+  
+  public void unobserve(ObservableList<Node> nodes) {
+        nodes.removeListener(this);
+    }
+
+    
   public void unobserve(Node n) {
     n.layoutXProperty().removeListener(this);
     n.layoutYProperty().removeListener(this);
   }
 
+  
   @Override
   public void changed(ObservableValue<? extends Number> ov, Number oldValue, Number newValue) {
     final double delta = newValue.doubleValue() - oldValue.doubleValue();
@@ -139,15 +144,15 @@ public class LayoutAnimator implements ChangeListener<Number>, ListChangeListene
   }
 
   @Override
-  public void onChanged(Change change) {
+  public void onChanged(Change<? extends Node> change) {
     while (change.next()) {
       if (change.wasAdded()) {
-        for (Node node : (List<Node>) change.getAddedSubList()) this.observe(node);
+        for (Node node : change.getAddedSubList()) this.observe(node);
       } else if (change.wasRemoved()) {
-        for (Node node : (List<Node>) change.getRemoved()) this.unobserve(node);
+        for (Node node : change.getRemoved()) this.unobserve(node);
       }
     }
   }
 
-  // todo unobserving nodes should cleanup any intermediate transitions they may have and ensure they are removed from transition cache to prevent memory leaks.
+  // todo un-observing nodes should cleanup any intermediate transitions they may have and ensure they are removed from transition cache to prevent memory leaks.
 }

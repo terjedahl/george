@@ -4,12 +4,12 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns george.editor.input
-  (:require [george.javafx :as fx]
-            [george.util.javafx :as ufx])
-
-  (:import (javafx.event EventType)
-           (javafx.scene.input MouseEvent MouseDragEvent KeyEvent KeyCode)
-           (org.fxmisc.flowless VirtualFlow)))
+  (:require 
+    [george.javafx :as fx]
+    [george.util.javafx :as ufx])
+  (:import
+    [javafx.scene.input MouseEvent MouseDragEvent KeyEvent]
+    [org.fxmisc.flowless VirtualFlow]))
 
 
 (def MAC_SHIFT_TAB_CHAR (char 25))
@@ -156,7 +156,7 @@
             offset (.getCellOffset hit)
             offset-x (.getX offset)
             cell (.getCell flow row)
-            col (.getColumn cell offset-x)]
+            col (.getCellColumn cell offset-x)]
 
         [cell row col]))))
 

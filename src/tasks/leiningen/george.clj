@@ -30,8 +30,8 @@
 
 (defn assert-deployable []
   (let [p (deployable-jar-path)]
-    (assert (.exists (cio/file p)) 
-            (format "%s not found. Do 'lein deployable' to build." p))))
+    (assert (.exists (cio/file p))
+            (format "%s not found.\n  Do 'lein deployable' to build." p))))
 
 
 (defn assert-jpms []
@@ -110,7 +110,7 @@
 (defn- ts 
   "Prints ISO-timestamp"
   []
-  (run  'george.launch.properties/print-now))
+  (run 'george.launch.properties/print-now))
 
 
 (defn clean [& [clean-target]]
@@ -154,7 +154,8 @@
 (defn deployable
   [args]
   (assert-project)
-  (clean "target/deployable")
+  (clean 'target/deployable)
+  (clean 'target/uberjar)
   (embed args)
   (uberjar *project*)
   (run 'tasks.build/deployable))

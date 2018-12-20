@@ -4,22 +4,18 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns
-  ^{:author "Terje Dahl"}
   george.audio.input
   (:require
-      [clojure.pprint :refer [pprint pp] :as cpp]
-      [clojure.data :as data]
-      [clojure.core.async :refer [>!! <! chan timeout sliding-buffer thread go go-loop]]
-      [george.javafx :as fx])
-
+    [clojure.pprint :refer [pprint pp]]
+    [clojure.data :as data]
+    [clojure.core.async :refer [>!! <! chan timeout sliding-buffer thread go go-loop]]
+    [george.javafx :as fx])
 
   (:import
-      (javafx.scene.control ToggleGroup)
-      (javax.sound.sampled AudioSystem TargetDataLine DataLine$Info AudioFormat$Encoding AudioFormat LineUnavailableException AudioInputStream)
-      (javafx.scene Group)
-      (java.nio ByteOrder ByteBuffer)
-      (java.io ByteArrayOutputStream)))
-
+    [javafx.scene.control ToggleGroup]
+    [javax.sound.sampled AudioSystem TargetDataLine DataLine$Info AudioFormat$Encoding AudioFormat LineUnavailableException AudioInputStream Mixer]
+    [java.nio ByteOrder ByteBuffer]
+    [java.io ByteArrayOutputStream]))
 
 
 (def DEFAULT_MIC_FORMAT
@@ -53,7 +49,7 @@
 
 
 
-(defn get-directed-lineinfo-from-mixer [mixer line-info]
+(defn get-directed-lineinfo-from-mixer [^Mixer mixer line-info]
   (if (target-data-line? line-info)
     (.getTargetLineInfo mixer line-info)
     (.getSourceLineInfo mixer line-info)))
@@ -71,7 +67,6 @@
       (fn [mixer] (boolean (seq (get-directed-lineinfo-from-mixer mixer data-line-info)))))))
 
 
-
 (defn print-mixer [mixer]
   (println mixer)
   (let [mixer-info (.getMixerInfo mixer)]
@@ -81,14 +76,16 @@
 
 
 
-
 (defonce ^:private singletons (atom {}))
+
 
 (defn- get-singleton [k]
     (-> @singletons k))
 
+
 (defn- del-singleton [k]
     (swap! singletons dissoc k))
+
 
 (defn- singleton
     "Gets singleton, or creates one using the provided function"
@@ -109,12 +106,9 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 "
 
 
-
 (def ^:private MID-line-atom
     "Contains all opened lines, keyed by MID: {MID1 TDL1, MID2 TDL2}"
     (atom {}))
-
-
 
 
 (defonce ^:private consumers
@@ -132,7 +126,6 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 (defn- add-consumer [MID obj ch]
     (println "add-consumer obj:" obj " ch:" ch)
     (swap! consumers assoc-in [MID obj] ch))
-
 
 
 (defn- feed-consumers
@@ -228,8 +221,6 @@ It there a need / purpose for for this, though, as long as whatever data they ar
          :version (.getVersion m)}))
 
 
-
-
 (defonce MIM-mixer-atom (atom {}))
 
 
@@ -259,7 +250,6 @@ It there a need / purpose for for this, though, as long as whatever data they ar
             (println " # Exception (in open-TDL-safe):" e)
             (.printStackTrace e)
             nil)))
-
 
 
 (defn refresh-MIDs
@@ -333,15 +323,12 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 
 
 
-
-
-
 (defn- ignite [lights prosent sticky-prosent]
   "'turn on' number of lights relative to prosent level and also lights the light at sticky-prosent"
   (let [
         len (count lights)
-        lim-activate (Math/round (* (/ len 100.) prosent))
-        sticky-activate (Math/round (* (/ len 100.) sticky-prosent))
+        lim-activate (Math/round ^double (* (/ len 100.) prosent))
+        sticky-activate (Math/round ^double (* (/ len 100.) sticky-prosent))
         rev-lights (vec (reverse lights))]
 
     (fx/later
@@ -351,8 +338,6 @@ It there a need / purpose for for this, though, as long as whatever data they ar
         (.setFill l fx/BLUE))
       (if(< 0 sticky-activate len)
         (.setFill (get rev-lights sticky-activate) fx/BLUE)))))
-
-
 
 
 (defn- level-meter [label]
@@ -379,14 +364,11 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 
         (.setVisible lights-pane active)))
 
-
-
+;; TODO: Use george.util
 (defn- clamp [low val high]
-    (let [
-          val (if (< val low) low val)
+    (let [val (if (< val low) low val)
           val (if (> val high) high val)]
-
-        val))
+      val))
 
 
 (defn- biggest-sample [samples]
@@ -458,7 +440,7 @@ It there a need / purpose for for this, though, as long as whatever data they ar
         outer-pane))
 
 
-(defn- create-radiobutton-monitor-pane [MID togglegroup]
+(defn- create-radiobutton-monitor-pane [MID ^ToggleGroup togglegroup]
     (let [
           monitor-pane (create-monitor-pane MID)
 
@@ -466,18 +448,13 @@ It there a need / purpose for for this, though, as long as whatever data they ar
           (doto (fx/radiobutton)
               (.setToggleGroup togglegroup)
               (.setGraphic monitor-pane))]
-
-
+      
         (doto (fx/hbox radio-button monitor-pane)
             (.setAlignment fx/Pos_CENTER)
             (fx/set-padding 0 0 0 20)
             (.setUserData {:MID MID
                            :lights-pane (-> monitor-pane .getUserData :lights-pane)
                            :radiobutton radio-button}))))
-
-
-
-
 
 
 (defn refresh-inputs-pane [monitors-vbox]
@@ -519,21 +496,16 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 
 
 
-
-
-
 (defn- input-selector-pane []
   (let [
         togglegroup
         (doto (ToggleGroup.)
             (-> .selectedToggleProperty
-                (.addListener
-                    (fx/changelistener
-                        [_ _ _ monitor-radiobutton]
-                        (let [MID (-> monitor-radiobutton .getParent .getUserData :MID)]
-                            ;(println "selected MID:" MID)
-                            (when-not(= @selected-MID-atom MID)
-                                (reset! selected-MID-atom MID)))))))
+                (fx/add-changelistener
+                   (let [MID (-> new-value .getParent .getUserData :MID)]
+                       ;(println "selected MID:" MID)
+                       (when-not(= @selected-MID-atom MID)
+                           (reset! selected-MID-atom MID))))))
 
         monitors-vbox
         (doto (fx/vbox)
@@ -552,11 +524,7 @@ It there a need / purpose for for this, though, as long as whatever data they ar
         pane
         (fx/borderpane :top top :center monitors-vbox)]
 
-
       [pane refresh-button-action]))
-
-
-
 
 
 (defn selected-input-pane []
@@ -575,8 +543,6 @@ It there a need / purpose for for this, though, as long as whatever data they ar
                 :title "selected input monitor"
                 :scene (fx/scene (selected-input-pane))
                 :sizetoscene true))))
-
-
 
 
 (defn- create-input-selector-stage []
@@ -603,4 +569,5 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 
 
 ;;
-;(do (println "WARNING! Running george.audio.input/inputs-stage")  (input-selector-stage) (create-selected-input-stage))
+
+;(do (println "Warning! Running george.audio.input/inputs-stage")  (input-selector-stage) (create-selected-input-stage))

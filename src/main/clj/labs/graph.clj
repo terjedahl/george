@@ -3,21 +3,21 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns
-  labs.graph
+(ns labs.graph
   "An edge/node graph example based on   http://stackoverflow.com/questions/30679025/graph-visualisation-like-yfiles-in-javafx "
-    (:require [george.javafx :as fx]
-              [clojure.pprint :refer [pprint]]
-              [george.javafx.java :as j]
-              [environ.core :refer [env]])
-    (:import (javafx.scene.control ScrollPane)
-             (javafx.scene.layout Pane)
-             (javafx.scene.shape Circle)
-             (javafx.scene.paint Color)
-             (java.util Random)
-             (javafx.scene.transform Scale)
-             (javafx.scene.input ScrollEvent)))
-
+  (:require 
+    [george.javafx :as fx]
+    [clojure.pprint :refer [pprint]]
+    [george.javafx.java :as j]
+    [environ.core :refer [env]])
+  (:import 
+    [javafx.scene.control ScrollPane]
+    [javafx.scene.layout Pane]
+    [javafx.scene.shape Circle]
+    [javafx.scene.paint Color]
+    [java.util Random]
+    [javafx.scene.transform Scale]
+    [javafx.scene.input ScrollEvent]))
 
 
 (defn- create-zoomable-scrollpane [content-node]
@@ -223,4 +223,4 @@
 
 ;;;; DEV ;;;;
 
-;(when (env :repl?) (println "WARNING: Running george.sandbox.graph/-main") (-main))
+;(when (env :repl?) (println "Warning: Running george.sandbox.graph/-main") (-main))

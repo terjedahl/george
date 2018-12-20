@@ -13,15 +13,16 @@
     [george.javafx
      [java :as fxj]
      [util :as fxu]]
-    [george.util.javafx :as ufx])
+    [george.util.javafx :as ufx]
+    [clojure.string :as s])
   (:import
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Application Platform]
     [javafx.beans.value ChangeListener WritableValue]
-    [javafx.collections FXCollections]
+    [javafx.collections FXCollections ObservableList ListChangeListener]
     [javafx.event EventHandler]
-    [javafx.geometry Insets Pos VPos Side]
-    [javafx.scene Group Node Parent Scene]
+    [javafx.geometry Insets Pos VPos Side Orientation]
+    [javafx.scene Group Node Scene]
     [javafx.scene.control
      Alert Alert$AlertType
      Button ButtonType ButtonBar$ButtonData
@@ -29,9 +30,9 @@
      ListView RadioButton
      TextField TextArea
      Tooltip
-     ScrollPane CheckBox]
+     ScrollPane CheckBox ScrollBar]
     [javafx.scene.image ImageView]
-    [javafx.scene.input MouseEvent]
+    [javafx.scene.input MouseEvent KeyEvent]
     [javafx.scene.layout
      BorderPane HBox Priority Region StackPane VBox
      Border
@@ -41,15 +42,42 @@
     [javafx.scene.shape Line Rectangle Polygon StrokeLineCap]
     [javafx.stage FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle Modality]
     [javafx.util Duration]
-    [java.util Collection Optional]
-    [clojure.lang Atom]))
+    [java.util Collection Optional List]
+    [clojure.lang Atom]
+    [javafx.fxml FXMLLoader]
+    [javafx.beans Observable]))
+
+
+"
+Notes on JavaFX
+
+Certain classes touch the native JavaFX runtime system, and must not be used in type-hinting function - args or return - 
+as they will require init-ing the runtime at compile time.
+The same goes for proxy-ing them directly, as proxy is a macro which will touch them at compile-time.
+See my comments here:  https://dev.clojure.org/jira/browse/CLJ-1743
+
+The includes (but is not limited to):
+  ListView
+  TreeView
+  ScrollPane
+  ComboBox
+  ListCell
+  TreeCell
+  TextField
+  TextArea
+  Label
+  Button
+  RadioButton
+  CheckBox  
+  Screen  
+"
 
 
 ;(set! *warn-on-reflection* true)
 
 
 (defn set-implicit-exit [b]
-  (println (str *ns*"/set-implicit-exit " b))
+  (println "george.javafx/set-implicit-exit")
   (Platform/setImplicitExit false))
 
 
@@ -61,7 +89,7 @@
 
 ;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
 (defn preload-fonts [& [verbose?]]
-  (println (format "%s/preload-fonts ..." *ns*))
+  (println "george.javafx/preload-fonts")
   (let [dir-path (str (cio/resource "fonts/"))
         list-path "fonts/fonts.txt"
         names (cs/split-lines (slurp (cio/resource list-path)))]
@@ -79,16 +107,11 @@
 Needs only be called once in the applications life-cycle.
 Has to be called before the first call to/on FxApplicationThread (javafx/later)
 
-
-
 Memoize-ing it makes it effectively lazy and run only once (unless new/different parameters are passed).
-Add any additional random key+value to trigger a new load (as this triggers a new run of the memoize fn).
-"
-
-  
+Add any additional random key+value to trigger a new load (as this triggers a new run of the memoize fn)."
   (memoize
     (fn [& {:keys [fonts? classloader] :or {fonts? true}}]
-      (println (str *ns* "/init"))
+      (println "george.fx/init")
       ;; Java10
       ;; ensure synchronicity by de-referencing promises 
       ;(let [st-promise (promise)]
@@ -135,16 +158,24 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 (def Pos_TOP_RIGHT Pos/TOP_RIGHT)
 (def Pos_TOP_CENTER Pos/TOP_CENTER)
 (def Pos_CENTER Pos/CENTER)
+(def Pos_CENTER_LEFT Pos/CENTER_LEFT)
+(def Pos_CENTER_RIGHT Pos/CENTER_RIGHT)
+(def Pos_BOTTOM_LEFT Pos/BOTTOM_LEFT)
+(def Pos_BOTTOM_RIGHT Pos/BOTTOM_RIGHT)
+
 (def VPos_TOP VPos/TOP)
 (def VPos_CENTER VPos/CENTER)
 
 (def MouseEvent_ANY MouseEvent/ANY)
 
+(def HORIZONTAL Orientation/HORIZONTAL)
+(def VERTICAL Orientation/VERTICAL)
+
 
 (defn ^CornerRadii corner-radii [rad]
   (when rad
     (if (vector? rad)
-      (let [[tl tr br bl ] rad] (CornerRadii. tl tr br bl false))
+      (let [[tl tr br bl] rad] (CornerRadii. tl tr br bl false))
       (CornerRadii. rad))))
 
 
@@ -173,22 +204,20 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
         (Platform/runLater #(try (expr) (catch Throwable e e (println e))))))
 
 
-;(defmacro ^:deprecated thread
-;    "Ensure running body in JavaFX thread: javafx.application.Platform/runLater"
-;    [& body]
-;    `(later* (fn [] ~@body)))
-
-
 (defmacro later
     "Ensure running body in JavaFX thread: javafx.application.Platform/runLater"
     [& body]
     `(later* (fn [] ~@body)))
 
 
-;(defmacro thread-later
-;  "Runs the body in a fn in a later* on a separate thread"
-;  [& body]
-;  `(.start (Thread. (later* (fn [] ~@body)))))
+(defmacro future-later
+  ([& body]
+   `(future (later* (fn [] ~@body)))))
+
+
+(defmacro future-sleep-later
+  ([ms & body]
+   `(future (Thread/sleep ~ms) (later* (fn [] ~@body)))))
 
 
 (defn now*
@@ -228,43 +257,80 @@ and the body is called on 'handle'"
     `(reify EventHandler (~'handle ~args-vec ~@body)))
 
 
+;; LEGACY. Preserved only for Språklab!  Use 'new-eventhandler' in stead.
+;; TODO: Remove from Språklab
+(defmacro ^EventHandler eventhandler
+  "Returns an instance of javafx.event.EventHander.
+   The the body is called on 'handle'.
+    'this' and 'event' are implicitly available in the body (similar to 'this' in clojure.core/proxy."
+
+  [& body]
+  `(reify EventHandler (~'handle [~'this ~'event] ~@body)))
+
+
+(defmacro ^EventHandler new-eventhandler
+          "Returns an instance of javafx.event.EventHander.
+        Evaluates body in handle-method.  'this' and 'event' are implicitly."
+          [& body]
+          `(reify EventHandler (~'handle [~'this ~'event] ~@body)))
+
+
 (defn ^EventHandler ensure-handler [f]
-  (if (instance? EventHandler f) f (event-handler (f))))
+  (if (instance? EventHandler f) f (new-eventhandler (f))))
 
 
-(defmacro ^ChangeListener changelistener
-    "Returns an instance of javafx.beans.value.ChangeListener,
-where args-vec is a vector of 4 elements  - naming the bindings for 'this', 'observable', 'old', 'new',
-and the body is called on 'changed'"
-    [args-vec & body]
-    (assert (vector? args-vec) "First argument must be a vector representing 4 args")
-    (assert (= 4 (count args-vec)) "args-vector must contain 4 elements - for binding 'this', 'observable', 'old', 'new'")
-    `(reify ChangeListener (~'changed ~args-vec
-                               ~@body)))
+(defn ensure-handler2 [f]
+      (if (instance? EventHandler f) f (event-handler-2 [this event] (f this event))))
 
 
 ; (event-handler (println 1) (println 2)) ->
 ; (reify EventHandler (handle [_ _] (println 1) (println 2)))
-(comment macroexpand-1 '(event-handler
-                         (println 1)
-                         (println 2)))
+;(comment macroexpand-1 '(event-handler
+;                         (println 1)
+;                         (println 2)))
 
 ; (event-handler-2 [t e] (println 1) (println 2)) ->
 ; (reify EventHandler (handle [t e] (println 1) (println 2)))
-(comment macroexpand-1 '(event-handler-2 [t e]
-                         (println 1)
-                         (println 2)))
+;(comment macroexpand-1 '(event-handler-2 [t e]
+;                         (println 1)
+;                         (println 2)))
 
 
-(defn children [^Parent parent]
+(defmacro ^ChangeListener changelistener
+  "Returns an instance of javafx.beans.value.ChangeListener,
+where args-vec is a vector of 4 elements  - naming the bindings for 'this', 'observable', 'old', 'new',
+and the body is called on 'changed'"
+  [args-vec & body]
+  (assert (vector? args-vec) "First argument must be a vector representing 4 args")
+  (assert (= 4 (count args-vec)) "args-vector must contain 4 elements - for binding 'this', 'observable', 'old', 'new'")
+  `(reify ChangeListener (~'changed ~args-vec ~@body)))
+
+
+(defmacro ^ChangeListener new-changelistener
+  [& body]
+  `(reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body)))
+
+
+(defmacro add-changelistener [^Observable observable & body]
+  `(.addListener ~observable (reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body))))
+
+
+(defmacro ^ChangeListener new-listchangelistener
+  [& body]
+  `(reify ListChangeListener (~'onChanged [~'this ~'change] ~@body)))
+
+
+(defn children [parent]
   (.getChildren parent))
 
-(defn children-set-all [^Parent parent children]
-  (.setAll (.getChildren parent) children))
+
+(defn children-set-all [parent children]
+  (.setAll ^ObservableList (.getChildren parent) ^List children))
 
 
 (defn XY [item]
     [(.getX item) (.getY item)])
+
 
 (defn WH [item]
     (if (instance? Node item)
@@ -337,29 +403,96 @@ and the body is called on 'changed'"
 
 
 
-  
+(defn load-fxml [pth]
+  (.load (FXMLLoader. (cio/resource pth))))
 
+
+(defn lookup [node id]
+  "Similar to Node.lookup, but goes recursively through all children, and returns the first found or nil"
+  ;	(println "lookup  node:" node "  id:" id)
+  ;	(println "\t\tnode.id:" (.getId node) "  empty?:" (empty? (.getId node)))
+  ;	(println "\t\tnode.class.name:" (-> node class .getSimpleName ))
+  (let [
+         n-name
+         (-> node class .getSimpleName)
+         n-id
+         (.getId node)
+
+         [a b]
+         (s/split id #"#")
+         [a b]
+         [(if (empty? a) nil a) (if (empty? b) nil b)]]
+        ;			_ (println "[a b]:" [a b])
+        
+     (if  ;; does this match on tpe and id, or either?
+      (or
+        (and
+          (and a b)
+          (and
+            (= a n-name)
+            (= b n-id)))
+        (and
+          a
+          (not b)
+          (= a n-name))
+        (and
+          b
+          (= b n-id)))
+      ;; then return node
+      node
+      ;; else recur over its children, if parent, else nil
+      (first
+        (filter identity
+                (map
+                  (fn [c] (lookup c id))
+                  (concat
+                    (try (.getChildren node) (catch Exception _))
+                    (try (.getTabs node) (catch Exception _))
+                    (try (-> node .getContent .getChildren) (catch Exception _))
+                    (try (.getMenus node) (catch Exception _))
+                    (try (.getItems node) (catch Exception _)))))))))
+                       
+        
 
 ;(import
 ;  '[com.sun.javafx.util Logging]
 ;  '[sun.util.logging PlatformLogger$Level])
 
 
-(defn add-stylesheet [^Scene scene path]
+(defn add-stylesheet [scene-or-parent path]
   (let []
         ;logger (Logging/getCSSLogger)
         ;level (.level logger)]
     ;(.setLevel logger PlatformLogger$Level/OFF)  ;; turn off logger. Doesn't work well.
-    (-> scene .getStylesheets (.add path))))  ;; set stylesheet
+    (-> scene-or-parent .getStylesheets (.add path))))  ;; set stylesheet
     ;(.setLevel logger level))) ;; turn logger back to previous level
 
 
-(defn add-stylesheets [scene & paths]
-  (mapv #(add-stylesheet scene %) paths))
+(defn add-stylesheets [scene-or-parent & paths]
+  (mapv #(add-stylesheet scene-or-parent %) paths))
+
+
+(defn clear-stylesheets [scene]
+  (-> scene .getStylesheets .clear)) 
 
 
 (defn set-Modena []
     (Application/setUserAgentStylesheet Application/STYLESHEET_MODENA))
+
+
+(defn remove-class
+  ([node ^String css-class]
+   (-> node .getStyleClass (.remove css-class))))
+
+
+(defn add-class [node ^String css-class]
+   (-> node .getStyleClass  (.add css-class)))
+
+
+(defn re-add-class [node ^String css-class]
+  (doto (.getStyleClass node)
+    (.remove css-class)
+    (.add css-class)))
 
 
 (defn ^KeyFrame keyframe*
@@ -474,15 +607,23 @@ and the body is called on 'changed'"
     (FXCollections/observableArrayList (into-array lst)))
 
 
-(defn listview
-    ([]
-     (listview
-         (FXCollections/observableArrayList
-             (fxj/vargs
-                 "Julia", "Ian", "Sue", "Matthew", "Hannah", "Stephan", "Denise"))))
+(defn names-list []
+    ["Julia", "Ian", "Sue", "Matthew", "Hannah", "Stephan", "Denise"])
 
-    ([observable-list]
-     (ListView. observable-list)))
+
+(defn listview
+ ([]
+  (listview (apply observablearraylist (names-list))))
+ ([observable-list]
+  (ListView. observable-list)))
+
+
+; ^Scrollbar  ;; DON'T TYPE. It touches JavaFX!
+(defn find-scrollbar [view & [horizontal?]]
+  (let [nodes (.lookupAll view ".scroll-bar")]
+    (first (filter #(and (instance? ScrollBar %)
+                         (= (.getOrientation %) (if horizontal? HORIZONTAL VERTICAL)))
+                   nodes))))
 
 
 ;(defn multiline-listcell
@@ -501,7 +642,6 @@ and the body is called on 'changed'"
 ;                       (-> .wrappingWidthProperty (.bind (-> listview .widthProperty (.subtract 35))))))))))
 
 
-
 ;(defn multiline-listcell-factory
 ;  "Returns a new instance of multiline-listcell whenever called.
 ;  See 'multiline-listview' and 'multiline-listcell'."
@@ -509,7 +649,6 @@ and the body is called on 'changed'"
 ;  (reify javafx.util.Callback
 ;    (call [_ listview]
 ;      (multiline-listcell listview item->str-fn))))
-
 
 
 ;(defn multiline-listview
@@ -633,7 +772,7 @@ and the body is called on 'changed'"
      (set-stroke stroke))))
 
 
-(defn polygon
+(defn ^Polygon polygon
     [& args]
 
     (let [
@@ -652,6 +791,7 @@ and the body is called on 'changed'"
 
 (defn node? [item]
   (instance? Node item))
+
 
 (defn ^Rectangle rectangle [& args]
     (let [default-kwargs
@@ -688,30 +828,44 @@ and the body is called on 'changed'"
   buttonbase)
 
 
+(defn set-onaction2 [buttonbase fn-or-handler]
+  (.setOnAction buttonbase (ensure-handler2 fn-or-handler))
+  buttonbase)
+
+
 (defn set-onmouseclicked [clickable fn-or-handler]
   (.setOnMouseClicked clickable (ensure-handler fn-or-handler))
   clickable)
 
 
 ; ^RadioButton  ;; DON'T TYPE. It touches JavaFX!
-(defn  radiobutton []
+(defn radiobutton []
   (RadioButton.))
 
 
 ; ^Button  ;; DON'T TYPE. It touches JavaFX!
-(defn  button [label & {:keys [onaction width minwidth tooltip]}]
+(defn button [label & {:keys [onaction onaction2 width minwidth tooltip style]}]
     (let [b (Button. label)]
-        (if width (.setPrefWidth  b (double width)))
-        (if minwidth (.setMinWidth b  (double minwidth)))
-        (if onaction (set-onaction b onaction))
-        (if tooltip (set-tooltip b tooltip))
-        b))
+      (when width (.setPrefWidth  b (double width)))
+      (when minwidth (.setMinWidth b  (double minwidth)))
+      (when onaction (set-onaction b onaction))
+      (when onaction2 (set-onaction2 b onaction2))
+      (when tooltip (set-tooltip b tooltip))
+      (when style (.setStyle b style))
+      b))
+
+
+(defn set-enable
+      "A simple tool that is easier to reason about."
+      [^Button button enable?]
+      (.setDisable button (not enable?)))
 
 
 ; ^CheckBox  ;; DON'T TYPE. It touches JavaFX!
-(defn  checkbox [label & {:keys [onaction tooltip]}]
+(defn  checkbox [label & {:keys [onaction onaction2 tooltip]}]
   (let [cb (CheckBox. label)]
-    (when onaction (.setOnAction cb (event-handler (onaction))))
+    (when onaction (set-onaction cb onaction))
+    (when onaction2 (set-onaction2 cb onaction2))
     (when tooltip (.setTooltip cb (Tooltip. tooltip)))
     cb))
 
@@ -795,46 +949,60 @@ and the body is called on 'changed'"
     label))
 
 
-(defn insets* [[top right bottom left]]
-    (Insets. top right bottom left))
-
-
 (defn insets
     ([v]
-     (if (vector? v)
-         (insets* v)
-         (Insets. v)))
+     (if (sequential? v) (apply insets v) (Insets. v)))
+  
     ([top right bottom left]
-     (insets* [top right bottom left])))
+     (Insets. top right bottom left)))
 
 
 (defn set-padding
     ([pane v]
-     (.setPadding pane (insets v)))
+     (.setPadding pane (insets v))
+     pane)
     ([pane t r b l]
-     (.setPadding pane (insets t r b l))))
+     (.setPadding pane (insets t r b l))
+     pane))
+
+
+(defn set-spacing [box n]
+  (.setSpacing box n)
+  box)
+
+
+(defn set-alignment [box pos]
+  (.setAlignment box pos)
+  box)
 
 
 (defn box [vertical? & args]
-    (let [
-          [nodes kwargs]
-          (fxu/partition-args
-              args {:spacing 0
-                    :insets 0
-                    :padding 0
-                    :alignment nil
-                    :background nil})
-          box
-          (doto (if vertical?
-                    (VBox. (:spacing kwargs) (fxj/vargs-t* Node nodes))
-                    (HBox. (:spacing kwargs) (fxj/vargs-t* Node nodes)))
-              (BorderPane/setMargin (insets (:insets kwargs)))
-              (.setAlignment  (:alignment kwargs))
-              (.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
+    (let [[nodes kwargs] (fxu/partition-args
+                             (filter some? args) 
+                             {:spacing 0
+                              :insets 0
+                              :padding 0
+                              :alignment nil
+                              :background nil})
+          
+          padding (:padding kwargs) 
+      
+          box (if vertical?
+                (VBox. (:spacing kwargs) (into-array Node nodes))
+                (HBox. (:spacing kwargs) (into-array Node nodes)))]
+          
+      (doto box
+          (BorderPane/setMargin (insets (:insets kwargs)))
+          (set-alignment  (:alignment kwargs)))
+      
+      ;(.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
+      (if (number? padding)
+          (set-padding box padding)
+          (apply set-padding (cons box padding)))      
 
       (when-let [b (:background kwargs)]
-          (set-background box b))
-
+        (set-background box b))
+      
       box))
 
 
@@ -884,7 +1052,7 @@ and the body is called on 'changed'"
 
 
 (defn option-index
-  "returns the index of the selected option, or nil"
+  "Returns the index of the selected option, or nil"
   [result options]
   (when (not= result (Optional/empty))
     (let [index (.indexOf options (-> result .get .getText))]
@@ -906,7 +1074,7 @@ and the body is called on 'changed'"
         (types :information)))))
 
 
-(defn expandable-content [expand-prompt content & [font pref-width]]
+(defn expandable-content [^String content & [^Font font ^long pref-width]]
   ;; http://code.makery.ch/blog/javafx-dialogs-official/
   (let [ta
         (doto ^TextArea (textarea :text content :font font)
@@ -920,12 +1088,12 @@ and the body is called on 'changed'"
     (doto (GridPane.)
       (.setMaxWidth Double/MAX_VALUE)
       (.setPrefWidth (or pref-width 800))
-      (.add (new-label expand-prompt) 0 0)
-      (.add ta 0 1))))
+      (.add ta 0 0))))
 
 
 (defn ^Alert alert [& args]
-  "returns index of selected option, else nil
+  "Returns index of selected option, else nil.
+  If :mode is nil, then returns the pre-shown dialog. You must then show it yourself, and process the results.
 
   ex: (actions-dialog \"Message\" :title \"Title\" :options [\"A\" \"B\"] :cancel-option? true)
 
@@ -940,7 +1108,7 @@ and the body is called on 'changed'"
                         :options ["OK"]
                         :cancel-option? false
                         :owner nil
-                        :mode :show-and-wait ;; :show-and-wait or :show
+                        :mode :show-and-wait ;; :show-and-wait or :show or nil
                         :type :information}
 
         [_ {:keys [options type] :as kwargs}] (fxu/partition-args args default-kwargs)
@@ -974,7 +1142,7 @@ and the body is called on 'changed'"
     (condp = (:mode kwargs)
       :show-and-wait (option-index (.showAndWait alert) options)
       :show          (option-index (.show alert) options)
-      ;; default - simply return the dialog itself
+           ;; default (nil) - simply return the dialog itself (unshown)
       alert)))
 
 
@@ -999,7 +1167,7 @@ and the body is called on 'changed'"
           (.setPreserveRatio preserveratio))]
 
     (when width (.setFitWidth iv (double width)))
-    (when height (.setFitheight iv (double height)))
+    (when height (.setFitHeight iv (double height)))
     iv))
 
 
@@ -1177,6 +1345,8 @@ Use :SHIFT :SHORTCUT :ALT for platform-independent handling of these modifiers (
 If the value is a function, then it will be run, and then the event will be consumed.
 If the value is an EventHandler, then it will be called with the same args as this handler, and it must itself consume the event if required.
 
+See:  https://docs.oracle.com/javase/8/javafx/api/javafx/scene/input/KeyCode.html
+
 Example of codes-map:
 {   #{:S}              #(println \"S\")  ;; event consumed
     #{:S :SHIFT}       #(println \"SHIFT-S\")
@@ -1184,9 +1354,8 @@ Example of codes-map:
     #{:SHORTCUT :ENTER}    (fx/event-handler-2 [_ event] (println \"CTRL/CMD-ENTER\") (.consume event ))
     }"
     [codes-map & {:keys [handle-type consume-types]}]
-    (event-handler-2
-        [inst event]
-        ;(println "  ## inst:" inst "  source:" (.getSource event ))
+    (new-eventhandler
+        ;(println "  ## this:" this "  source:" (.getSource event ))
         (let [
               ev-typ (.getEventType event)
               combo (ufx/code-modifier-set event)
@@ -1228,12 +1397,24 @@ Example of codes-map:
         }"
     [chars-map]
 
-    (event-handler-2
-        [inst event]
-        (let [ch-str (.getCharacter event)
+    (new-eventhandler
+        (let [ch-str (.getCharacter ^KeyEvent event)
               chars-map1 (if (instance? Atom chars-map) @chars-map chars-map)]
           (when-let [v  (chars-map1 ch-str)]
                 (if (instance? EventHandler v)
                     (.handle v event)
                     (v))))))
 
+
+;(defn ^Callback callback [f]
+;  (reify Callback
+;    (call [_ param]
+;      (f param))))
+
+
+;(defn listcell 
+;  [f]
+;  (proxy [ListCell] []
+;    (updateItem [item is-empty]
+;      (proxy-super updateItem item is-empty)
+;      (f this item is-empty))))

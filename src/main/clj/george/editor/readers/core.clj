@@ -5,7 +5,7 @@
     [george.util.text :as ut]))
 
 
-;(set! *warn-on-reflection* true)
+(set! *warn-on-reflection* true)
 (set! *unchecked-math* :warn-on-boxed)
 ;(set! *unchecked-math* true)
 
@@ -54,7 +54,7 @@
   (if
     (and
       (not-empty stack)
-      (ut/coll-delim-char-matches?  (.char ^ReadChar (first stack)) (.char ^ReadChar RD)))
+      (ut/coll-delim-char-complement?  (.char ^ReadChar (first stack)) (.char ^ReadChar RD)))
     [(rest stack) [(first stack) RD]]
     [(cons RD stack) nil]))
 

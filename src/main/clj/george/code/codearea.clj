@@ -219,4 +219,4 @@
 
 ;;; DEV ;;;
 
-;(println "WARNING: Running george.code.core/-main" (-main))
+;(println "Warning: Running george.code.core/-main" (-main))

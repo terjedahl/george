@@ -4,25 +4,21 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns labs.game1
-    (:require
-        [clojure.repl :refer [doc]]
-        [george.javafx.java :as j]
-        [george.javafx :as fx]
-        [environ.core :refer [env]])
-    (:import [javafx.scene Node Scene]
-             [javafx.scene.shape Rectangle]
-             [javafx.scene.layout StackPane Pane]
-             [javafx.scene.paint Color]
-             [javafx.scene.text Text]))
-
-
+  (:require
+      [clojure.repl :refer [doc]]
+      [george.javafx.java :as j]
+      [george.javafx :as fx]
+      [environ.core :refer [env]])
+  (:import 
+    [javafx.scene Node Scene]
+    [javafx.scene.shape Rectangle]
+    [javafx.scene.layout StackPane Pane]
+    [javafx.scene.paint Color]
+    [javafx.scene.text Text]))
 
 
 ;(defn clicked [node f]
 ;    (. node setOnMouseClicked (fx/event-handler (f))))
-
-
-
 
 
 (defn ->tile [^Node content loc-x loc-y]
@@ -68,10 +64,7 @@
         (Scene. pane 800 600)))
 
 
-
-
-
-(defn -main [& args]
+(defn -main [& _]
     (fx/later
         (doto (fx/stage)
             (. setTitle "DB test")
@@ -82,4 +75,4 @@
             (. show))))
 
 
-;(when (env :repl?) (println "WARNING: Running dev.labs.db.test/-main" (-main)))
+;(when (env :repl?) (println "Warning: Running dev.labs.db.test/-main" (-main)))

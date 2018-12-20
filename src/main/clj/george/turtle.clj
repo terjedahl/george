@@ -34,9 +34,9 @@
     [george.javafx :as fx]
     [george.javafx.util :as fxu]
     [george.util :as gu]
-    [george.application.output :as output]
     [clojure.string :as cs]
-    [george.turtle.aux :as aux])
+    [george.turtle.aux :as aux]
+    [george.application.core :as core])
   (:import
     [javafx.scene.paint Color]
     [javafx.scene Group Node Scene]
@@ -2220,7 +2220,7 @@ There are a number of optional ways to set font:
            moves# (count positions#)]
        (if (< moves# 3)
          (binding [*out* *err*] 
-           (printf "WARNING! The turtle used for 'filled' needs to move at least twice. Got %s\n" (dec moves#)))
+           (printf "Warning! The turtle used for 'filled' needs to move at least twice. Got %s\n" (dec moves#)))
          ;; Get the turtles fill.  (Setting fill to nil is a way of preventing fill)
          (when-let [fill# (get-fill ~t)]
            ;; Build a polygon
@@ -2796,7 +2796,7 @@ See topic [Clojure](:Clojure) for more information."
 
 
 (defn is-screen-visible
-  "Returns `true` or `false` for whether the screen is visible ornot."
+  "Returns `true` or `false` for whether the screen is visible or not."
  ([]
   (is-screen-visible (get-screen)))
 
@@ -2846,8 +2846,13 @@ See topic [Clojure](:Clojure) for more information."
             :sizetoscene true
             :tofront true
             :alwaysontop true
+            :owner (core/get-application-stage)
             :onhidden #(set-screen-visible screen false)))]
-
+       
+       (core/add-quit-dialog-listener 
+         :turtle-screen 
+         #(fx/later (.setAlwaysOnTop stage (not= % :show))))
+         
        (doto ^Rectangle border
          (-> .widthProperty (.bind (-> scene .widthProperty (.subtract 4))))
          (-> .heightProperty (.bind (-> scene .heightProperty (.subtract 4)))))

@@ -4,24 +4,20 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns george.code.reader
+  (:require
+    [clojure.tools.reader.impl.commons :refer [number-literal? match-number parse-symbol read-past skip-line]]
+    [clojure.tools.reader :as ctr]
+    [clojure.tools.reader.reader-types :as ctrt])
 
-    (:require
-              [clojure.tools.reader.impl.commons :refer [
-                                                         number-literal? match-number parse-symbol read-past skip-line]]
-
-              [clojure.tools.reader :as ctr]
-              [clojure.tools.reader.reader-types :as ctrt])
-
-
-
-    (:import (clojure.lang PersistentHashSet IMeta
-                                             RT Symbol Reflector Var IObj
-                                             PersistentVector IRecord Namespace)
-             java.lang.reflect.Constructor
-             (java.util regex.Pattern List LinkedList)))
-
-
-
+  (:import
+    [clojure.lang
+     PersistentHashSet IMeta
+     RT Reflector Var IObj
+     PersistentVector IRecord Namespace ExceptionInfo PersistentList]
+    [java.lang.reflect Constructor]
+    [java.util List LinkedList]
+    [java.io PushbackReader StringReader IOException]
+    [java.util.regex Pattern]))
 
 
 (def DEBUG true)
@@ -167,7 +163,7 @@
 
 
 (defn ex-info? [e]
-    (instance? clojure.lang.ExceptionInfo e))
+    (instance? ExceptionInfo e))
 
 (defn data [e]
     (when (ex-info? e) (.getData e)))
@@ -184,16 +180,16 @@
     ([v] (meta-number {} v))
     ([meta v]
      (let [_meta (atom (merge {:type (type v)} meta))]
-         (proxy [java.lang.Number clojure.lang.IObj] []
-                 (meta [] @_meta)
-                 (withMeta [m] (meta-number (merge {:type (type v)} m) v))
-                 (intValue [] (.intValue v))
-                 (longValue [] (.longValue v))
-                 (floatValue [] (.floatValue v))
-                 (doubleValue [] (.doubleValue v))
-                 (byteValue [] (.byteValue v))
-                 (shortValue [] (.shortValue v))
-                 (toString [] (clojure.lang.RT/printString v))))))
+       (proxy [Number IObj] []
+         (meta [] @_meta)
+         (withMeta [m] (meta-number (merge {:type (type v)} m) v))
+         (intValue [] (.intValue v))
+         (longValue [] (.longValue v))
+         (floatValue [] (.floatValue v))
+         (doubleValue [] (.doubleValue v))
+         (byteValue [] (.byteValue v))
+         (shortValue [] (.shortValue v))
+         (toString [] (RT/printString v))))))
 
 
 
@@ -202,11 +198,11 @@
     ([v] (meta-value {} v))
     ([meta v]
      (let [_meta (atom (merge {:type (type v)} meta))]
-         (proxy [java.lang.Object clojure.lang.IObj IValue] []
-             (meta [] @_meta)
-             (withMeta [m] (meta-value (merge {:type (type v)} m) v))
-             (getValue [] v)
-             (toString [] (clojure.lang.RT/printString v))))))
+       (proxy [Object IObj IValue] []
+         (meta [] @_meta)
+         (withMeta [m] (meta-value (merge {:type (type v)} m) v))
+         (getValue [] v)
+         (toString [] (RT/printString v))))))
 
 
 (defn ^:private ns-name* [x]
@@ -474,7 +470,7 @@
             (read-and-location read-fn rdr)]
 
         (with-meta
-            (if (empty? the-list) '() (clojure.lang.PersistentList/create the-list))
+            (if (empty? the-list) '() (PersistentList/create the-list))
             location-info)))
 
 
@@ -1252,7 +1248,7 @@
     (let [indx (atom 0)
           s-len (. s length)]
 
-        (proxy [java.io.PushbackReader IIndex IUnread] [(java.io.StringReader. s) (if (== 0 s-len) 1 s-len)]
+        (proxy [PushbackReader IIndex IUnread] [(StringReader. s) (if (== 0 s-len) 1 s-len)]
             (read []
                 (if (< @indx s-len)
                     (do
@@ -1274,7 +1270,7 @@
                          i-prev (.getIndex this)
                          _ (if (> i i-prev)
                                (throw
-                                   (java.io.IOException.
+                                   (IOException.
                                       (str "Cannot unread past current index  [" i ">" i-prev "]"))))
                          len (- i-prev i)
                          ss (.substring s i i-prev)]
