@@ -35,11 +35,15 @@ Try 'lein jre java -version'
   (apply shell/shell (concat [g/*project* "target/jre/bin/java"] args)))
 
 
+;; https://jaxenter.com/jdk-9-replace-permit-illegal-access-134180.html
 (defn- deployable 
   "Run the built deployable on the JRE"
   [args]
   (g/assert-deployable)
-  (java (concat ["--illegal-access=permit" "-jar" (g/deployable-jar-path)] args)))
+  (java (concat [;"--illegal-access=permit"
+                 "--illegal-access=warn"
+                 ;"--illegal-access=debug"
+                 "-jar" (g/deployable-jar-path)] args)))
 
 
 (defn- jpms
@@ -54,9 +58,9 @@ Try 'lein jre java -version'
 
 (defn jre- []
   (g/assert-project)
-  (g/assert-java10)  
+  (g/assert-java11)
   (let [modules-str (apply str (interpose "," (map name (g/modules))))]
-    ;(prn modules-str)
+    (prn modules-str)
     (g/clean 'target/jre)
     (g/jlink ["--output" "target/jre"
               "--compress=2"

@@ -50,13 +50,13 @@
   (println (java-home-str)))
 
 
-(defn java10? []
-  (.startsWith (System/getProperty "java.version") "10"))
+(defn java11? []
+  (.startsWith (System/getProperty "java.version") "11"))
 
 
-(defn assert-java10 []
-  (assert (java10?)
-          "This project requires Java 10.  See docs/java10.md for more."))
+(defn assert-java11 []
+  (assert (java11?)
+          "This project requires Java 11.  See docs/java11.md for more."))
 
 
 

@@ -25,7 +25,7 @@
 ;(prn 'z z)
 
 
-(defproject no.andante.george/george-application  "2018.10-SNAPSHOT"
+(defproject no.andante.george/george-application  "2019.0-SNAPSHOT"
 
   :description "George - Application"
   :url         "https://bitbucket.org/andante-george/george-application"
@@ -36,9 +36,9 @@
   :dependencies [;; https://clojure.org/community/downloads
                  [org.clojure/clojure "1.10.0"]
                  ;; https://github.com/clojure/core.async
-                 [org.clojure/core.async "0.4.474"]
+                 [org.clojure/core.async "0.4.490"]
                  ;; https://github.com/clojure/tools.reader
-                 [org.clojure/tools.reader "1.3.0"]
+                 [org.clojure/tools.reader "1.3.2"]
                  ;; https://github.com/mmcgrana/clj-stacktrace
                  [clj-stacktrace "0.2.8"]
                  ;[leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
@@ -47,9 +47,9 @@
                  ;; https://github.com/clojure/java.classpath
                  [org.clojure/java.classpath "0.3.0"]
                  ;; https://github.com/cemerick/nREPL
-                 [nrepl "0.4.5"]
+                 [nrepl "0.5.3"]
                  ;; https://github.com/FXMisc/RichTextFX
-                 [org.fxmisc.richtext/richtextfx "0.9.1"]
+                 [org.fxmisc.richtext/richtextfx "0.9.2"]
                  ;; https://github.com/TomasMikula/Flowless
                  [org.fxmisc.flowless/flowless  "0.6.1"]
                  ;; https://github.com/droitfintech/clj-diff
@@ -70,7 +70,7 @@
                  ;; https://github.com/alexander-yakushev/defprecated
                  [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                  ;; https://github.com/amalloy/ordered
-                 [org.flatland/ordered "1.5.6"]
+                 [org.flatland/ordered "1.5.7"]
                  ;; https://github.com/zcaudate/hara
                  ;; http://docs.caudate.me/hara/hara-io-watch.html
                  [zcaudate/hara.common.watch "2.8.7"]
@@ -80,6 +80,17 @@
 
                  ;; https://github.com/Raynes/conch
                  [me.raynes/conch "0.8.0" :exclusions [org.clojure/clojure]]
+
+                 ;; https://openjfx.io
+                 ;; https://search.maven.org/search?q=g:org.openjfx%20AND%20v:11.0.1
+                 [org.openjfx/javafx-controls "11.0.1"]
+                 [org.openjfx/javafx-graphics "11.0.1"]
+                 [org.openjfx/javafx-fxml     "11.0.1"]
+                 [org.openjfx/javafx-swing    "11.0.1"] ;; used in Språklab
+                 [org.openjfx/javafx-web      "11.0.1"]
+                 [org.openjfx/javafx-media    "11.0.1"]
+
+
                  ;; included here also for IDE usability
                  [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]]
 
@@ -129,8 +140,9 @@
   :resource-paths    ["src/main/rsc"   "src/arm-spraklab/src/rsc"
                       "include"        "src/arm-spraklab/include"]
 
-  :javac-options     ["-source" "10"  "-target" "10"]
-                      ;"-Xlint:unchecked"]
+  :javac-options     ["-source" "11"  "-target" "11"]
+                      ;"-Xlint:unchecked"
+                      ;"-Xlint:deprecation"]
 
   :test-paths        ["src/test/clj"]
 
@@ -163,19 +175,13 @@
 
   :jre {:modules [;; These modules are currently needed by George:
                   :java.sql
-                  :javafx.controls
-                  :javafx.graphics
-                  :javafx.swing  ;; used in current javafx
-                  :javafx.web
                   :java.scripting
                   :jdk.scripting.nashorn
+                  ;; This module is needed for Marlin rendering engine and Clojure:
+                  :jdk.unsupported
                   ;; These module may be needed by George later:
                   :java.desktop
-                  :java.logging
-                  :javafx.media
-                  ;; These modules are included so users may have access to them from the custom runtime (none yet):
-                  ;; This module is needed by Clojure:
-                  :jdk.unsupported]}
+                  :java.logging]}
 
   :aliases {
             "george" ^{:doc "            Print a list of custom tasks for this project"}

@@ -75,7 +75,7 @@
   (ensure-file [fp]       "Creates the file and its parent dirs if needed. Returns the created file.")
   (move [fp fp]           "Moves the file or dir from one to the other. Returns the new location if successful, else 'nil'. Throws exceptions.")
   (delete [fp]            "Deletes the file or dir if it exists. Returns 'true' if something was deleted.")
-  ;(trash [fp]            "Moves the file or dir to the OS trash.  Returns ???."))  ;; TODO: Implement in Java10+ `moveToTrash(File f)`
+  ;(trash [fp]            "Moves the file or dir to the OS trash.  Returns ???."))  ;; TODO: Implement in Java11+ `moveToTrash(File f)`
   (open [fp]              "Reveal the file in the OS-s Finder/Explorer."))
   
 

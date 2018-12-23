@@ -1,10 +1,10 @@
-# directories
+# Directories
 .idea/
 target/
 checkouts/
-src/arm-spraklab/
+src/arm-spraklab/*/*
 
-# files
+# Files
 .*.DS_Store
 .lein-*
 .nrepl-port
@@ -12,5 +12,5 @@ pom.xml
 src/main/java/module-info.java
 src/main/rsc/app.properties
 
-# types
+# Types
 .*.iml

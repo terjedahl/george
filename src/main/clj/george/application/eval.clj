@@ -8,7 +8,7 @@
     [clojure.string :as cs]
     [clojure.pprint :refer [pprint]]
     [clj-stacktrace
-     [repl :refer [pst pst-str]]
+     [repl :refer [pst-str]]
      [core :refer [parse-exception]]]
     [george.application
      [repl :as repl]

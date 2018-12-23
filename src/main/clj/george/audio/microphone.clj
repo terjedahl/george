@@ -27,7 +27,7 @@
      TargetDataLine SourceDataLine
      AudioSystem AudioInputStream
      Clip
-     LineUnavailableException UnsupportedAudioFileException Mixer]
+     LineUnavailableException UnsupportedAudioFileException Mixer Line Line$Info]
     [java.nio ByteBuffer ByteOrder]
     [java.io ByteArrayOutputStream ByteArrayInputStream FileNotFoundException]
     [java.net URL MalformedURLException UnknownHostException]
@@ -35,6 +35,9 @@
     [javafx.scene.control ToggleGroup RadioButton]
     [javafx.stage Stage StageStyle]
     [javafx.scene Scene]))
+
+
+; (set! *warn-on-reflection* true)
 
 
 (def DEFAULT_MIC_FORMAT
@@ -142,10 +145,8 @@
 
 (defn get-first-compatible-mixer-and-line [data-line-info]
   (println "get-first-compatible-mixer-and-line")
-  (let [
-        mixer (first (get-compatible-mixer-list data-line-info))
-        line (.getLine mixer data-line-info)]
-        
+  (let [mixer ^Mixer (first (get-compatible-mixer-list data-line-info))
+        line (.getLine  mixer data-line-info)]
     [mixer line]))
 
 
@@ -206,7 +207,7 @@
     [outer-pane lights]))
 
 
-(defn mixer-line-meter [mixer line-info]
+(defn mixer-line-meter [^Mixer mixer line-info]
   (let [
         line
         (.getLine mixer line-info)
@@ -532,7 +533,7 @@ View stacktrace bellow:" (.getMessage lue))
     (if-not (empty? lines)
       (first lines)
       (.getLine mixer DEFAULT_MIC_TARGET_DATA_LINE_INFO))))
-      
+
 
 (comment .addLineListener TDL
          (reify javax.sound.sampled.LineListener
@@ -1183,8 +1184,8 @@ A channel with sliding-buffer is preferable.
   (poll-once!)
   (println "## lines:")
   (doseq [[mim line] @mim-wrapper-map-atom]
-    (pprint mim)
-    (println "  line open?:" (.isOpen line))))
+    (pprint mim)))
+    ;(println "  line open?:" (.isOpen line))))
 
 
 ;(dev)
