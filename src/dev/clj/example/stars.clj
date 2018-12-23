@@ -3,21 +3,21 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-;; impementation of: http://blog.netopyr.com/2012/06/14/using-the-javafx-animationtimer/
+;; implementation of: http://blog.netopyr.com/2012/06/14/using-the-javafx-animationtimer/
 
 (ns
-  george.example.stars
+  example.stars
   (:require
     [george.javafx :as fx])
-  (:import [java.util Random]
-           [javafx.scene.paint Color]
-           [javafx.animation AnimationTimer]
-           [javafx.stage Stage]
-           [javafx.scene Node Scene CacheHint]
-           [com.sun.javafx.perf PerformanceTracker]
-           [java.security AccessControlException]
-           [javafx.scene.control Label]
-           [javafx.scene.shape Rectangle]))
+  (:import 
+    [java.util Random]
+    [javafx.scene.paint Color]
+    [javafx.animation AnimationTimer]
+    [javafx.stage Stage]
+    [javafx.scene Node Scene ]
+    [com.sun.javafx.perf PerformanceTracker]
+    [java.security AccessControlException]
+    [javafx.scene.control Label]))
 
 
 ;; primitive math is faster
@@ -64,14 +64,21 @@
     (vec (repeatedly STAR_COUNT #(fx/rectangle :size [1 1] :fill Color/WHITE))))
 
 
-(def fps-label ^Label 
-  (fx/new-label "FPS" :color Color/RED))
-        
+(def fpsl_ (atom nil))
+
+(defn ^Label fps-label []
+  (if-let [l @fpsl_]
+    l
+    (reset! fpsl_ (fx/new-label "FPS" :color Color/RED))))
 
 
-(def scene ^Scene (fx/scene
-                      (fx/group* (conj nodes fps-label))
-                      :fill Color/BLACK) )
+
+(def ^Scene scene
+  (memoize ;; effectively making this a lazy singleton.
+    (fn []  
+     (fx/scene
+        (apply fx/group (into-array Node (conj nodes (fps-label))))
+        :fill Color/BLACK))))
 
 
 ;; http://stackoverflow.com/questions/28287398/what-is-the-preferred-way-of-getting-the-frame-rate-of-a-javafx-application
@@ -82,16 +89,10 @@
     (System/setProperty "javafx.animation.pulse" "10")
     (catch AccessControlException e (. e printStackTrace)))
 
-(def tracker (PerformanceTracker/getSceneTracker scene))
+(def tracker (memoize (fn [] (PerformanceTracker/getSceneTracker (scene)))))
 
 (defn- fps []
-    (. ^PerformanceTracker tracker getAverageFPS))
-
-
-(. ^Label fps-label setOnMouseClicked
-   (fx/event-handler
-       (println "resetting fps ...")
-       (. ^PerformanceTracker tracker resetAverageFPS)))
+    (. ^PerformanceTracker (tracker) getAverageFPS))
 
 
 (defn- timer [^Stage stage]
@@ -117,26 +118,27 @@
         (. ^Label fps-label (setText (format " FPS: %.2f   [reset]" (fps))))
         )))
 
+  
+(defn -main [& _]
+  (fx/init)
+  (fx/later
+      (let [stage 
+            (fx/stage
+               :title "stars.clj"
+               :scene (scene)
+               :size [800 600] )
 
+            timer ^AnimationTimer (timer stage)]
 
-(defn -main [& args]
-    (fx/later
-        (let [
+          (.setOnCloseRequest stage (fx/event-handler (.stop timer)))
 
-              stage ^Stage (fx/stage
-                  :title "stars.clj"
-                  :scene scene
-                  :size [800 600]
-                  )
+          (.setOnMouseClicked ^Label (fps-label) 
+             (fx/event-handler
+               (println "resetting fps ...")
+               (.resetAverageFPS ^PerformanceTracker (tracker))))
 
-              timer
-              ^AnimationTimer (timer stage)
-              ]
+          (.start timer)
 
-            (.  stage setOnCloseRequest (fx/event-handler (. timer stop)))
+          )))
 
-            (. timer start)
-
-            )))
-
-;(println "WARNING: Running george.example.stars/-main" (-main))
+;(println "Warning: Running george.example.stars/-main" (-main))
