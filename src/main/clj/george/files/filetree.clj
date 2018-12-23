@@ -25,12 +25,11 @@
     [java.nio.file Files Path LinkOption]
     [javafx.geometry Pos]
     [javafx.scene Cursor SnapshotParameters]
-    [javafx.scene.control TreeView TreeItem TreeCell ComboBox ListCell TextField MultipleSelectionModel]
+    [javafx.scene.control TreeView TreeItem TreeCell TextField MultipleSelectionModel]
     [javafx.scene.input TransferMode ClipboardContent KeyEvent MouseButton MouseEvent DragEvent]
     [javafx.scene.paint Color]
     [javafx.util Callback]
     [javafx.beans.value ChangeListener]
-    [george.util Labeled]
     [java.util List]))
 
 
@@ -47,13 +46,13 @@
 
 (declare
   lazy-filetreeitem
-  populate-dirs-combo
   set-root
   new-rename-dialog
   delete-dialog
   reveal)
 
 
+;; Used for delayed proxy-macro eval
 (def ^:dynamic *state_*)
 
 
@@ -163,7 +162,6 @@
       clj? (file-clj-image)
       :default
       (file-image))))
-
 
 
 (defn- move-file [source-path target-path]
@@ -345,27 +343,20 @@
 (defn- set-dir 
   "Sets the directory combo to the selected dir, and mounts the tree for the dir"
   [state_ path]
-  (let [combo (:dirs-combo @state_)]
-    (populate-dirs-combo combo path)
-    (set-root state_ path)
-    (.requestFocus combo)))
+  (set-root state_ path))
 
 
 (defn set-dir-future 
   "For a more responsive GUI."
   [state_ path]
-  (future
-    (fx/later
-      (set-dir state_ path))))
+  (fx/future-later (set-dir state_ path)))
 
 
 (defn- open [state_]
   (let [p (-> state_ <-selected item->path)]
     (if (dir? p)
       (set-dir-future state_ p)
-      (do
-        ;(prn 'calling-open-on-file p)
-        (@open-or-reveal_ p)))))
+      (@open-or-reveal_ p))))
 
 
 (defn info-str [^Path path]
@@ -376,8 +367,6 @@
 size:      %s bytes  
 created:   %s  
 modified:  %s  " (->string path) size creationTime lastModifiedTime)))
-
-
 
 
 (defn- path-treecell
@@ -444,37 +433,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
       (path-treecell state_))))
 
 
-(defn- dir-combocell []
-  (eval
-    `(let [;indent 15
-           indent# 10]
-       (proxy [ListCell] []
-         ;; Override
-         (updateItem [^Labeled item# is-empty#]
-           (proxy-super updateItem item# is-empty#)
-           (if (or (nil? item#) is-empty#)
-             (doto ~'this
-               (.setGraphic nil)
-               (.setText nil))
-             (let [{:keys [~'value ~'ind]} item#
-                   label# (filename ~'value)
-                   hbox# (doto (fx/new-label nil :graphic (fx/hbox (disclosure-node true) (new-graphic ~'value) :spacing 3)) 
-                               (fx/set-padding [0 0 0 (* ~'ind indent#)]))]
-               (doto ~'this
-                 (.setGraphic hbox#)
-                 (.setText (if (empty? label#) (conf/file-sep) label#))))))))))
-
-
-;; https://docs.oracle.com/javase/8/javafx/user-interface-tutorial/combo-box.htm
-; ^Callback
-(defn-  dir-combo-factory
-  []
-  (reify Callback
-    (call [_ _]
-      (dir-combocell))))
-
-
-(defn- refresh-item 
+(defn- refresh-item
   "Can be called directly. It is also called from lazy-filetreeitem, which implements Refreshable.
   Extracts the path from the filetreeitem, and if it is a dir, 
   then first the child items are syncronizes with the underlying paths, and 'refresh' is called on each of them, 
@@ -544,6 +503,14 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
          (.consume event))))
 
 
+(defn- open-parent-folder
+  "If current tree-root has parent, then steps up to parent and returns it, else nil"
+  [state_]
+  (when-let [root-parent (-> state_ <-root .getValue .getParent)]
+      (set-dir-future state_ root-parent)
+      root-parent))
+
+
 (defn- tree-keyhandler [state_]
   (fx/key-pressed-handler
     {
@@ -553,12 +520,11 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
          (open state_)
          (.consume event)))
 
-     #{:SHORTCUT :LEFT}
+     #{:SHORTCUT :UP}
      (fx/new-eventhandler
         (when-let [item (<-selected state_)]
-          (when (-> item is-root) ;(-> item .getParent is-root)
-            (when-let [root-parent (-> item .getValue .getParent .getParent)]
-              (set-dir-future state_ root-parent)
+          (when (-> item is-root)
+            (when (open-parent-folder state_)
               (.consume event)))))}))
 
 
@@ -605,6 +571,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         (fx/later (.setText watched-label (if (some? (:watched @state_)) "w" "!w"))))
       
       state_)))
+
 
 (defn- new-treeview [state_]
   (let [treeview (TreeView.)]
@@ -793,36 +760,10 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
           (reveal  p))))))
 
 
-;; TODO: Remove this and update "populate-..." bellow and cellrenderer
-(defn- path-label [i path]
-  (let [n (filename path)
-        n (if (empty? n) 
-            (conf/file-sep)             
-            n)]
-    (str (** i "    ") n)))
-
-
-(defn- populate-dirs-combo [combo ^Path path]
-  (let [paths
-        (->
-          (loop [res [path] path path]
-            (if-let [parent (parent path)]
-              (recur (conj res parent) parent)
-              res))
-          reverse)
-        labeled-paths 
-        (map-indexed #(assoc (->Labeled (path-label %1 %2) %2) :ind %1) paths)]
-    ;(pprint ['paths paths])
-    ;; Run this on a separate thread - outside of the action-event
-    (fx/future-later (doto combo (-> .getItems (.setAll ^List labeled-paths))
-                                 (-> .getSelectionModel .selectLast)))))
-
-
 (def default-state
   {:rootpane nil
    :treeview nil
    :empty-label nil
-   :dirs-combo nil
    :watched nil
    :watched-label nil})
 
@@ -835,68 +776,39 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 
         initial-path (or inital-path (->path (conf/documents-dir)))
 
-        dirs-combo   (ComboBox.)
-        
+        to-parent-button (styled/small-button "Up"
+                                    :tooltip "Open parent folder"
+                                    :onaction #(open-parent-folder state_))
+
         watched-label (doto (fx/new-label "." :color fx/ANTHRECITE :font 16)
                             (fx/set-padding 5))
         
         treeview     (new-treeview state_)
+
         empty-label  (doto (fx/new-label "Empty" :font 24 :color Color/LIGHTGRAY) (.setVisible false))
+
         treeview-layers (fx/stackpane treeview empty-label)
 
-        new-button
-        (doto 
-          (layout/menu
-           [:button "+" :bottom [
-                                 [:item "New file ..." #(new-rename-dialog state_ nil true true)]
-                                 [:item "New folder ..." #(new-rename-dialog state_ nil true false)]]])
-          (fx/set-tooltip "Create a new file or folder in current folder"))
-        
-        ;refresh-button
-        ;(styled/small-button "R"
-        ;                     :tooltip "Manually refresh file-tree"
-        ;                     :onaction #(fx/future-later (-> state_  <-root .refresh))))
-
         location-bar
-        (fx/hbox dirs-combo ;watched-label refresh-button
+        (fx/hbox to-parent-button
+                 ;dirs-combo ;watched-label refresh-button
                  (fx/region :hgrow :always)
-                 new-button
+                 ;new-button
                  :padding 5 :spacing 5 :alignment fx/Pos_CENTER_LEFT)
 
-        button-bar
-        (fx/hbox ;new-button  
-                 :padding 5 :spacing 5)
-        
-        dc-factory (dir-combo-factory)
-        
+
         root-pane
         (doto (fx/borderpane)
               ;; Set children in specific order to ensure correct focus traversal order
               (.setTop location-bar)
-              (.setCenter treeview-layers)
-              (.setBottom button-bar))]
-    
+              (.setCenter treeview-layers))]
+
     (swap! state_ assoc
       :rootpane root-pane
       :treeview treeview
       :empty-label empty-label
-      :dirs-combo dirs-combo
       :watched nil
       :watched-label watched-label)
-
-    (doto dirs-combo
-      (.setButtonCell (.call dc-factory nil))
-      (.setCellFactory dc-factory)
-      (fx/set-tooltip "Open a parent folder")
-      (fx/set-onaction2
-        #(let [combo ^ComboBox (.getSource %2)
-               path (-> combo .valueProperty .getValue :value)]
-           (.hide combo)
-           (set-dir state_ path))) 
-      (.addEventFilter KeyEvent/KEY_PRESSED 
-                       (fx/key-pressed-handler 
-                         {#{:SPACE} 
-                          #(if (.isShowing dirs-combo) (.hide dirs-combo) (.show dirs-combo))})))
 
     (set-dir-future state_ initial-path)
 
@@ -1002,7 +914,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 ;; TODO: Custom folder/file icons for locked folders/files
 ;; TODO: Use graphic for watch-indicator (with tooltip)
 ;; TODO: Replace refresh-button with click on watch-indicator
-;; TODO: Make dirs-combo "small"
+;; TODO: Clickable "breadcrums" in stead of "Up" button
 ;; TODO: memoize icon functions
 
 ;; TODO: Re-implement watch-mechanism

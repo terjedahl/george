@@ -72,6 +72,8 @@
     (into {} (map kvf kvs))))
 
 
+;; TODO: Replace Nashorn with something else. ("Warning: Nashorn engine is planned to be removed from a future JDK release")
+
 ;; https://github.com/shaunlebron/parinfer/blob/master/lib/doc/integrating.md
 ;; TODO: implement TAB-handling - for single lines or selected multiple lines.
 ;; TODO: handle/highlight errors!
