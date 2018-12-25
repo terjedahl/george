@@ -10,12 +10,14 @@
     ;; Need to be required to allow potemkin to "see" them.
     [clojure.pprint]
     [clojure.repl]
-
+    [environ.core]
     [potemkin :refer [import-vars import-macro import-fn]]))
 
 ;(println "user.clj ...")
 
-(import-vars [clojure.pprint pprint])
+(import-vars
+  [clojure.pprint pprint]
+  [environ.core env])
 (import-macro clojure.repl/doc)
 (import-macro clojure.repl/dir)
 (import-macro clojure.repl/source)

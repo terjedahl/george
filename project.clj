@@ -54,7 +54,7 @@
                       ;; https://github.com/clojure/data.json
                       [org.clojure/data.json "0.2.6"]
                       ;; https://github.com/weavejester/environ
-                      [environ "1.1.0"]
+                      [environ "1.1.0" :exclusions [org.clojure/clojure]]
                       ;; https://github.com/ztellman/potemkin
                       ;; TODO: remove user.clj ... maybe
                       [potemkin "0.4.5"]
@@ -104,16 +104,11 @@
                       [lein-codox "0.10.5"]
                       ;; https://github.com/technomancy/leiningen/tree/stable/lein-pprint
                       [lein-pprint "1.2.0"]
-                      ;; https://github.com/hyPiRion/lein-shell
-                      [lein-shell "0.5.0"]
-                      ;; https://github.com/kumarshantanu/lein-exec
-                      [lein-exec "0.3.7"]
-                      ;; https://github.com/technomancy/lein-thrush
-                      ;[lein-thrush "0.1.1"]
 
                       ;; https://www.eclipse.org/jetty
                       ;; Used by 'server' task
                       [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
+                      [environ "1.1.0" :exclusions [org.clojure/clojure]]
                       ;; Needed because it is in user.clj which is run as part of accessing the application code via .lein-classpath
                       [potemkin "0.4.5"]]
 
@@ -200,7 +195,9 @@
                           :target-path       "target/classes/%s/"
                           :java-source-paths ["src/dev/java"]
                           :source-paths      ["src/dev/clj" "src/tasks"]
-                          :resource-paths    ["src/dev/rsc"]}
+                          :resource-paths    ["src/dev/rsc"]
+                          :dependencies      [;; https://repo.clojars.org/leiningen/leiningen/
+                                              [leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]]}
 
                     :uberjar {;; Is applied by 'uberjar'
                               :target-path "target/uberjar/"

@@ -2,7 +2,7 @@
 
 setLocal EnableExtensions EnableDelayedExpansion
 
-set LEIN_VERSION=2.7.1
+set LEIN_VERSION=2.8.3
 
 if "%LEIN_VERSION:~-9%" == "-SNAPSHOT" (
     set SNAPSHOT=YES
@@ -42,17 +42,17 @@ if not exist "%~dp0..\src\leiningen\version.clj" goto RUN_NO_CHECKOUT
 
 	set "bootstrapfile=!LEIN_ROOT!\leiningen-core\.lein-bootstrap"
 	rem in .lein-bootstrap there is only one line where each path is concatenated to each other via a semicolon, there's no semicolon at the end
-	rem each path is NOT inside double quotes and may contain spaces (even semicolons but this is not supported here) in their names,
+	rem each path is NOT inside double quotes and may contain spaces (even semicolons but this is not supported here) in their names, 
 	rem  but they won't/cannot contain double quotes " or colons :  in their names (at least on windows it's not allowed/won't work)
-
+	
 	rem tested when folders contain spaces and when LEIN_ROOT contains semicolon
-
-
+	
+	
 	if not "x%DEBUG%" == "x" echo LEIN_ROOT=!LEIN_ROOT!
-
+	
 	rem if not "%LEIN_ROOT:;=%" == "%LEIN_ROOT%" (
 
-
+	
 	rem oddly enough /G:/ should've worked but doesn't where / they say it's console
 	rem findstr is C:\Windows\System32\findstr.exe
 	echo.!LEIN_ROOT! | findstr /C:";" >nul 2>&1 && (
@@ -116,7 +116,7 @@ rem the paths inside the bootstrap file do not already contain double quotes but
     :: Not running from a checkout.
     if not exist "%LEIN_JAR%" goto NO_LEIN_JAR
     set CLASSPATH=%LEIN_JAR%
-
+  
     if exist ".lein-classpath" (
         for /f "tokens=* delims= " %%i in (.lein-classpath) do (
             set CONTEXT_CP=%%i
@@ -154,7 +154,8 @@ if "x%HTTP_CLIENT%" == "x" goto TRY_POWERSHELL
 call powershell -? >nul 2>&1
 if NOT ERRORLEVEL 0 goto TRY_WGET
     set LAST_HTTP_CLIENT=powershell
-    powershell -Command "& {param($a,$f) $client = New-Object System.Net.WebClient;  $client.Proxy.Credentials =[System.Net.CredentialCache]::DefaultNetworkCredentials; $client.DownloadFile($a, $f)}" ""%2"" ""%1""
+    rem By default: Win7 = PS2, Win 8.0 = PS3 (maybe?), Win 8.1 = PS4, Win10 = PS5
+    powershell -Command "& {param($a,$f) if (($PSVersionTable.PSVersion | Select-Object -ExpandProperty Major) -lt 4) { exit 111; } else { $client = New-Object System.Net.WebClient; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $client.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials; $client.DownloadFile($a, $f); }}" ""%2"" ""%1""
     SET RC=%ERRORLEVEL%
     goto EXITRC
 
@@ -171,7 +172,7 @@ call curl --help >nul 2>&1
 if NOT ERRORLEVEL 0 GOTO NO_HTTP_CLIENT
     rem We set CURL_PROXY to a space character below to pose as a no-op argument
     set LAST_HTTP_CLIENT=curl
-    set CURL_PROXY=
+    set CURL_PROXY= 
     if NOT "x%HTTPS_PROXY%" == "x" set CURL_PROXY="-x %HTTPS_PROXY%"
     call curl %CURL_PROXY% -f -L -o  %1 %2
     SET RC=%ERRORLEVEL%
@@ -217,24 +218,45 @@ goto EXITRC
 
 :DOWNLOAD_FAILED
 SET RC=3
+if "%ERRORLEVEL%" == "111" (
+    echo.
+    echo You seem to be using an old version of PowerShell that
+    echo can't download files via TLS 1.2.
+    echo Please upgrade your PowerShell to at least version 4.0, e.g. via
+    echo https://www.microsoft.com/en-us/download/details.aspx?id=50395
+    echo.
+    echo Alternatively you can manually download
+    echo %LEIN_JAR_URL%
+    echo and save it as
+    echo %LEIN_JAR%
+    echo.
+    echo If you have "curl" or "wget" you can try setting the HTTP_CLIENT
+    echo variable, but the TLS problem might still persist.
+    echo.
+    echo   a^) set HTTP_CLIENT=wget -O
+    echo   b^) set HTTP_CLIENT=curl -f -L -o
+    echo.
+    echo NOTE: Make sure to *not* add double quotes when setting the value
+    echo       of HTTP_CLIENT
+    goto EXITRC
+)
+SET RC=3
 del "%LEIN_JAR%.pending" >nul 2>&1
 echo.
 echo Failed to download %LEIN_JAR_URL%
 echo.
-echo It is possible that the download failed due to "powershell",
+echo It is possible that the download failed due to "powershell", 
 echo "curl" or "wget"'s inability to retrieve GitHub's security certificate.
-echo The suggestions below do not check certificates, so use this only if
-echo you understand the security implications of not doing so.
 echo.
 
 if "%LAST_HTTP_CLIENT%" == "powershell" (
   echo The PowerShell failed to download the latest Leiningen version.
   echo Try to use "curl" or "wget" to download Leiningen by setting up
-  echo the HTTP_CLIENT environment variable with one of the following
+  echo the HTTP_CLIENT environment variable with one of the following 
   echo values:
   echo.
-  echo   a^) set HTTP_CLIENT=wget --no-check-certificate -O
-  echo   b^) set HTTP_CLIENT=curl -f -L -k -o
+  echo   a^) set HTTP_CLIENT=wget -O
+  echo   b^) set HTTP_CLIENT=curl -f -L -o
   echo.
   echo NOTE: Make sure to *not* add double quotes when setting the value
   echo       of HTTP_CLIENT
@@ -243,14 +265,14 @@ if "%LAST_HTTP_CLIENT%" == "powershell" (
 if "%LAST_HTTP_CLIENT%" == "curl" (
   echo Curl failed to download the latest Leiningen version.
   echo Try to use "wget" to download Leiningen by setting up
-  echo the HTTP_CLIENT environment variable with one of the following
+  echo the HTTP_CLIENT environment variable with one of the following 
   echo values:
   echo.
-  echo   a^) set HTTP_CLIENT=wget --no-check-certificate -O
+  echo   a^) set HTTP_CLIENT=wget -O
   echo.
   echo NOTE: Make sure to *not* add double quotes when setting the value
   echo       of HTTP_CLIENT
-  echo.
+  echo. 
   echo If neither curl nor wget can download Leiningen, please seek
   echo for help on Leiningen's GitHub project issues page.
 )
@@ -258,14 +280,14 @@ if "%LAST_HTTP_CLIENT%" == "curl" (
 if "%LAST_HTTP_CLIENT%" == "wget" (
   echo Curl failed to download the latest Leiningen version.
   echo Try to use "wget" to download Leiningen by setting up
-  echo the HTTP_CLIENT environment variable with one of the following
+  echo the HTTP_CLIENT environment variable with one of the following 
   echo values:
   echo.
-  echo.   a^) set HTTP_CLIENT=curl -f -L -k -o
+  echo.   a^) set HTTP_CLIENT=curl -f -L -o
   echo.
-  echo NOTE: make sure *not* to add double quotes to set the value of
+  echo NOTE: make sure *not* to add double quotes to set the value of 
   echo       HTTP_CLIENT
-  echo.
+  echo. 
   echo If neither curl nor wget can download Leiningen, please seek
   echo for help on Leiningen's GitHub project issues page.
 )
@@ -403,3 +425,4 @@ rem will surround each path with double quotes before appending it to LEIN_LIBS
 exit /B %RC%
 
 :EOF
+

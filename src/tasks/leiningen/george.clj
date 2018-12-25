@@ -5,19 +5,27 @@
 
 (ns leiningen.george
   (:require
+    [leiningen.core.eval :refer [sh]]
     [clojure.java.io :as cio]
     [clojure.pprint :refer [pprint]]
     [leiningen.clean :as lc]
     [leiningen.run :as lr]
     [leiningen.help :as help]
     [bultitude.core :as blt]
-    [leiningen.uberjar :refer [uberjar]]
-    [leiningen.shell :as shell])
-  (:import 
+    [leiningen.uberjar :refer [uberjar]])
+  (:import
     [java.io File]))
 
 
 (def ^:dynamic *project* nil)
+
+
+(defn windows? []
+  (-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"windows"))  boolean))
+
+
+(defn mac? []
+  (-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"mac"))  boolean))
 
 
 (defn assert-project [] 
@@ -86,7 +94,9 @@
 (defn- java-home-bin [cmd args]
   ;(prn 'java-home-bin cmd args)
   (assert-project)
-  (apply shell/shell (concat [*project* (str (java-home-str) "/bin/" cmd)] args)))
+  (let [exe (str (cio/file (java-home-str) "bin" (str cmd)))]
+    ;(prn 'exe exe)
+    (apply sh (cons exe args))))
 
 
 (defn java 

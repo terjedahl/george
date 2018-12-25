@@ -35,7 +35,7 @@
     [george.javafx.util :as fxu]
     [george.util :as gu]
     [clojure.string :as cs]
-    [george.turtle.aux :as aux]
+    [george.turtle.extra :as aux]
     [george.application.core :as core])
   (:import
     [javafx.scene.paint Color]

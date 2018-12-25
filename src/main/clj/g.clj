@@ -37,7 +37,7 @@
           ['george.turtle :refer :all] 
           ['clojure.repl :refer :all] 
           ['clojure.pprint :refer ['pprint]]
-          ['george.turtle.aux :as 'aux]
+          ['george.turtle.extra :as 'aux]
           ['george.turtle.tom :as 'tom]
           ['george.turtle.samples :as 'samples]
           ['george.turtle.adhoc.jf4k :as 'jf4k]))
@@ -70,7 +70,7 @@
       (require '[george.turtle :refer :all])
       (require '[clojure.repl :refer :all])
       (require '[clojure.pprint :refer [pprint]])
-      (require '[george.turtle.aux :as aux])
+      (require '[george.turtle.extra :as aux])
       (require '[george.turtle.tom :as tom])
       (require '[george.turtle.samples :as samples])
       (require '[george.turtle.adhoc.jf4k :as jf4k])
