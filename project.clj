@@ -105,10 +105,13 @@
                       ;; https://github.com/technomancy/leiningen/tree/stable/lein-pprint
                       [lein-pprint "1.2.0"]
 
-                      ;; https://www.eclipse.org/jetty
-                      ;; Used by 'server' task
-                      [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
+                      ;; Used by different tasks
                       [environ "1.1.0" :exclusions [org.clojure/clojure]]
+                      ;; https://github.com/yogthos/Selmer
+                      [selmer "1.12.5"]
+                      ;; https://www.eclipse.org/jetty
+                      [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
+
                       ;; Needed because it is in user.clj which is run as part of accessing the application code via .lein-classpath
                       [potemkin "0.4.5"]]
 

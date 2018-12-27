@@ -61,16 +61,17 @@ Try 'lein jre java -version'
   (g/assert-project)
   (g/assert-java11)
   (let [modules-str (apply str (interpose "," (map name (g/modules))))]
-    (prn modules-str)
+    ;(prn modules-str)
     (g/clean 'target/jre)
     (g/jlink ["--output" "target/jre"
               "--compress=2"
               "--no-header-files"
               "--add-modules" modules-str])
+    (g/clean "target/jre/legal")
     (java ["--list-modules"])))
 
 
-(defn jre 
+(defn jre
   "Build a custom JRE
 
 Modules to include are specified in project.clj -> :jre -> :modules

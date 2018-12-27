@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+    <!-- TODO: Can I extend the version scheme to suit my needs? -->
+    <Product Name="George {{ version }}" Manufacturer="Andante AS" Version="{{ strict-version }}"
+             Id="F2B60755-E287-4573-B9BF-3BDA7FDD69C1" UpgradeCode="92DB4AE3-F596-4FCA-8CB1-5E7B45A95340"
+             Language="1033" Codepage="1252" >
+
+        <Package Id="*" Keywords="Installer" Description="Andante's George {{ version }} installer"
+                 Comments="George - Create. Learn. Think." Manufacturer="Andante AS"
+                 InstallerVersion="200" Languages="1033" Compressed="yes" SummaryCodepage="1252"/>
+
+        <Media Id="1" Cabinet="George.cab" EmbedCab="yes" DiskPrompt="CD-ROM #1" />
+        <Property Id="DiskPrompt" Value="Andante's George {{ version }} Installation [1]" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">                           <!-- Shortcut for where the source files are -->
+            <Directory Id="ProgramFiles64Folder" Name="PFiles">               <!-- Shortcut for where the program files go - aka '\Program Files' -->
+                <Directory Id="Andante" Name="Andante">                       <!-- '\Program Files\Andante' -->
+                    <Directory Id="INSTALLDIR" Name="George {{ version }}">   <!-- '\Program Files\Andante\George <version>' -->
+
+                        <Component Id="MainExecutable" Guid="*"> <!-- 6364B6A3-53C4-4E04-A031-1CC58A49CF44 -->
+                            <File Id="GeorgeBat" Name="George.bat" DiskId="1" Source="{{ bat-file }}" KeyPath="yes">
+                                <Shortcut Id="StartmenuGeorge" Name="George"
+                                          Directory="ProgramMenuDir" WorkingDirectory="INSTALLDIR" Icon="George.ico"
+                                          IconIndex="0" Advertise="yes" />
+<!--
+                                <Shortcut Id="DesktopGeorge" Name="George"
+                                          Directory="DesktopFolder" WorkingDirectory="INSTALLDIR" Icon="George.ico"
+                                          IconIndex="0" Advertise="yes" />
+-->
+                            </File>
+                        </Component>
+
+                        <Directory Id="DeployableDir" Name="deployable" />
+
+                        <Directory Id="JreDir" Name="jre" />
+
+                    </Directory>
+                </Directory>
+            </Directory>
+
+            <Directory Id="ProgramMenuFolder" Name="Programs">
+                <Directory Id="ProgramMenuDir" Name="Andante (George)">
+                    <Component Id="ProgramMenuDir" Guid="67A812DA-C48B-4558-8E17-9CBE58B37F2C">
+                        <RemoveFolder Id="ProgramMenuDir" On="uninstall" />
+                        <RegistryValue Root="HKCU" Key="Software\[Manufacturer]\[ProductName]" Type="string" Value="" KeyPath="yes" />
+                    </Component>
+                </Directory>
+            </Directory>
+
+        </Directory>
+        <Feature Id="Complete" Level="1">
+            <ComponentRef Id="MainExecutable" />
+            <ComponentGroupRef Id="DeployableGroup" />
+            <ComponentGroupRef Id="JreGroup" />
+            <ComponentRef Id="ProgramMenuDir" />
+        </Feature>
+
+        <Icon Id="George.ico" SourceFile="src\windows\rsc\George.ico" />
+
+    </Product>
+</Wix>
