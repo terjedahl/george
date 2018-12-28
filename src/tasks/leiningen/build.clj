@@ -71,12 +71,16 @@
           wix-dir         (cio/file "target" "wix")
           windows-dir     (cio/file "target" "windows")
 
-          bat-tmp         (slurp (cio/file "src" "windows" "tmpl" "George.bat"))
-          bat-rendered    (render bat-tmp {:version version})
+          bat-tmpl         (slurp (cio/file "src" "windows" "tmpl" "George.bat"))
+          bat-rendered    (render bat-tmpl {:version version})
           bat-file        (cio/file wix-dir "George.bat")
 
+          bat-cli-tmpl         (slurp (cio/file "src" "windows" "tmpl" "GeorgeCLI.bat"))
+          bat-cli-rendered    (render bat-cli-tmpl {:version version})
+          bat-cli-file        (cio/file wix-dir "GeorgeCLI.bat")
+
           wxs-tmpl        (slurp (cio/file "src" "windows" "tmpl" "George.wxs"))
-          wxs-rendered    (render wxs-tmpl {:version version :strict-version strict-version :bat-file bat-file})
+          wxs-rendered    (render wxs-tmpl {:version version :strict-version strict-version :bat-file bat-file :bat-cli-file bat-cli-file})
           wxs-file        (cio/file wix-dir (format "George-%s.wxs" version))]
 
       (g/clean wix-dir)
@@ -84,6 +88,7 @@
 
       (.mkdirs wix-dir)
       (spit bat-file bat-rendered)
+      (spit bat-cli-file bat-cli-rendered)
       (spit wxs-file wxs-rendered)
 
       (exe-heat heat wix-dir "Deployable")

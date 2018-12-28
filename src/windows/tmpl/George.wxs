@@ -23,15 +23,19 @@
                                 <Shortcut Id="StartmenuGeorge" Name="George"
                                           Directory="ProgramMenuDir" WorkingDirectory="INSTALLDIR" Icon="George.ico"
                                           IconIndex="0" Advertise="yes" />
-<!--
+
                                 <Shortcut Id="DesktopGeorge" Name="George"
                                           Directory="DesktopFolder" WorkingDirectory="INSTALLDIR" Icon="George.ico"
                                           IconIndex="0" Advertise="yes" />
--->
                             </File>
                         </Component>
 
+                        <Component Id="CLIExecutable" Guid="*">
+                            <File Id="GeorgeBatCLI" Name="GeorgeCLI.bat" DiskId="1" Source="{{ bat-cli-file }}" KeyPath="yes" />
+                        </Component>
+
                         <Directory Id="DeployableDir" Name="deployable" />
+
 
                         <Directory Id="JreDir" Name="jre" />
 
@@ -48,9 +52,14 @@
                 </Directory>
             </Directory>
 
+            <Directory Id="DesktopFolder" Name="Desktop" />
+
         </Directory>
-        <Feature Id="Complete" Level="1">
+
+
+    <Feature Id="Complete" Level="1">
             <ComponentRef Id="MainExecutable" />
+            <ComponentRef Id="CLIExecutable" />
             <ComponentGroupRef Id="DeployableGroup" />
             <ComponentGroupRef Id="JreGroup" />
             <ComponentRef Id="ProgramMenuDir" />
