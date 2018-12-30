@@ -24,49 +24,50 @@
     (format "%s.%s.%s" maj min mic)))
 
 
-(defn- ^File wix-binaries
+(defn- ^File wix-binaries-dir
   "Returns the wix3xx-binaries dir, else nil"
   []
-  (->> env  :user-dir  cio/file  .listFiles  seq  (filter #(re-matches #".*wix311-binaries" (str %)) )  first))
+  (->> env  :user-dir  cio/file  .listFiles  seq  (filter #(re-matches #".*wix311-binaries" (str %)))  first))
 
 
-(defn- wix-executables []
-  (when-let [dir (wix-binaries)]
-    {:heat (str (cio/file dir "heat.exe"))
-     :candle (str (cio/file dir "candle.exe"))
-     :light (str (cio/file dir "light.exe"))}))
-
-
-(defn- exe-heat [exe wix-dir Dir]
+(defn- exe-heat [binaries-dir wix-dir Dir]
   (apply sh
-         [exe
+         [(str binaries-dir "heat.exe")
           "dir" (str "target\\" (.toLowerCase Dir))
           "-nologo" "-ag" "-srd" "-sreg"
           "-cg" (str Dir "Group")
           "-dr" (str Dir "Dir")
           "-var" (format "wix.%sDirSource" Dir)
-          "-out" (str (cio/file wix-dir (str Dir "Group.wxs")))]))
+          "-out" (str wix-dir "\\" Dir "Group.wxs")]))
 
 
-(defn- exe-candle [exe wix-dir wxs-file-names]
+(defn- exe-candle [binaries-dir wix-dir wxs-file-names]
   (apply sh
          (concat
-           [exe  "-nologo"  "-arch" "x64"  "-out" (str wix-dir "\\")]
-           (map #(str (cio/file wix-dir %)) wxs-file-names))))
+           [(str binaries-dir "candle.exe")
+            "-nologo"
+            "-arch" "x64"
+            "-out" (str wix-dir "\\")]
+           (map #(str  wix-dir "\\" %) wxs-file-names))))
 
 
-(defn- exe-light [exe wix-dir windows-dir wix-Args obj-file-names msi-file-name]
+(defn- exe-light [binaries-dir wix-dir windows-dir wix-Args obj-file-names msi-file-name]
   (apply sh
          (concat
-           [exe  "-nologo" "-spdb" "-sacl"  "-out" (str (cio/file windows-dir msi-file-name))]
+           [(str binaries-dir "light.exe")
+            "-nologo" "-spdb" "-sacl"
+            "-ext" (str binaries-dir "WixUIExtension.dll")
+            "-ext" (str binaries-dir "WixUtilExtension.dll")
+            "-out" (str (cio/file windows-dir msi-file-name))]
            (map #(format "-d%sDirSource=target\\%s" % (.toLowerCase %)) wix-Args)
-           (map #(str (cio/file wix-dir %)) obj-file-names))))
-
+           (map #(str  wix-dir "\\" %) obj-file-names))))
 
 (defn- build-msi [version]
-  (if-let [{:keys [heat candle light]} (wix-executables)]
+  (if-let [bdir (wix-binaries-dir)]
 
-    (let [strict-version  (strict version)
+    (let [binaries-dir (str bdir "\\")
+
+          strict-version  (strict version)
 
           wix-dir         (cio/file "target" "wix")
           windows-dir     (cio/file "target" "windows")
@@ -91,14 +92,14 @@
       (spit bat-cli-file bat-cli-rendered)
       (spit wxs-file wxs-rendered)
 
-      (exe-heat heat wix-dir "Deployable")
-      (exe-heat heat wix-dir "Jre")
+      (exe-heat binaries-dir wix-dir "Deployable")
+      (exe-heat binaries-dir wix-dir "Jre")
 
-      (exe-candle candle wix-dir ["DeployableGroup.wxs" "JreGroup.wxs" (format "George-%s.wxs" version)])
+      (exe-candle binaries-dir wix-dir ["DeployableGroup.wxs" "JreGroup.wxs" (format "George-%s.wxs" version)])
 
       (.mkdirs windows-dir)
 
-      (exe-light light wix-dir windows-dir
+      (exe-light binaries-dir wix-dir windows-dir
                  ["Deployable" "Jre"]
                  ["DeployableGroup.wixobj" "JreGroup.wixobj" (format "George-%s.wixobj" version)]
                  (format "George-%s.msi" version)))

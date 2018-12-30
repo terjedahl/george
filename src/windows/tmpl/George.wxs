@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="windows-1252"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 
-    <!-- TODO: Can I extend the version scheme to suit my needs? -->
     <Product Name="George {{ version }}" Manufacturer="Andante AS" Version="{{ strict-version }}"
              Id="F2B60755-E287-4573-B9BF-3BDA7FDD69C1" UpgradeCode="92DB4AE3-F596-4FCA-8CB1-5E7B45A95340"
              Language="1033" Codepage="1252" >
@@ -13,35 +12,34 @@
         <Media Id="1" Cabinet="George.cab" EmbedCab="yes" DiskPrompt="CD-ROM #1" />
         <Property Id="DiskPrompt" Value="Andante's George {{ version }} Installation [1]" />
 
-        <Directory Id="TARGETDIR" Name="SourceDir">                           <!-- Shortcut for where the source files are -->
-            <Directory Id="ProgramFiles64Folder" Name="PFiles">               <!-- Shortcut for where the program files go - aka '\Program Files' -->
-                <Directory Id="Andante" Name="Andante">                       <!-- '\Program Files\Andante' -->
-                    <Directory Id="INSTALLDIR" Name="George {{ version }}">   <!-- '\Program Files\Andante\George <version>' -->
-
-                        <Component Id="MainExecutable" Guid="*"> <!-- 6364B6A3-53C4-4E04-A031-1CC58A49CF44 -->
-                            <File Id="GeorgeBat" Name="George.bat" DiskId="1" Source="{{ bat-file }}" KeyPath="yes">
-                                <Shortcut Id="StartmenuGeorge" Name="George"
-                                          Directory="ProgramMenuDir" WorkingDirectory="INSTALLDIR" Icon="George.ico"
-                                          IconIndex="0" Advertise="yes" />
-
-                                <Shortcut Id="DesktopGeorge" Name="George"
-                                          Directory="DesktopFolder" WorkingDirectory="INSTALLDIR" Icon="George.ico"
-                                          IconIndex="0" Advertise="yes" />
-                            </File>
-                        </Component>
-
-                        <Component Id="CLIExecutable" Guid="*">
-                            <File Id="GeorgeBatCLI" Name="GeorgeCLI.bat" DiskId="1" Source="{{ bat-cli-file }}" KeyPath="yes" />
-                        </Component>
-
-                        <Directory Id="DeployableDir" Name="deployable" />
-
-
-                        <Directory Id="JreDir" Name="jre" />
-
-                    </Directory>
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="GEORGEDIR" Name="Andante">
+                    <Directory Id="APPROOTDIR" Name="George {{ version }}" />
                 </Directory>
             </Directory>
+        </Directory>
+
+        <DirectoryRef Id="APPROOTDIR">
+
+            <Component Id="GeorgeBatComp" Guid="*">
+                <File Id="GeorgeBatFile" Name="George.bat" DiskId="1" Source="{{ bat-file }}" KeyPath="yes">
+                    <Shortcut Id="StartMenuGeorge" Name="George"
+                              Directory="ProgramMenuDir" WorkingDirectory="APPROOTDIR" Icon="George.ico"
+                              IconIndex="0" Advertise="yes" />
+                    <Shortcut Id="DesktopGeorge" Name="George"
+                              Directory="DesktopFolder" WorkingDirectory="APPROOTDIR" Icon="George.ico"
+                              IconIndex="0" Advertise="yes" />
+                </File>
+            </Component>
+
+            <Component Id="GeorgeCLIBatComp" Guid="*">
+                <File Id="GeorgeCLIBatFile" Name="GeorgeCLI.bat" DiskId="1" Source="{{ bat-cli-file }}" KeyPath="yes" />
+            </Component>
+
+            <Directory Id="DeployableDir" Name="deployable" />
+
+            <Directory Id="JreDir" Name="jre" />
 
             <Directory Id="ProgramMenuFolder" Name="Programs">
                 <Directory Id="ProgramMenuDir" Name="Andante (George)">
@@ -54,16 +52,42 @@
 
             <Directory Id="DesktopFolder" Name="Desktop" />
 
-        </Directory>
+        </DirectoryRef>
 
 
-    <Feature Id="Complete" Level="1">
-            <ComponentRef Id="MainExecutable" />
-            <ComponentRef Id="CLIExecutable" />
+        <Feature Id="MainProgram" Title="George {{ version }}" Description="The complete package."
+                 AllowAdvertise="no" Level="1" ConfigurableDirectory="GEORGEDIR">
+            <ComponentRef Id="GeorgeBatComp" />
+            <ComponentRef Id="GeorgeCLIBatComp" />
             <ComponentGroupRef Id="DeployableGroup" />
             <ComponentGroupRef Id="JreGroup" />
             <ComponentRef Id="ProgramMenuDir" />
         </Feature>
+
+        <!-- Define launch-when-finished action: -->
+        <Property Id="WixShellExecTarget" Value="[#GeorgeBatFile]" />
+        <CustomAction Id="LaunchGeorgeOnFinish" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+
+        <!-- Define a checkbox for launch-when-finished: -->
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Start George after Setup" />
+
+        <UI>
+            <UIRef Id="WixUI_Minimal" />
+
+            <!-- Trigger launch-when-finished action: -->
+            <Publish Dialog="ExitDialog"
+                     Control="Finish"
+                     Event="DoAction"
+                     Value="LaunchGeorgeOnFinish">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+        </UI>
+
+        <!-- Customize installer: -->
+        <WixVariable Id="WixUILicenseRtf" Value="epl-v10.rtf" />
+        <WixVariable Id="WixUIBannerBmp" Value="src\windows\rsc\WixUIBannerBmp.bmp" />
+        <WixVariable Id="WixUIDialogBmp" Value="src\windows\rsc\WixUIDialogBmp.bmp" />
+
+        <!-- Set icon in Add/Remove Programs: -->
+        <Property Id="ARPPRODUCTICON" Value="George.ico" />
 
         <Icon Id="George.ico" SourceFile="src\windows\rsc\George.ico" />
 
