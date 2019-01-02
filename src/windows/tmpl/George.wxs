@@ -1,14 +1,25 @@
 <?xml version="1.0" encoding="windows-1252"?>
+<?define UpgradeCode="92DB4AE3-F596-4FCA-8CB1-5E7B45A95340"?>
+
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 
     <Product Name="George {{ version }}" Manufacturer="Andante AS" Version="{{ strict-version }}"
-             Id="F2B60755-E287-4573-B9BF-3BDA7FDD69C1" UpgradeCode="92DB4AE3-F596-4FCA-8CB1-5E7B45A95340"
+             Id="*"  UpgradeCode="$(var.UpgradeCode)"
              Language="1033" Codepage="1252">
 
         <Package Id="*" Keywords="Installer" Description="Andante's George {{ version }} installer"
                  Comments="George - Create. Learn. Think." Manufacturer="Andante AS"
                  InstallerVersion="200" Languages="1033" Compressed="yes" SummaryCodepage="1252"
                  Platform="x64" />
+
+        <MajorUpgrade AllowSameVersionUpgrades="yes"
+                      DowngradeErrorMessage="A newer version of [ProductName] is already installed. If you are sure you want to downgrade, remove the existing installation via &quot;Apps &amp; features&quot;." />
+
+        <Upgrade Id="$(var.UpgradeCode)">
+            <UpgradeVersion OnlyDetect="no" Property="PREVIOUSFOUND"
+                            Minimum="1.0.0" IncludeMinimum="yes"
+                            Maximum="{{ strict-version }}" IncludeMaximum="no" />
+        </Upgrade>
 
         <Media Id="1" Cabinet="George.cab" EmbedCab="yes" DiskPrompt="CD-ROM #1" />
         <Property Id="DiskPrompt" Value="Andante's George {{ version }} Installation [1]" />

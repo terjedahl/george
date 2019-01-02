@@ -55,7 +55,7 @@
   (apply sh
          (concat
            [(str binaries-dir "light.exe")
-            "-nologo" "-spdb" "-sacl"
+            "-nologo" "-spdb" "-sacl" "-sice:ICE61"
             "-ext" (str binaries-dir "WixUIExtension.dll")
             "-ext" (str binaries-dir "WixUtilExtension.dll")
             "-out" (str (cio/file windows-dir (str msi-name ".msi")))]

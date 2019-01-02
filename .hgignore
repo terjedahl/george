@@ -3,7 +3,7 @@
 target/
 checkouts/
 src/arm-spraklab/*/*
-wix311-binaries/
+wix311-binaries/*
 
 # Files
 .*.DS_Store
