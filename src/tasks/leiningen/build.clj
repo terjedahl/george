@@ -41,26 +41,27 @@
           "-out" (str wix-dir "\\" Dir "Group.wxs")]))
 
 
-(defn- exe-candle [binaries-dir wix-dir wxs-file-names]
+(defn- exe-candle [binaries-dir wix-dir wxs-names]
   (apply sh
          (concat
            [(str binaries-dir "candle.exe")
             "-nologo"
             "-arch" "x64"
             "-out" (str wix-dir "\\")]
-           (map #(str  wix-dir "\\" %) wxs-file-names))))
+           (map #(format "%s\\%s.wxs" wix-dir %) wxs-names))))
 
 
-(defn- exe-light [binaries-dir wix-dir windows-dir wix-Args obj-file-names msi-file-name]
+(defn- exe-light [binaries-dir wix-dir windows-dir wix-Args obj-names msi-name]
   (apply sh
          (concat
            [(str binaries-dir "light.exe")
             "-nologo" "-spdb" "-sacl"
             "-ext" (str binaries-dir "WixUIExtension.dll")
             "-ext" (str binaries-dir "WixUtilExtension.dll")
-            "-out" (str (cio/file windows-dir msi-file-name))]
+            "-out" (str (cio/file windows-dir (str msi-name ".msi")))]
            (map #(format "-d%sDirSource=target\\%s" % (.toLowerCase %)) wix-Args)
-           (map #(str  wix-dir "\\" %) obj-file-names))))
+           (map #(format "%s\\%s.wixobj" wix-dir %) obj-names))))
+
 
 (defn- build-msi [version]
   (if-let [bdir (wix-binaries-dir)]
@@ -91,18 +92,21 @@
       (spit bat-file bat-rendered)
       (spit bat-cli-file bat-cli-rendered)
       (spit wxs-file wxs-rendered)
+      (cio/copy (cio/file "src" "windows" "custom" "MyInstallScopeDlg.wxs")
+                (cio/file wix-dir "MyInstallScopeDlg.wxs"))
 
       (exe-heat binaries-dir wix-dir "Deployable")
       (exe-heat binaries-dir wix-dir "Jre")
 
-      (exe-candle binaries-dir wix-dir ["DeployableGroup.wxs" "JreGroup.wxs" (format "George-%s.wxs" version)])
+      (exe-candle binaries-dir wix-dir
+                  ["DeployableGroup" "JreGroup" "MyInstallScopeDlg" (str "George-" version)])
 
       (.mkdirs windows-dir)
 
       (exe-light binaries-dir wix-dir windows-dir
                  ["Deployable" "Jre"]
-                 ["DeployableGroup.wixobj" "JreGroup.wixobj" (format "George-%s.wixobj" version)]
-                 (format "George-%s.msi" version)))
+                 ["DeployableGroup" "JreGroup" "MyInstallScopeDlg" (str "George-" version)]
+                 (str "George-" version)))
 
     (println "Error: Could not find directory 'wix311-binaries' in project dir
   Download latest 'wix311-binaries.zip' from  https://github.com/wixtoolset/wix3/releases

@@ -3,32 +3,36 @@
 
     <Product Name="George {{ version }}" Manufacturer="Andante AS" Version="{{ strict-version }}"
              Id="F2B60755-E287-4573-B9BF-3BDA7FDD69C1" UpgradeCode="92DB4AE3-F596-4FCA-8CB1-5E7B45A95340"
-             Language="1033" Codepage="1252" >
+             Language="1033" Codepage="1252">
 
         <Package Id="*" Keywords="Installer" Description="Andante's George {{ version }} installer"
                  Comments="George - Create. Learn. Think." Manufacturer="Andante AS"
-                 InstallerVersion="200" Languages="1033" Compressed="yes" SummaryCodepage="1252"/>
+                 InstallerVersion="200" Languages="1033" Compressed="yes" SummaryCodepage="1252"
+                 Platform="x64" />
 
         <Media Id="1" Cabinet="George.cab" EmbedCab="yes" DiskPrompt="CD-ROM #1" />
         <Property Id="DiskPrompt" Value="Andante's George {{ version }} Installation [1]" />
 
+        <Property Id="ApplicationFolderName" Value="George {{ version }}" />
+        <Property Id="AppFolder" Value="PerUserFolder" />
+
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="ProgramFiles64Folder">
-                <Directory Id="GEORGEDIR" Name="Andante">
-                    <Directory Id="APPROOTDIR" Name="George {{ version }}" />
+                <Directory Id="Andante" Name="Andante">
+                    <Directory Id="APPLICATIONFOLDER" Name="George {{ version }}" />
                 </Directory>
             </Directory>
         </Directory>
 
-        <DirectoryRef Id="APPROOTDIR">
+        <DirectoryRef Id="APPLICATIONFOLDER">
 
             <Component Id="GeorgeBatComp" Guid="*">
                 <File Id="GeorgeBatFile" Name="George.bat" DiskId="1" Source="{{ bat-file }}" KeyPath="yes">
                     <Shortcut Id="StartMenuGeorge" Name="George"
-                              Directory="ProgramMenuDir" WorkingDirectory="APPROOTDIR" Icon="George.ico"
+                              Directory="ProgramMenuDir" WorkingDirectory="APPLICATIONFOLDER" Icon="George.ico"
                               IconIndex="0" Advertise="yes" />
                     <Shortcut Id="DesktopGeorge" Name="George"
-                              Directory="DesktopFolder" WorkingDirectory="APPROOTDIR" Icon="George.ico"
+                              Directory="DesktopFolder" WorkingDirectory="APPLICATIONFOLDER" Icon="George.ico"
                               IconIndex="0" Advertise="yes" />
                 </File>
             </Component>
@@ -54,9 +58,8 @@
 
         </DirectoryRef>
 
-
         <Feature Id="MainProgram" Title="George {{ version }}" Description="The complete package."
-                 AllowAdvertise="no" Level="1" ConfigurableDirectory="GEORGEDIR">
+                 AllowAdvertise="no" Level="1" ConfigurableDirectory="APPLICATIONFOLDER">
             <ComponentRef Id="GeorgeBatComp" />
             <ComponentRef Id="GeorgeCLIBatComp" />
             <ComponentGroupRef Id="DeployableGroup" />
@@ -64,31 +67,77 @@
             <ComponentRef Id="ProgramMenuDir" />
         </Feature>
 
-        <!-- Define launch-when-finished action: -->
+        <!-- Define action for "Start George on exit" -->
         <Property Id="WixShellExecTarget" Value="[#GeorgeBatFile]" />
         <CustomAction Id="LaunchGeorgeOnFinish" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
 
-        <!-- Define a checkbox for launch-when-finished: -->
-        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Start George after Setup" />
+        <CustomAction Id="SetDefaultPerUserFolder" Property="PerUserFolder" Value="[LocalAppDataFolder]Apps\Andante\[ApplicationFolderName]" Execute="immediate" />
+        <CustomAction Id="SetDefaultPerMachineFolder" Property="PerMachineFolder" Value="[ProgramFiles64Folder]Andante\[ApplicationFolderName]" Execute="immediate" />
+        <CustomAction Id="SetPerUserFolder" Property="APPLICATIONFOLDER" Value="[PerUserFolder]" Execute="immediate" />
+        <CustomAction Id="SetPerMachineFolder" Property="APPLICATIONFOLDER" Value="[PerMachineFolder]" Execute="immediate" />
+
+        <InstallExecuteSequence>
+            <Custom Action="SetDefaultPerUserFolder" Before="CostFinalize" />
+            <Custom Action="SetDefaultPerMachineFolder" After="SetDefaultPerUserFolder" />
+            <Custom Action="SetPerUserFolder" After="SetDefaultPerMachineFolder">ACTION="INSTALL" AND APPLICATIONFOLDER="" AND (ALLUSERS="" OR (ALLUSERS=2 AND (NOT Privileged)))</Custom>
+            <Custom Action="SetPerMachineFolder" After="SetPerUserFolder">ACTION="INSTALL" AND APPLICATIONFOLDER="" AND (ALLUSERS=1 OR (ALLUSERS=2 AND Privileged))</Custom>
+        </InstallExecuteSequence>
+
+        <InstallUISequence>
+            <Custom Action="SetDefaultPerUserFolder" Before="CostFinalize" />
+            <Custom Action="SetDefaultPerMachineFolder" After="SetDefaultPerUserFolder" />
+            <Custom Action="SetPerUserFolder" After="SetDefaultPerMachineFolder">ACTION="INSTALL" AND APPLICATIONFOLDER="" AND (ALLUSERS="" OR (ALLUSERS=2 AND (NOT Privileged)))</Custom>
+            <Custom Action="SetPerMachineFolder" After="SetPerUserFolder">ACTION="INSTALL" AND APPLICATIONFOLDER="" AND (ALLUSERS=1 OR (ALLUSERS=2 AND Privileged))</Custom>
+        </InstallUISequence>
 
         <UI>
-            <UIRef Id="WixUI_Minimal" />
+            <UIRef Id="WixUI_InstallDir" />
+            <DialogRef Id="MyInstallScopeDlg" />
 
-            <!-- Trigger launch-when-finished action: -->
+            <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="MyInstallScopeDlg" Order="3">LicenseAccepted = "1"</Publish>
+
+            <Publish Dialog="MyInstallScopeDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
+
+            <!-- override default AppFolder of PerMachineFolder as standard user won't be shown the radio group to set AppFolder -->
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Property="AppFolder" Value="PerUserFolder" Order="1">!(wix.WixUISupportPerUser) AND NOT Privileged</Publish>
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Property="ALLUSERS" Value="{}" Order="2">AppFolder = "PerUserFolder"</Publish>
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Property="MSIINSTALLPERUSER" Value="1" Order="2">AppFolder = "PerUserFolder"</Publish>
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Property="ALLUSERS" Value="1" Order="3">AppFolder = "PerMachineFolder"</Publish>
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Property="APPLICATIONFOLDER" Value="[PerUserFolder]" Order="4">AppFolder = "PerUserFolder"</Publish>
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Property="APPLICATIONFOLDER" Value="[PerMachineFolder]" Order="5">AppFolder = "PerMachineFolder"</Publish>
+
+            <!-- Define a checkbox for "Start George on exit" only for per-user installation. -->
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Property="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Start George on exit">AppFolder = "PerUserFolder"</Publish>
+            <Publish Dialog="MyInstallScopeDlg" Control="Next" Property="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1">AppFolder = "PerUserFolder"</Publish>
+
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MyInstallScopeDlg" Order="4">NOT Installed</Publish>
+
+            <!-- Never triggers. Simply to avoid Wix compile error -->
+            <Publish Dialog="FeaturesDlg" Control="Back" Event="NewDialog" Value="MyInstallScopeDlg">1</Publish>
+
+            <!-- Trigger "Start George on exit" -->
             <Publish Dialog="ExitDialog"
                      Control="Finish"
                      Event="DoAction"
-                     Value="LaunchGeorgeOnFinish">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+                     Value="LaunchGeorgeOnFinish">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed</Publish>
         </UI>
 
-        <!-- Customize installer: -->
+        <WixVariable Id="WixUISupportPerUser" Value="1" Overridable="yes" />
+        <WixVariable Id="WixUISupportPerMachine" Value="1" Overridable="yes" />
+
+        <!-- Customizations for WixUI_InstallDir -->
         <WixVariable Id="WixUILicenseRtf" Value="epl-v10.rtf" />
         <WixVariable Id="WixUIBannerBmp" Value="src\windows\rsc\WixUIBannerBmp.bmp" />
         <WixVariable Id="WixUIDialogBmp" Value="src\windows\rsc\WixUIDialogBmp.bmp" />
 
-        <!-- Set icon in Add/Remove Programs: -->
+        <!-- Required for MyInstallScopeDir -->
+        <Binary Id="Banner.bmp" SourceFile="src\windows\rsc\WixUIBannerBmp.bmp" />
+
+        <!-- Set icon in Add/Remove Programs -->
         <Property Id="ARPPRODUCTICON" Value="George.ico" />
 
+        <!-- Default application icon -->
         <Icon Id="George.ico" SourceFile="src\windows\rsc\George.ico" />
 
     </Product>

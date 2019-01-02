@@ -1,0 +1,24 @@
+WiX documentation:
+https://www.firegiant.com/wix/tutorial/
+http://wixtoolset.org/documentation/manual/v3/
+http://wixtoolset.org/documentation/manual/v3/howtos/
+
+
+GUIDs:
+Generator: https://guidgenerator.com/online-guid-generator.aspx
+
+
+Silent installs:
+https://www.advancedinstaller.com/user-guide/msiexec.html
+    per-machine
+        progress and UAT prompt:
+            msiexec /i <mis-file> /qb ALLUSERS=2
+    per-machine
+        no feedback (make sure to run as admin):
+        msiexec /i <mis-file> /quiet ALLUSERS=2
+    per-user:
+        progress and UAT prompt:
+            msiexec /i <mis-file> /qb
+To uninstall:
+     use '/x' in stead of '/i'
+
