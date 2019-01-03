@@ -11,7 +11,7 @@
     [george.turtle :refer :all]
     [george.turtle
      [samples :as samples]
-     [aux :as aux]]
+     [extra :as aux]]
     [george.util.singleton :as singleton]
     [george.application.ui.styled :as styled]
     [george.javafx :as fx]

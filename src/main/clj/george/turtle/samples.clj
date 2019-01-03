@@ -6,7 +6,7 @@
 (ns george.turtle.samples
   (:require
     [george.turtle :refer :all] :reload
-    [george.turtle.aux :as aux]))
+    [george.turtle.extra :as aux]))
 
 
 ;(set! *warn-on-reflection* true)

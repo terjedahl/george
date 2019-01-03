@@ -13,8 +13,9 @@
     [george.turtle.help :as help]
 
     [george.application
-     [output-input :as oi]
-     [files-editors :as f-eds]]
+      [output :as output]
+      [input :as input]
+      [files-editors :as f-eds]]
 
     [george.application.ui
        [layout :as layout]
@@ -22,7 +23,8 @@
 
   (:import
     [javafx.scene Node]
-    [javafx.scene.control SplitPane]))
+    [javafx.scene.control SplitPane]
+    [javafx.geometry Orientation]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -42,28 +44,16 @@
     :padding 10))
 
 
-;(def xy [(+ ^int (launcher/xyxy 2) 5) (launcher/xyxy 1)])
+(defn output-input-root [& {:keys [ns]}]
+  (let [[o-root clear-button] (output/output-root)
+        inputs-root (input/new-tabbed-input-root :ns ns)
+        split-pane
+        (doto (SplitPane. (fxj/vargs-t Node o-root inputs-root))
+          (.setOrientation Orientation/VERTICAL))]
 
+    (.fire clear-button)
 
-;(defn- create-toolbar-stage [ide-type]
-;  (let [is-turtle (= ide-type :turtle)]
-;    (fx/now
-;      (fx/stage
-;        :location xy
-;        :title (if is-turtle "Turtle Geometry" "IDE")
-;        :scene (fx/scene (toolbar-pane is-turtle))
-;        :sizetoscene true
-;        :resizable false
-;        :onhidden #(singleton/remove [::toolbar-stage ide-type])))))
-
-
-
-;(defn toolbar-stage [ide-type]
-;  (doto ^Stage
-;    (singleton/get-or-create [::toolbar-stage ide-type]
-;                             #(create-toolbar-stage ide-type))
-;    (.toFront)))
-
+    split-pane))
 
 
 (defn- main-root
@@ -79,7 +69,7 @@
 
         oi-root ^SplitPane
         (doto
-          (oi/output-input-root :ns user-ns-str)
+          (output-input-root :ns user-ns-str)
           (.setStyle "-fx-box-border: transparent;"))
 
         root

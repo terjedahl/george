@@ -1,16 +1,19 @@
-# directories
+# Directories
 .idea/
 target/
 checkouts/
-src/arm-spraklab/
+src/arm-spraklab/*/*
+wix311-binaries/*
+signtool/*
 
-# files
+# Files
 .*.DS_Store
 .lein-*
 .nrepl-port
 pom.xml
 src/main/java/module-info.java
 src/main/rsc/app.properties
+codesign-*/*
 
-# types
+# Types
 .*.iml

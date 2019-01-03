@@ -5,19 +5,27 @@
 
 (ns leiningen.george
   (:require
+    [leiningen.core.eval :refer [sh]]
     [clojure.java.io :as cio]
     [clojure.pprint :refer [pprint]]
     [leiningen.clean :as lc]
     [leiningen.run :as lr]
     [leiningen.help :as help]
     [bultitude.core :as blt]
-    [leiningen.uberjar :refer [uberjar]]
-    [leiningen.shell :as shell])
-  (:import 
+    [leiningen.uberjar :refer [uberjar]])
+  (:import
     [java.io File]))
 
 
 (def ^:dynamic *project* nil)
+
+
+(defn windows? []
+  (-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"windows"))  boolean))
+
+
+(defn mac? []
+  (-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"mac"))  boolean))
 
 
 (defn assert-project [] 
@@ -50,13 +58,13 @@
   (println (java-home-str)))
 
 
-(defn java10? []
-  (.startsWith (System/getProperty "java.version") "10"))
+(defn java11? []
+  (.startsWith (System/getProperty "java.version") "11"))
 
 
-(defn assert-java10 []
-  (assert (java10?)
-          "This project requires Java 10.  See docs/java10.md for more."))
+(defn assert-java11 []
+  (assert (java11?)
+          "This project requires Java 11.  See docs/java11.md for more."))
 
 
 
@@ -86,7 +94,9 @@
 (defn- java-home-bin [cmd args]
   ;(prn 'java-home-bin cmd args)
   (assert-project)
-  (apply shell/shell (concat [*project* (str (java-home-str) "/bin/" cmd)] args)))
+  (let [exe (str (cio/file (java-home-str) "bin" (str cmd)))]
+    ;(prn 'exe exe)
+    (apply sh (cons exe args))))
 
 
 (defn java 

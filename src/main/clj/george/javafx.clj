@@ -76,9 +76,9 @@ The includes (but is not limited to):
 ;(set! *warn-on-reflection* true)
 
 
-(defn set-implicit-exit [b]
-  (println "george.javafx/set-implicit-exit")
-  (Platform/setImplicitExit false))
+(defn set-implicit-exit [& [b]]
+  (println (str "george.javafx/set-implicit-exit " b))
+  (Platform/setImplicitExit (boolean b)))
 
 
 (defn set-classloader [cl]
@@ -111,17 +111,15 @@ Memoize-ing it makes it effectively lazy and run only once (unless new/different
 Add any additional random key+value to trigger a new load (as this triggers a new run of the memoize fn)."
   (memoize
     (fn [& {:keys [fonts? classloader] :or {fonts? true}}]
-      (println "george.fx/init")
-      ;; Java10
-      ;; ensure synchronicity by de-referencing promises 
-      ;(let [st-promise (promise)]
-      ;  (try 
-      ;    (Platform/startup #(deliver st-promise true))
-      ;    (catch Throwable t (println (.getMessage t))))
-      ;  @st-promise)
-      ;; Java8 (simple and clean. Does the same thing as the Java10 variant)    
-      (javafx.embed.swing.JFXPanel.)
-  
+      (println "george.javafx/init")
+
+      ; ensure synchronicity by de-referencing promises
+      (let [st-promise (promise)]
+        (try
+          (Platform/startup #(deliver st-promise true))
+          (catch Throwable t (println (.getMessage t))))
+        @st-promise)
+
       (set-implicit-exit false)
     
       (when classloader

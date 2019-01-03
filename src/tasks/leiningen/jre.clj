@@ -5,23 +5,25 @@
 
 (ns leiningen.jre
   (:require
-    [leiningen.shell :as shell]
+    [leiningen.core.eval :refer [sh]]
     [leiningen.george :as g]
     [clojure.java.io :as cio]
-    [leiningen.shell :as shell]))
+    [environ.core :refer [env]])
+  (:import
+    [java.io File]))
 
 
-(def JRE_D  (cio/file "target/jre"))
-(def JAVA_F (cio/file JRE_D "bin/java"))
+(def JRE_D  (cio/file (:user-dir env) "target" "jre"))
+(def JAVA_F (cio/file JRE_D "bin" (if (g/windows?) "java.exe" "java")))
 
 
 (defn- assert-jre []
-  (assert (.exists JRE_D) "target/jre not found. Have you done 'lein jre'?"))
+  (assert (.exists JRE_D) (format "'%s' not found. Have you done 'lein jre'?" JRE_D)))
 
 
 (defn- assert-java []
   (assert-jre)
-  (assert (.exists JAVA_F) "target/jre/bin/java not found. Have you done 'lein jre'?"))
+  (assert (.exists ^File JAVA_F) (format "'%s' not found. Have you done 'lein jre'?" JAVA_F)))
 
 
 (defn- java 
@@ -32,14 +34,18 @@ Try 'lein jre java -version'
   [args]
   (g/assert-project)
   (assert-java)
-  (apply shell/shell (concat [g/*project* "target/jre/bin/java"] args)))
+  (apply sh (cons (str JAVA_F) args)))
 
 
+;; https://jaxenter.com/jdk-9-replace-permit-illegal-access-134180.html
 (defn- deployable 
   "Run the built deployable on the JRE"
   [args]
   (g/assert-deployable)
-  (java (concat ["--illegal-access=permit" "-jar" (g/deployable-jar-path)] args)))
+  (java (concat [;"--illegal-access=permit"
+                 "--illegal-access=warn"
+                 ;"--illegal-access=debug"
+                 "-jar" (g/deployable-jar-path)] args)))
 
 
 (defn- jpms
@@ -51,10 +57,9 @@ Try 'lein jre java -version'
                 args)))
 
 
-
 (defn jre- []
   (g/assert-project)
-  (g/assert-java10)  
+  (g/assert-java11)
   (let [modules-str (apply str (interpose "," (map name (g/modules))))]
     ;(prn modules-str)
     (g/clean 'target/jre)
@@ -62,10 +67,11 @@ Try 'lein jre java -version'
               "--compress=2"
               "--no-header-files"
               "--add-modules" modules-str])
+    (g/clean "target/jre/legal")
     (java ["--list-modules"])))
 
 
-(defn jre 
+(defn jre
   "Build a custom JRE
 
 Modules to include are specified in project.clj -> :jre -> :modules

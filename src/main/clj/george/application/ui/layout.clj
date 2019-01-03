@@ -37,21 +37,18 @@
 
 
 (defn- new-tab-action [tab-factory tpane]
-  (let [^Tab tab (tab-factory)
-        ocrh (.getOnCloseRequest tab)
-        hcrh1
-        (fx/event-handler-2
-          [_ e]
-          (when ocrh
-            (.handle ocrh e))
-          (when-not (.isConsumed e)
-            (-> e .getSource  .getTabPane .getSelectionModel .selectNext)))]
+  (let [tab      (tab-factory)
+        handler0 (.getOnCloseRequest tab)
+        handler1 (fx/new-eventhandler
+                   (when handler0
+                     (.handle handler0 event))
+                   (when-not (.isConsumed event)
+                     (-> event .getSource .getTabPane .getSelectionModel .selectNext)))]
 
-    (.setOnCloseRequest tab hcrh1)
-
+    (.setOnCloseRequest tab handler1)
     (doto tpane
       (-> .getTabs (.add tab))
-      (-> .getSelectionModel (.select tab)))))
+      (-> .getSelectionModel .selectLast))))
 
 
 (defn close-tab-nicely [tpane tab]

@@ -6,7 +6,6 @@
 
 (ns george.applet
   (:require
-    [clojure.tools.namespace.find :refer [find-sources-in-dir find-namespaces]]
     [clojure.pprint :refer [pprint]])
   (:import
     [clojure.lang Symbol]))
@@ -54,14 +53,6 @@
       (binding [*out* *err*] 
         (println (format "Warning: Loading namespace '%s' failed!" applet-ns))))))
         ;(.printStackTrace e)))))
-
-
-;(defn find-applets
-;  "returns lazy seq of all namespaces matching 'george.application.applet.xyz'"
-;  []
-;  (filter
-;    #(re-find #"george.applet\..+" (str %))
-;    (find-namespaces (cp/classpath))))
 
 
 ;; The whole dynamic loading from classpath was cool,

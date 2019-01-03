@@ -6,7 +6,7 @@
 (ns george.turtle.tom
   (:require
     [george.turtle :refer :all]
-    [george.turtle.aux :as aux]))
+    [george.turtle.extra :as aux]))
 
 
 ;(defn- hello [turtle]

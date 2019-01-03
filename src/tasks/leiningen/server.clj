@@ -49,7 +49,7 @@
                         
                         ;; else
                         (let [m (format "Unknown command: %s" target)]
-                          (binding [*err* *out*](println m))
+                          (binding [*out* *err*] (println m))
                           m))))))))
 
 

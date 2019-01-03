@@ -1,36 +1,34 @@
-# Java 10
+# Java 11
 
 
-George now required Java 10.  
-The main reasons for moving from Java 8 to 10:
+George now required Java 11.  
+The main reasons for moving from Java 8 to 11:
 1. Being able to build a deployable custom runtime.
-2. Accessing new functionality in Java 10.
+2. Accessing new functionality in Java 11.
 
+Also, we are now switching to OpenJDK due mainly to changed licencing.
 
-## Java 10 JDK installation
+## Java 11 JDK installation
 
-Download and install the latest version of Oracle's Java 10 JDK from [Java SE Downloads](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
-
-You do not need to use Java 10 as your default Java, but can have it installed and available in parallel with other versions.  See the "JAVA_HOME" section bellow.
+Download and install the latest version of OpenJDK 11 from [jdk.java.net](https://jdk.java.net/11)
+You do not need to use Java 11 as your default Java, but can have it installed and available in parallel with other versions.  See the "JAVA_HOME" section bellow.
  
-_**OpenJDK** installations usually don't include JavaFX modules by default._ If you prefer OpenJDK, you may need to go through a few extra steps to handle issue. 
-(Are you a Linux user who has had to deal with this? Please contribute with instructions here.)
 
 ### JAVA_HOME
 
-Both Leiningen and the project depends on the system variable `JAVA_HOME`. It should point to your Java 10 JDK Home directory.  
+Both Leiningen and the project depends on the system variable `JAVA_HOME`. It should point to your Java 11 JDK Home directory.  
 On my machine (MacOS), I do:
 ```bash
 echo $JAVA_HOME
 ```
 And get:
-> /Library/Java/JavaVirtualMachines/jdk-10.0.2.jdk/Contents/Home
+> /Library/Java/JavaVirtualMachines/jdk-11.0.1.jdk/Contents/Home
 
 
 I have put a couple of aliases in my `.bashrc` which allow me to toggle easily between different versions:
 ```bash
 alias set-java8="export JAVA_HOME=<java8home>"
-alias set-java10="export JAVA_HOME=<java10home>"
+alias set-java11="export JAVA_HOME=<java11home>"
 ```
 
 _Check your version_ by doing:
@@ -38,7 +36,7 @@ _Check your version_ by doing:
 lein -version
 ```
 I get: 
-> Leiningen 2.8.1 on Java 10.0.2 Java HotSpot(TM) 64-Bit Server VM
+> Leiningen 2.8.1 on Java 11.0.1 OpenJDK 64-Bit Server VM
 
 
 ## Java Platform Module System
@@ -58,7 +56,7 @@ Builds are done using a mix of aliases, profiles and plugins.
 
 The jar and the runtime are both built at once with the command:
 ```bash
-lein build
+lein deployable
 ```
 
 This results in a jar-file without module-info.class.  When run - either on standard java runtime or custom runtime, it will be run in "legacy" mode. 
@@ -72,10 +70,11 @@ It will include only the modules listed in the project-files `module-list`.
 You may of course try to build the Jar as a JPMS.  Simply do:
 
 ```bash
-lein build-jpms
+lein jpms
 ```
 This will write a `module-info.java` based on the `module-list` before building, and then delete it again afterwards.
 
+NOTE: The JPMS build is currently broken (as of Java11).  TODO: Fix it!
 
 
 ## Run
@@ -88,33 +87,33 @@ Running something assumes you have done the appropriate builds first.
 
 To run anything using `java` in the custom runtime, you can do:
 ```bash
-lein xjava
+lein jre java
 ```
 Try doing:
 ```bash
-lein xjava --list-modules
+lein jre java --list-modules
 ```
 
 If you do:
 ```bash
 lein java --list-modules
 ```
-... you will se that the modules list is much longer for `java` than for `xjava`.
+... you will se that the modules list is much longer for `java` than for `jre java`.
 
 
 ### The jar
 
 To run the jar on the custom JRE, do:
 ```bash
-lein xrun
+lein jre deployable
 ```
 
 To run the jar on standard java, do:
 ```bash
-lein srun
+lein java deployable
 ```
 
-### JPMS
+### JPMS  !BROKEN!
 
 If you have done the JPMS build, the jar will still run in "legacy mode" if you use one of the commands above.
 To run it in JPMS mode on the custom runtime, do:
@@ -127,7 +126,7 @@ _This will inevitably fail, even if you add all sorts of extra "--add-export" di
 
 ### In Leiningen
 
-To run the project in Leingen, do:
+To run the project in Leiningen, do:
 ```bash
 lein run
 ```
