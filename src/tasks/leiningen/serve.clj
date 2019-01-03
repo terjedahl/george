@@ -19,7 +19,7 @@
   (try
     (slurp (format "http://localhost:%s/_cmd/%s" (port) cmd))
     (catch java.net.ConnectException _
-      (binding [*err* *out*]
+      (binding [*out* *err*]
         (println "Server not running.  Do 'lein serve' to start serving deployable.")))))
         
 

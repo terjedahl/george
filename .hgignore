@@ -4,6 +4,7 @@ target/
 checkouts/
 src/arm-spraklab/*/*
 wix311-binaries/*
+signtool/*
 
 # Files
 .*.DS_Store
@@ -12,6 +13,7 @@ wix311-binaries/*
 pom.xml
 src/main/java/module-info.java
 src/main/rsc/app.properties
+codesign-*/*
 
 # Types
 .*.iml
