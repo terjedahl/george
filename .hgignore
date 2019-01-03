@@ -2,7 +2,7 @@
 .idea/
 target/
 checkouts/
-src/arm-spraklab/*/*
+src_spraklab/*
 wix311-binaries/*
 signtool/*
 
@@ -11,8 +11,8 @@ signtool/*
 .lein-*
 .nrepl-port
 pom.xml
-src/main/java/module-info.java
-src/main/rsc/app.properties
+src/java/module-info.java
+src/rsc/app.properties
 codesign-*/*
 
 # Types

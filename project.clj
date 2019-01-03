@@ -125,11 +125,11 @@
                         ["snapshots" :clojars]
                         ["releases" :clojars]]
 
-  :source-paths      ["src/main/clj"   "src/arm-spraklab/src/clj"]
-  :java-source-paths ["src/main/java"  "src/arm-spraklab/src/java"]
-  :resource-paths    ["src/main/rsc"   "src/arm-spraklab/src/rsc"
-                      "include"        "src/arm-spraklab/include"]
-  :test-paths        ["src/test/clj"]
+  :source-paths      ["src/clj"      "src_spraklab/clj"  "src_common"]
+  :java-source-paths ["src/java"     "src_spraklab/java"]
+  :resource-paths    ["src/rsc"      "src_spraklab/rsc"
+                      "src/include"  "src_spraklab/include"]
+  ;:test-paths        ["src_test/clj"]
 
   :javac-options     ["-source" "11"  "-target" "11"]
                       ;"-Xlint:unchecked"
@@ -196,9 +196,9 @@
 
                     :dev {;; Is used by 'lein javac', 'lein compile', 'lein run'
                           :target-path       "target/classes/%s/"
-                          :java-source-paths ["src/dev/java"]
-                          :source-paths      ["src/dev/clj" "src/tasks"]
-                          :resource-paths    ["src/dev/rsc"]
+                          :java-source-paths ["src_dev/java"]
+                          :source-paths      ["src_dev/clj" "src_lein"]
+                          :resource-paths    ["src_dev/rsc"]
                           :dependencies      [;; https://repo.clojars.org/leiningen/leiningen/
                                               [leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]]}
 
