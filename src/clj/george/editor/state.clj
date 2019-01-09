@@ -9,7 +9,7 @@
     [clojure.pprint :refer [pprint]]
     [clj-diff.core :as diff]
     [george.util :as u]
-    [george.util.text :as ut]
+    [common.george.util.text :as ut]
     [george.editor.buffer :as b]
     [george.editor.readers.core :as readers]
     [george.javafx :as fx]

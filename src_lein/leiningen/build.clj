@@ -5,166 +5,105 @@
 
 (ns leiningen.build
   (:require
-    [clojure.java.io :as cio]
-    [leiningen.core.eval :refer [sh]]
-    [environ.core :refer [env]]
-    [selmer.parser :refer [render]]
-    [leiningen.george :as g]
-    [leiningen.jre :as jre]
-    [clojure.string :as cs])
-
-  (:import
-    [java.io File]))
+    [leiningen.george.core :as g]
+    [leiningen.help :as lh]))
 
 
-(defn- strict [version]
-  (let [[maj min mic] (-> version  (cs/split #"-")  first  (cs/split #"\."))
-        maj           (subs maj 2)
-        mic           (or mic "0")]
-    (format "%s.%s.%s" maj min mic)))
+
+(defn embed
+  "Embed a basic app.properties file in src/rsc.   ...
+
+When the jar is built, app.properties is first re-embedded in src/rsc, and then copied to the jar directory and enhanced.
+
+Default values can be overridden using optional keys-value pairs:
+  :app   <name-of-app>        # default: George-DEV
+  :uri   <path-to-props-file> # default: https://dowload.george.andante.no/apps/<app>/platforms/<platform>/jar/
+  :ts    <current-datetime>   # default: now as strict ISO: YYYY-MM-DDThh:mm:ssZ
+
+Examples:
+  lein embed
+  lein embed :app George-ME
+  lein embed :ts aaa
+  lein embed :app George-ME :ts 2019-07-12T04:15:00Z :uri http://localhost:4242/apps/George-DEV/platforms/Windows/jar/
+
+More on the parameters:
+'app' determines the environment, allowing for running multiple versions of George in isolation of each other, including native installs and datafiles.  You will want to use 'George-DEV' (or any other name you choose, such as 'George-YOUR_NAME') when developing and testing. 'George-TEST' will be used for shared testing with multiple developers.  'George' is the production version.
+
+'uri' is the path to where the program can find 'app.properties' and the accompanying jar-file.
+
+'ts' is used for determining the newest version of the program using string comparison. It can be any string.
+It just so happens the ISO date-time is both human-readable and sorts correctly as a string."
+
+  [& args]
+  (g/build-embed args))
 
 
-(defn- ^File wix-binaries-dir
-  "Returns the wix3xx-binaries dir, else nil"
+(defn jar
+  "Build the complete jar-file.                    ...
+
+The built jar-file is platform specific (due to bundled native graphics files).
+An app.properties file is first embedded in src/rsc, and then
+copied to the jar dir and enhanced after the jar-file is built.
+
+The optional args are the same as for the embed task.
+
+For details information on the args, do:
+  lein help build embed"
+  [& args]
+  (g/build-jar args))
+
+
+(defn jpms
+  "Build the complete jar-file as a JPMS module.   ...
+This is an experimental feature.
+See docs/java11.md for more."
+  [& args]
+  (g/build-jpms args))
+
+
+(defn jre
+  "Build the custom Java runtime.                  ...
+
+The runtime is of course platform-specific,
+and includes the modules listen in [:module :jre] in project.clj."
   []
-  (if-let [d (->> env  :user-dir  cio/file  .listFiles  seq  (filter #(re-matches #".*wix311-binaries" (str %)))  first)]
-    d
-    (binding [*out* *err*]
-      (println "Error: Could not find directory 'wix311-binaries' in project dir.
-  Download latest 'wix311-binaries.zip' from  https://github.com/wixtoolset/wix3/releases
-  and unpack in project dir."))))
+  (g/build-jre))
 
 
-(defn- ^File signtool-dir
-  "Returns the signtool dir, else nil"
+(defn installer "Build the native installer."
   []
-  (if-let [d (->> env  :user-dir  cio/file  .listFiles  seq  (filter #(re-matches #".*signtool" (str %)))  first)]
-    d
-    (binding [*out* *err*]
-      (println "Warning: Could not find directory 'signtool' in project dir.
-  Download Microsoft's 'signtool' from  http://cdn1.ksoftware.net/signtool_8.1.zip
-  and unpack in project dir."))))
+  (g/build-installer))
 
 
-(defn- ^File  pfx-file
-  "Returns the pfx-file, else nil"
-  []
-  (let [f (cio/file "codesign-key.pfx")]
-    (if (.exists f)
-      f
-      (binding [*out* *err*]
-        (println (format "Error: Could not find file '%s' in project dir." f))))))
+(defn site "NO IMPL  TODO:docs" []
+  (g/build-site))
 
 
-(defn- ^File  password-file
-  "Returns the password-file - containing a plaintext password for the pfx-file, else nil"
-  []
-  (let [f (cio/file "codesign-password.txt")]
-    (if (.exists f)
-      f
-      (binding [*out* *err*]
-        (println (format "Error: Could not find file '%s' in project dir." f))))))
+(defn all
+  "Do jre, jar, installer, site in one.            ...
 
+The args are the same as for jar (or embed).
 
-(defn- sign-msi [msi-file]
-  (when-let [st-d (signtool-dir)]
-    (when-let [pfx-f (pfx-file)]
-      (when-let [pw-f (password-file)]
-        (sh (str (cio/file st-d "signtool.exe"))
-            "sign"
-            "/d" (-> (.getName msi-file) (cs/split #".") first (#(format "%s Installer" %)))
-            "/f" (str pfx-f)
-            "/p" (.trim (slurp pw-f))
-            "/tr" "http://timestamp.comodoca.com/rfc3161"
-            "/fd" "sha256"
-            ;"/v"
-            (str msi-file))))))
-
-
-(defn- exe-heat [binaries-dir wix-dir Dir]
-  (apply sh
-         [(str binaries-dir "heat.exe")
-          "dir" (str "target\\" (.toLowerCase Dir))
-          "-nologo" "-ag" "-srd" "-sreg"
-          "-cg" (str Dir "Group")
-          "-dr" (str Dir "Dir")
-          "-var" (format "wix.%sDirSource" Dir)
-          "-out" (str wix-dir "\\" Dir "Group.wxs")]))
-
-
-(defn- exe-candle [binaries-dir wix-dir wxs-names]
-  (apply sh
-         (concat
-           [(str binaries-dir "candle.exe")
-            "-nologo"
-            "-arch" "x64"
-            "-out" (str wix-dir "\\")]
-           (map #(format "%s\\%s.wxs" wix-dir %) wxs-names))))
-
-
-(defn- exe-light [binaries-dir wix-dir windows-dir wix-Args obj-names msi-name]
-  (apply sh
-         (concat
-           [(str binaries-dir "light.exe")
-            "-nologo" "-spdb" "-sacl" "-sice:ICE61"
-            "-ext" (str binaries-dir "WixUIExtension.dll")
-            "-ext" (str binaries-dir "WixUtilExtension.dll")
-            "-out" (str (cio/file windows-dir (str msi-name ".msi")))]
-           (map #(format "-d%sDirSource=target\\%s" % (.toLowerCase %)) wix-Args)
-           (map #(format "%s\\%s.wixobj" wix-dir %) obj-names))))
-
-
-(defn- build-msi [version]
-  (when-let [bdir (wix-binaries-dir)]
-    (let [binaries-dir (str bdir "\\")
-
-          strict-version  (strict version)
-
-          wix-dir         (cio/file "target" "wix")
-          windows-dir     (cio/file "target" "windows")
-          George-version  (str "George-" version)
-
-          bat-tmpl        (slurp (cio/file "src_windows" "tmpl" "George.bat"))
-          bat-rendered    (render bat-tmpl {:version version})
-          bat-file        (cio/file wix-dir "George.bat")
-
-          bat-cli-tmpl         (slurp (cio/file "src_windows" "tmpl" "GeorgeCLI.bat"))
-          bat-cli-rendered    (render bat-cli-tmpl {:version version})
-          bat-cli-file        (cio/file wix-dir "GeorgeCLI.bat")
-
-          wxs-tmpl        (slurp (cio/file "src_windows" "tmpl" "George.wxs"))
-          wxs-rendered    (render wxs-tmpl {:version version :strict-version strict-version :bat-file bat-file :bat-cli-file bat-cli-file})
-          wxs-file        (cio/file wix-dir (format "George-%s.wxs" version))]
-
-      (g/clean wix-dir)
-      (g/clean windows-dir)
-
-      (.mkdirs wix-dir)
-      (spit bat-file bat-rendered)
-      (spit bat-cli-file bat-cli-rendered)
-      (spit wxs-file wxs-rendered)
-      (cio/copy (cio/file "src_windows" "custom" "MyInstallScopeDlg.wxs")
-                (cio/file wix-dir "MyInstallScopeDlg.wxs"))
-
-      (exe-heat binaries-dir wix-dir "Deployable")
-      (exe-heat binaries-dir wix-dir "Jre")
-
-      (exe-candle binaries-dir wix-dir
-                  ["DeployableGroup" "JreGroup" "MyInstallScopeDlg" George-version])
-
-      (.mkdirs windows-dir)
-
-      (exe-light binaries-dir wix-dir windows-dir
-                 ["Deployable" "Jre"]
-                 ["DeployableGroup" "JreGroup" "MyInstallScopeDlg" George-version]
-                 George-version)
-
-      (let [msi-file (cio/file windows-dir (str George-version ".msi"))]
-        (when (.exists msi-file)
-          (sign-msi msi-file))))))
+For details information on the args, do:
+  lein help build embed"
+  [& args]
+  (jre)
+  (apply jar args)
+  (installer)
+  (site))
 
 
 (defn build
+  "Build the various George artifacts.     ..."
+  {:subtasks [#'embed #'jar (if g/*jpms* #'jpms #'jar) #'jre #'installer #'site #'all]}
   [project & [subtask & args]]
   (binding [g/*project* project]
-    (build-msi (:version project))))
+    (case subtask
+      "embed"     (apply embed args)
+      "jar"       (apply jar args)
+      "jpms"      (apply jpms args)
+      "jre"       (jre)
+      "installer" (installer)
+      "site"      (site)
+      "all"       (apply all args)
+      (lh/help project "build"))))

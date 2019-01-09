@@ -10,7 +10,7 @@
     [george.javafx :as fx]
     [george.editor.state :as st]
     [george.util :as u]
-    [george.util.text :as ut])
+    [common.george.util.text :as ut])
   (:import
     [org.fxmisc.flowless Cell VirtualFlow]
     [javafx.scene.text Text]

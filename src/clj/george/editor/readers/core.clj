@@ -2,7 +2,7 @@
   (:require
     [clojure.pprint :refer [pprint]]
     [george.util :as u]
-    [george.util.text :as ut]))
+    [common.george.util.text :as ut]))
 
 
 (set! *warn-on-reflection* true)

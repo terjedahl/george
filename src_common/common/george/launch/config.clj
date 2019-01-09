@@ -3,7 +3,7 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns george.launch.config
+(ns common.george.launch.config
   (:require 
     [clojure.java.io :as cio])
   (:import
@@ -15,8 +15,16 @@
 (def OTHER "other")
 
 
-(defn operating-system
-  "Returns 'Windows', 'MacOS' or 'other'"
+(defn windows? []
+  (-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"windows"))  boolean))
+
+
+(defn macos? []
+  (-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"mac"))  boolean))
+
+
+(defn platform
+  "Returns 'Windows', 'MacOS' or 'Other'"
   []
   (let [os (.toLowerCase (System/getProperty "os.name"))]
     (cond
@@ -25,32 +33,29 @@
       :else OTHER)))
 
 
-(defn windows? []
-  (= WINDOWS (operating-system)))
-
-(defn macos? []
-  (= MACOS (operating-system)))
+(defn platforms []
+  [WINDOWS MACOS OTHER])
 
 
 (defn user-home []
   (System/getProperty "user.home"))
 
 
-(defn- the-dir [appid dir-typ]
+(defn- the-dir [app dir-typ]
   (let [h (user-home)]
     (apply cio/file
            (cond
              (windows?)
-             [h "AppData" (if (= dir-typ "installed") "Local" "Roaming") appid dir-typ]
+             [h "AppData" (if (= dir-typ "installed") "Local" "Roaming") app dir-typ]
              (macos?)    
-             [h "Library" "Application Support" appid dir-typ]
+             [h "Library" "Application Support" app dir-typ]
              :else
-             [h "AppData" appid dir-typ]))))
+             [h "AppData" app dir-typ]))))
 
 
-(defn ^File install-dir [appid]
-  (the-dir appid "installed"))
+(defn ^File install-dir [app]
+  (the-dir app "installed"))
 
 
-(defn ^File data-dir [appid]
-  (the-dir appid "data"))
+(defn ^File data-dir [app]
+  (the-dir app "data"))

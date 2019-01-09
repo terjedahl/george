@@ -5,6 +5,8 @@ checkouts/
 src_spraklab/*
 wix311-binaries/*
 signtool/*
+javafx-jmods-*/*
+javafx-sdk-*/*
 
 # Files
 .*.DS_Store
@@ -13,7 +15,7 @@ signtool/*
 pom.xml
 src/java/module-info.java
 src/rsc/app.properties
-codesign-*/*
+codesign-*
 
 # Types
 .*.iml

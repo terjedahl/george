@@ -4,70 +4,110 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns leiningen.serve
+  "Start a web server in the current or specified directory, on specified port or 8080"
   (:require
-    [leiningen.george :as g]
-    [leiningen.server :refer [server]]
-    [clojure.java.io :as cio]))
+    [clojure.pprint :refer [pprint]]
+    [leiningen.george.core :as g])
+  (:import
+    [org.eclipse.jetty.server Handler Server]
+    [org.eclipse.jetty.server.handler DefaultHandler HandlerList ResourceHandler AbstractHandler]
+    [java.net BindException]))
 
 
-
-(defn- port []
-  (or (-> g/*project* :server :port) 9999))
-
-
-(defn- cmd [cmd]
-  (try
-    (slurp (format "http://localhost:%s/_cmd/%s" (port) cmd))
-    (catch java.net.ConnectException _
-      (binding [*out* *err*]
-        (println "Server not running.  Do 'lein serve' to start serving deployable.")))))
-        
-
-(defn- maybe-println [s]
-  (when s (println s)))
+(defn- static-file-handler [base-dir]
+  (doto (ResourceHandler.)
+        (.setDirectoriesListed true)
+        (.setWelcomeFiles (into-array ["index.html"]))
+        (.setResourceBase base-dir)))
+        ;(.setResourceBase ".")))
 
 
-(defn- status 
-  "Prints server status info"
+(defn- info [dir port]
+  {:url (format "http://localhost:%s/" port) :dir dir})
+
+
+(defn- command-handler [port dir]
+  (proxy [AbstractHandler] []
+    (handle [target base-request request response]
+      ;(prn 'handle target base-request request)
+      (when  (.startsWith target "/_cmd")
+          ;(println "GOT _cmd:" target)
+          (.setContentType response "text/plain")
+          (.setHandled base-request true)
+          (with-open [out (.getOutputStream response)]
+            (spit out
+                  (case target
+                        "/_cmd/info"
+                        (str (info dir port))
+
+                        "/_cmd/url"
+                        (format "http://localhost:%s/" port)
+
+                        "/_cmd/port"
+                        (str port)
+
+                        "/_cmd/dir"
+                        (str dir)
+
+                        "/_cmd/stop"   
+                        (let [m "Server stopped."]
+                          (future (Thread/sleep 1000) (System/exit 0))
+                          (println m)
+                          m)
+                        
+                        ;; else
+                        (let [m (format "Unknown command: %s" target)]
+                          (binding [*out* *err*] (println m))
+                          m))))))))
+
+
+(defn- default-handler []
+  (doto (DefaultHandler.)
+        (.setServeIcon false)))
+
+
+(defn- create-server [port handlers]
+  (let [handler-list 
+        (doto (HandlerList.)
+              (.setHandlers (into-array Handler handlers)))]
+    (doto (Server. port) 
+          (.setHandler handler-list))))
+
+
+(def server_ (atom nil))
+
+
+(defn- run-server
+  "Starts the given Jetty server and waits for it to exit."
   []
-  (maybe-println (cmd "status")))
- 
-(defn- url
-  "Prints the url for the running server"
-  []
-  (maybe-println (cmd "url")))
-
-
-(defn- stop 
-  "Stops the running server"
-  []
-  (cmd "stop"))
+  (.start @server_)
+  (.join @server_))
 
 
 
-(defn- dir []
-  "target/serve")
+(defn ^:no-project-needed serve
+  "Start a web server in the current directory.
 
-
-(defn- serve- []
-  (g/assert-deployable)
-  (g/assert-project)
-  (let [d (dir)]
-    (g/clean d)
-    (g/ensure-dir d)
-    (g/copy-files-to-dir d (-> "target/deployable" cio/file .listFiles seq) false)
-    (apply server [g/*project* "--port" (port) "--dir" (str "./" d)])))
-
-
-(defn serve
-  "Serve deployable via http from dedicated dir
+USAGE: lein server [:port port][:dir base-dir]
+Starts a web server in the specified directory (defaults to current), listening on the given port (defaults to 8080)."
+  [project & {:strs [:port :dir]}]
   
-Copies jar + app-file to 'target/serve' and launches a web-server on project.clj -> :server -> :port ."
-  {:subtasks [#'status #'stop #'url]}
-  [project & [subtask & args- :as args]]
-  (binding [g/*project* project]
-    (case subtask
-      "status" (status)
-      "stop"   (stop)
-      "url"    (url)
-      (serve-))))
+  (let [port 
+        (Integer/parseInt  
+          (str (or port (-> project :server :port) 8080)))
+        dir
+        (or dir (-> project :server :dir) ".")
+        handlers 
+        [(command-handler port dir)
+         (static-file-handler dir)
+         (default-handler)]
+    
+        server 
+        (create-server port handlers)]
+    (reset! server_ server)    
+    (println "Starting server ...")
+    (pprint (info dir port))
+    (try
+      (run-server)
+      (catch BindException _
+        (g/error "Error: Start failed. Port already in use.")))))

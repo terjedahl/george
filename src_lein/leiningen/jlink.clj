@@ -3,23 +3,13 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns leiningen.java
+(ns leiningen.jlink
   (:require
     [leiningen.george.core :as g]))
 
 
-(defn ^:pass-through-help java
-  "Call 'java' (in JAVA_HOME) with args.   ...
-
-If the first arg is ':jar' ':jpms', the built jar or jpms is run with the remaining args.
-
-Examples:
- lein java -version
- lein java --list-modules
- lein java :jar
- lein java :jar :help
- lein java :jpms"
-
+(defn ^:pass-through-help jlink
+  "Call 'jlink' (in JAVA_HOME) with args."
   [project & args]
   (binding [g/*project* project]
-      (g/run-java args)))
+    (g/run-jlink args)))

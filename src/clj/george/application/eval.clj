@@ -14,7 +14,7 @@
      [repl :as repl]
      [output :refer [oprint oprintln output-showing?]]]
     [george.javafx :as fx]
-    [george.util.text :as ut]
+    [common.george.util.text :as ut]
     [george.code.tokenizer :refer [indexing-pushback-stringreader]])
   (:import
     [javafx.scene.layout GridPane Priority]

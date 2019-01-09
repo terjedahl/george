@@ -7,7 +7,7 @@
 :: https://www.robvanderwoude.com/escapechars.php
 
 set java="jre\bin\java.exe"
-set jar="deployable\george-application-{{ version }}-standalone.jar"
+set jar="jar\{{ jar-name }}"
 set run=%java% -jar %jar%
 
 start cmd.exe /k "pushd %~dp0 & echo Available vars: ^%%java^%%, ^%%jar^%%, and ^%%run^%%"

@@ -3,29 +3,19 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns tasks.common
+(ns leiningen.jdeps
   (:require
-    [clojure.java.io :as cio])
-  (:import 
-    [java.io File]))
+    [leiningen.george.core :as g]))
 
 
 
-(def ^:dynamic *debug* (System/getenv "DEBUG"))
-(def ^:dynamic *info* (not (System/getenv "LEIN_SILENT")))
+(defn ^:pass-through-help jdeps
+  "Call 'jdeps' (in JAVA_HOME) with args.  ...
 
+If any of the args are ':jar' or ':jpms', the arg will be replaced with the path to the build jar or jpms.
 
-(defn info [& args]
-  (when *info* (apply println args)))
+Learn more about jdeps at: https://blog.codefx.org/tools/jdeps-tutorial-analyze-java-project-dependencies/"
 
-(defn warn [& args]
-  (when *info*
-    (binding [*out* *err*]
-      (apply println args))))
-
-(defn debug [& args]
-  (when *debug*
-    (apply println args)))
-
-(defn exit [& [code]]
-  (System/exit (or code 0)))
+  [project & args]
+  (binding [g/*project* project]
+    (g/run-jdeps args)))

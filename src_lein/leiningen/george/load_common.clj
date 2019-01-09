@@ -3,23 +3,13 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns leiningen.java
+(ns leiningen.george.load-common
+  "Loads all namespaces in src_common.  Simply 'require' this namespace before 'require'-ing anything in common.george.*"
   (:require
-    [leiningen.george.core :as g]))
+    [cemerick.pomegranate :as pom]))
 
+(defn add-src_common []
+  (when (System/getenv "DEBUG") "src_common added")
+  (pom/add-classpath "src_common"))
 
-(defn ^:pass-through-help java
-  "Call 'java' (in JAVA_HOME) with args.   ...
-
-If the first arg is ':jar' ':jpms', the built jar or jpms is run with the remaining args.
-
-Examples:
- lein java -version
- lein java --list-modules
- lein java :jar
- lein java :jar :help
- lein java :jpms"
-
-  [project & args]
-  (binding [g/*project* project]
-      (g/run-java args)))
+(add-src_common)

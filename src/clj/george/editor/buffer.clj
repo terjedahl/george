@@ -10,7 +10,7 @@
   (:require
     [clojure.core.rrb-vector :as fv]
     [clojure.java.io :as cio]
-    [george.util.text :as ut])
+    [common.george.util.text :as ut])
   (:import
     [java.io PushbackReader StringReader]
     [clojure.core.rrb_vector.rrbt Vector]))

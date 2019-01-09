@@ -8,7 +8,7 @@
   (:require
     [george.javafx.java :as fxj]
     [george.application.launcher :as launcher]
-    [george.launch.properties :as p])
+    [common.george.launch.properties :as p])
   
   (:import
     [javafx.application Preloader$ProgressNotification])

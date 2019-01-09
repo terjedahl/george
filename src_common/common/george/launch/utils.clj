@@ -3,13 +3,15 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns george.launch.utils
+(ns common.george.launch.utils
   (:import
     [java.io File InputStream OutputStream]
-    [java.nio.file Files OpenOption]
-    [java.net URL]))
+    [java.nio.file Files OpenOption Path]
+    [java.net URL]
+    [java.util.zip Adler32]))
 
-
+;(set! *warn-on-reflection* true)
+;(set! *unchecked-math* :warn-on-boxed)
 
 (defn download
   "Optional total-fn takes 1 args: An long indicating the total number of bytes read/written."
@@ -18,13 +20,25 @@
   (prn 'source source)
   (prn 'target target)
   (prn 'total-fn total-fn)
-  (let [buffer (make-array Byte/TYPE 65536)]
+  (let [buffer (byte-array 65536)]
     (with-open [^InputStream input (.getInputStream (-> source .openConnection))
                 ^OutputStream output (Files/newOutputStream (.toPath target) (make-array OpenOption 0))]
       (loop [total-bytes 0]
         (let [size (.read input buffer)]
-          (when (pos? size)
+          (when-not (neg? size)
             (.write output buffer 0 size)
             (when total-fn
               (total-fn (+ total-bytes size)))
             (recur (+ total-bytes size))))))))
+
+
+(defn checksum [^Path path]
+  (with-open [input (Files/newInputStream path (make-array OpenOption 0))]
+    (let [checksum (Adler32.)
+          buffer (byte-array 16384)]
+      (loop []
+        (let [size (.read input buffer)]
+          (when-not (neg? size)
+            (.update checksum buffer 0 size)
+            (recur))))
+      (.getValue checksum))))

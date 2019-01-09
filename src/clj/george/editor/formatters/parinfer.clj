@@ -20,7 +20,7 @@
     [george.editor.state :as st]
     [george.editor.formatters.defs :as defs]
     [george.editor.buffer :as b]
-    [george.util.text :as ut])
+    [common.george.util.text :as ut])
 
   (:import
     [javax.script ScriptEngineManager]

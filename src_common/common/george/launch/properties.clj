@@ -3,40 +3,35 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns george.launch.properties
+(ns common.george.launch.properties
   (:refer-clojure :exclude [load])
   (:require
     [clojure.java.io :as cio]
     [clojure.walk :as cw]
-    [george.launch.config :as c]
-    [george.files :as f]
-    [george.util.text :refer [pprint]])
+    [common.george.launch.config :as c]
+    [common.george.launch.utils :as u]
+    [common.george.util.text :refer [pprint]])
   (:import
     [java.io File StringReader IOException StringWriter FileNotFoundException]
     [java.util Properties]
-    (java.net UnknownHostException)))
+    [java.net UnknownHostException]
+    [java.nio.file Files]))
 
 
-(def PROP_N "app.properties")
-(def DEFAULT_ID "George-DEV")
+(def PROP_N     "app.properties")
+(def DEFAULT_APP "George-DEV")
 
 
 (defn get-file  [^File f]
-  (if f
-    (.getName f)
-    "NA"))
+  (if f (.getName f) "NA"))
 
 
 (defn get-size [^File f]
-  (if f
-    (str (java.nio.file.Files/size (.toPath f)))
-    "NA"))
+  (if f (str (Files/size (.toPath f))) "NA"))
 
 
 (defn get-checksum [^File f]
-  (if f
-    (str (no.andante.george.launch.Utils/checksum (.toPath f)))
-    "NA"))
+  (if f (str (u/checksum (.toPath f))) "NA"))
 
 
 (defn now-ts [& [offset-millis]]
@@ -45,16 +40,16 @@
 (defn print-now []
   (println (now-ts)))
 
-(defn default-uri [& [appid]]
-    (format "https://download.george.andante.no/%s/launch/" (or appid DEFAULT_ID)))
+(defn default-uri [& [app]]
+  (format "https://dowload.george.andante.no/apps/%s/platforms/%s/jar/" (or app DEFAULT_APP) (c/platform)))
 
 
-(defn default [& [appid uri ts]]
-  (let [appid (or appid DEFAULT_ID)]
-    {:appid appid
+(defn default [& [app uri ts]]
+  (let [app (or app DEFAULT_APP)]
+    {:app app
      :version "NA"
      :ts (or ts (now-ts))
-     :uri (or uri (default-uri appid))
+     :uri (or uri (default-uri app))
      :file "NA"
      :size "NA"   
      :checksum "NA"}))
@@ -132,38 +127,49 @@
   (when props (.getProperty props "file")))
 
 
-(defn this-app []
+(defn this-props []
   (load (cio/resource PROP_N)))
 
 
-(defn installed-app [& [appid]]
+(defn ^String this-app []
+  (:app (this-props)))
+
+
+(defn get-props [^File file]
+  (load file))
+
+(defn ^String get-app [^File file]
+  (:app (get-props file)))
+
+
+(defn installed-props [& [app]]
   (load 
     (cio/file 
-      (c/install-dir (or appid DEFAULT_ID)) 
+      (c/install-dir (or app DEFAULT_APP))
       PROP_N)))
 
 
-(defn online-app [& [appid uri]]
-  (load (str (or uri (default-uri appid)) 
+(defn online-props [& [app uri]]
+  (load (str (or uri (default-uri app))
              PROP_N))) 
       
 
-(defn list-apps [& [appid uri]]
-  (let [this-app (this-app)
+(defn list-props [& [app uri]]
+  (let [this-props (this-props)
 
-        appid (or appid (:appid this-app))
+        app (or app (:app this-props))
 
-        installed-app (installed-app appid)
+        installed-props (installed-props app)
 
         uri (or uri 
-                (or (:uri installed-app) 
-                    (:uri this-app)))
+                (or (:uri installed-props) 
+                    (:uri this-props)))
 
-        online-app (online-app appid uri)] 
+        online-props (online-props app uri)]
 
-    (println "THIS")             (pprint this-app)
-    (println "INSTALLED")        (pprint installed-app)
-    (printf "ONLINE (%s)\n" uri) (pprint online-app)))
+    (println "THIS")             (pprint this-props)
+    (println "INSTALLED")        (pprint installed-props)
+    (printf "ONLINE (%s)\n" uri) (pprint online-props)))
 
 ;(list-apps "George-DEV")
 

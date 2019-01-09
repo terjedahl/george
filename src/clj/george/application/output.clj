@@ -8,8 +8,8 @@
     [george.javafx :as fx]
     [george.code.codearea :as ca]
     [george.util
-     [singleton :as singleton]
-     [text :as gt]]
+     [singleton :as singleton]]
+    [common.george.util.text :as gt]
     [george.code.highlight :as highlight]
     [george.application
      [repl :as client]

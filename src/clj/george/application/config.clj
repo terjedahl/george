@@ -6,7 +6,8 @@
 (ns george.application.config
   (:require
     [clojure.java.io :as cio]
-    [george.util.file :as guf])
+    [george.util.file :as guf]
+    [common.george.launch.properties :as p])
   (:import
     [java.io File]))
 
@@ -45,7 +46,7 @@
 (def  documents-dir 
   "Returns the ensured default directory for storing users documents: 
 all platforms: $HOME/George"
-  ^File #(guf/ensure-dir (cio/file (user-home) "George")))
+  ^File #(guf/ensure-dir (cio/file (user-home) (p/this-app))))
 
 
 (def file-sep
@@ -60,21 +61,22 @@ all platforms: $HOME/George"
 
 (def appdata-dir
   "Returns the ensured default directory for storing app-data:
-Windows: $HOME/AppData/Roaming/George
-MacOS:   $HOME/Library/Application Support/George
-other:   $HOME/Application Support/George"
+Windows: $HOME/AppData/Roaming/<app>
+MacOS:   $HOME/Library/Application Support/<app>
+other:   $HOME/Application Support/<app>"
   ^File (fn 
           ([] 
            (appdata-dir (operating-system)))
           ([os]  
-           (let [d
+           (let [app (p/this-app)
+                 d
                  (condp = os
                    WINDOWS  
-                   (cio/file (user-home) "AppData" "Roaming" "George")
+                   (cio/file (user-home) "AppData" "Roaming" app)
                    MACOS    
-                   (cio/file (user-home) "Library" "Application Support" "George")
+                   (cio/file (user-home) "Library" "Application Support" app)
                    ;; OTHER
-                   (cio/file (user-home) ".george"))]
+                   (cio/file (user-home) (str "." app)))]
              (guf/ensure-dir d)))))
           
 ;(prn (appdata-dir))

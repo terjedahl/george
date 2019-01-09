@@ -7,22 +7,21 @@
 
   (:require
     [clojure.java.io :as cio]
-    [george.launch
+    [george.javafx :as fx]
+    [george.launch.load :refer [run-jar]]
+    [common.george.launch
      [config :as c]
-     [load :refer [run-jar]]
      [properties :as p]
      [utils :refer [download]]]
-    [george.files :as f]
-    [george.javafx :as fx])
+    [common.george.files :as f])
   (:import
-    [javafx.scene Parent Node Scene]
+    [javafx.scene Node Scene]
     [javafx.scene.control ProgressIndicator ProgressBar Label]
     [javafx.scene.layout VBox StackPane]
     [no.andante.george Run]
     [javafx.application Platform]
     [javafx.geometry Insets]
     [javafx.stage Stage])
-
 
   (:gen-class
     :name no.andante.george.Launch
@@ -128,10 +127,10 @@
 (defn- use-installed? 
   "Returns true if there is an installed version and it's timestamp is newer than this."
   []
-  (let [this-app (p/this-app)
-        installed-app (p/installed-app (:appid this-app))]
-    (when installed-app
-      (p/gt (:ts installed-app) (:ts this-app)))))
+  (let [{:keys [app ts]} (p/this-props)
+        installed-props (p/installed-props app)]
+    (when installed-props
+      (p/gt (:ts installed-props) ts))))
 
 
 (defn- use-online?
@@ -139,10 +138,10 @@
   []
   ;(println "## LAUNCHER - Inform that we are checking online.")
   (update-text "Checking online version ...")
-  (let [this-app (p/this-app)
-        online-app (p/online-app (:appid this-app) (:uri this-app))]
-    (when online-app
-      (p/gt (:ts online-app) (:ts this-app)))))
+  (let [{:keys [app uri ts]} (p/this-props)
+        online-props (p/online-props app uri)]
+    (when online-props
+      (p/gt (:ts online-props) ts))))
 
 
 ;;;;;;;;;;;;;
@@ -164,9 +163,9 @@
   (prn 'Launch/installed-load args)
   ;(println "## LAUNCHER - inform that (installed) application is loading.")
   (update-text "Loading installed application ...")
-  (let [appid (:appid (p/this-app))
-        props (p/installed-app appid)
-        jar-url (f/url (f/path (c/install-dir appid) (:file props)))]
+  (let [app (p/this-app)
+        installed-props (p/installed-props app)
+        jar-url (f/url (f/path (c/install-dir app) (:file installed-props)))]
     (future (Thread/sleep 2000) (destroy-launcher-screen))
     (run-jar jar-url "no.andante.george.Launch" args)))
     ;(println "## LAUNCHER - close. (New version will be used - for now!)")
@@ -178,9 +177,9 @@
   ;(println "## LAUNCHER - inform that (online) application is downloading.")
   (update-text "Downloading ...")
   (update-progress -1)
-  (let [{:keys [appid uri]} (p/this-app)
-        {:keys [file size]} (p/online-app appid uri)
-        install-d           (f/ensure-dir (c/install-dir appid))
+  (let [{:keys [app uri]} (p/this-props)
+        {:keys [file size]} (p/online-props app uri)
+        install-d           (f/ensure-dir (c/install-dir app))
         bytes-total-d       (Double/parseDouble size)]
         
     ;; install JAR and app-file
@@ -202,7 +201,7 @@
 
 (defn main1 [args]
   (prn 'Launch/main1 args)
-  (println "  I am ts:" (:ts (p/this-app)))
+  (println "  I am ts:" (:ts (p/this-props)))
 
   (when-not (no-gui? args)
     (init-launch-screen))
@@ -224,5 +223,15 @@
     (this-run args)))
 
 
+(defn- print-help []
+  ;; TODO: Write help details
+  (println "George CLI help:
+
+Optional arguments for George are:
+  INCOMPLETE!!"))
+
+
 (defn -main [& args]
-  (main1 args))
+  (if (#{"-h" "--help" ":help"} (first args))
+    (print-help)
+    (main1 args)))

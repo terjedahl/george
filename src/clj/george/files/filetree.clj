@@ -12,7 +12,7 @@
     [george.javafx.java :as fxj]
     [clj-diff.core :as diff]
     [george.util :refer [->Labeled labeled? timeout] :as gu] ;; This also loads defmethod diff/patch
-    [george.util.text :refer [**]]
+    [common.george.util.text :refer [**]]
     [george.application.ui.styled :as styled]
     [hara.io.watch]
     [hara.common.watch :as watch]

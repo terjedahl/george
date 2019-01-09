@@ -29,7 +29,7 @@
     [george.util.singleton :as singleton]
     [george.application.repl-server :as repl-server]
 
-    [george.launch.properties :as p])
+    [common.george.launch.properties :as p])
 
   (:import
     [javafx.geometry Rectangle2D]
@@ -64,7 +64,7 @@ Powered by open source software.")
 (defn george-version-ts []
   ;(slurp (cio/resource "george-version.txt")))
   ;(slurp (resource "george-version.txt")))
-  (let [{:keys [version ts]} (-> "app.properties" cio/resource p/load)]
+  (let [{:keys [version ts]} (p/this-props)]
     [version ts]))
 
 
@@ -99,7 +99,7 @@ Powered by open source software.")
       (fx/stage
          :style :utility
          :sizetoscene true
-         :title "About George"
+         :title (str "About " (p/this-app))
          :onhidden #(singleton/remove ABOUT_STAGE_KW)
          :resizable false
          :scene (fx/scene root)))))
@@ -199,7 +199,7 @@ Powered by open source software.")
                           (.setFitWidth tile-width)
                           (.setFitHeight tile-width)) 
            :tooltip  "\"home\""
-           :mouseclicked  #(detail-setter (styled/new-heading "George" :size 24)))
+           :mouseclicked  #(detail-setter (styled/new-heading (p/this-app) :size 24)))
 
         about-label
         (fx/new-label "About" 
@@ -317,7 +317,7 @@ Powered by open source software.")
     (fx/later
       ;; TODO: prevent fullscreen.  Where does the window go after fullscreen?!?
       (doto stage
-        (.setTitle "George")
+        (.setTitle (p/this-app))
         (.setResizable true)
         (core/set-application-stage)
         (fx/setoncloserequest (stage-close-handler stage dispose-fn))))))

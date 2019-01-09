@@ -4,11 +4,11 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns ^{:doc "java.nio.files functionality"}
-  george.files
+(ns common.george.files
+  "java.nio.files functionality"
   (:require 
     [clojure.java.io :as cio]
-    [george.launch.config :as c])  
+    [common.george.launch.config :as c])
   (:import
     [java.nio.file Paths Path]
     [java.io File]
@@ -87,6 +87,7 @@
 (defn ^File ensure-dir [dir]
   (let [d (cio/file dir)]
     (when-not (.exists d) (.mkdirs d))
+    (assert (.isDirectory dir))
     d))
 
 
@@ -96,6 +97,13 @@
       (delete-file-recursively f))
     d))
 
+
+(defn copy-dir [source target]
+  (assert (.isDirectory source))
+  (ensure-dir target)
+  (doseq [f-str (.list source)]
+    (cio/copy (cio/file source f-str)
+              (cio/file target f-str))))
 
 ;(defn delete
 ;  "Delete path p. If silent? is nil or false, raise an exception on failure, else return the value of silently."
