@@ -4,7 +4,7 @@
 
 mkdir target/macos &> /dev/null
 rm -rf target/macos/George.app
-cp -a src/macos/George.app target/macos/George.app
+cp -a src_macos/George.app target/macos/George.app
 cp -a target/jre target/macos/George.app/Contents/jre
 
 mkdir target/macos/George.app/Contents/jar &> /dev/null

@@ -44,37 +44,26 @@ I get:
 JPMS a.k.a. Jigsaw was introduced with Java 9.  
 [Article on Wikipedia](https://en.wikipedia.org/wiki/Java_Platform_Module_System)
 
-George can be build as JPMS (with a `module-info.java`).  
-_It will, however, not run as JPMS as Clojure itself is not compatible with JPMS._
 
-Also, we don't want to build George into the runtime as a module, but in stead have it run in "legacy mode" against a "neutral" runtime.
+As of Java 11, JavaFX modules are dependencies rather than included in the JDK.  
+Currently, I have not figured out how to build a JPMS from this.  
+
+Therefore, George is only built and runs in "legacy" mode.  There is currently no good reason to strive for "jpms" mode.
 
 
 ## Build
 
 Builds are done using a mix of aliases, profiles and plugins.
 
-The jar and the runtime are both built at once with the command:
+The jar and the runtime are both built with a custom task.  For details, do:
 ```bash
-lein deployable
+lein help build
 ```
 
-This results in a jar-file without module-info.class.  When run - either on standard java runtime or custom runtime, it will be run in "legacy" mode. 
+This results in a OS-specific jar-file without module-info.class.  When run - either on standard java runtime or custom runtime, it will be run in "legacy" mode. 
 
 Also, you will get an OS-specific custom runtime in the directory `<project_root>/target/jre` .  
-It will include only the modules listed in the project-files `module-list`.
-
-
-### JPMS
-
-You may of course try to build the Jar as a JPMS.  Simply do:
-
-```bash
-lein jpms
-```
-This will write a `module-info.java` based on the `module-list` before building, and then delete it again afterwards.
-
-NOTE: The JPMS build is currently broken (as of Java11).  TODO: Fix it!
+It will include only the modules listed in the project-files `[:module :jre]`.
 
 
 ## Run
@@ -87,11 +76,11 @@ Running something assumes you have done the appropriate builds first.
 
 To run anything using `java` in the custom runtime, you can do:
 ```bash
-lein jre java
+lein jre [args]
 ```
 Try doing:
 ```bash
-lein jre java --list-modules
+lein jre --list-modules
 ```
 
 If you do:
@@ -105,23 +94,13 @@ lein java --list-modules
 
 To run the jar on the custom JRE, do:
 ```bash
-lein jre deployable
+lein jre :jar
 ```
 
 To run the jar on standard java, do:
 ```bash
-lein java deployable
+lein java :jar
 ```
-
-### JPMS  !BROKEN!
-
-If you have done the JPMS build, the jar will still run in "legacy mode" if you use one of the commands above.
-To run it in JPMS mode on the custom runtime, do:
-```bash
-lein xrun-jpms
-```
-
-_This will inevitably fail, even if you add all sorts of extra "--add-export" directives._
 
 
 ### In Leiningen
@@ -142,5 +121,4 @@ _It is not possible to run Leiningen using the custom jre, as Leiningen requires
 ### In a repl
 
 When developing you will want to use standard repl development mechanims.  There are currently no special repl tools integrated in George this.  But by un-commenting one of the lines at the bottom of `george.application.launcher`, a new instance of George is launched in the repl whenever you (re-)load that module. 
-
 
