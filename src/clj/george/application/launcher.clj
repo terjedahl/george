@@ -52,7 +52,7 @@
    George: %s
   Clojure: %s
      Java: %s
-       ts: %s")
+    built: %s")
 
 (def copyright "
 Copyright 2015-2019 Terje Dahl.

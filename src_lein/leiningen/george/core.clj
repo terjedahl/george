@@ -9,6 +9,7 @@
     [clojure.string :as cs]
     [clojure.java.io :as cio]
     [clojure.java.shell :refer [sh]]
+    [clojure.pprint :refer [pprint]]
     [environ.core :refer [env]]
     [selmer.parser :refer [render]]
     ;; Leiningen
@@ -259,19 +260,31 @@
 ;;;; EMBED / PROPS
 
 
-(defn- build-embed- [version & {:strs [:app :uri :ts]}]
+(defn- build-embed-props [version & {:strs [:app :uri :ts]}]
   (let [props (assoc (p/default app uri ts) :version version)]
     (p/dump  (embed-file) props)
     (info (t/pformat props))))
 
 
-(defn- build-prop- [jar-f]
+(defn- build-jar-props [jar-f]
   (let [p (assoc (p/load (embed-file))
                :file     (p/get-file jar-f)
                :size     (p/get-size jar-f)
                :checksum (p/get-checksum jar-f))]
      (info (t/pformat p))
      (p/dump (cio/file (.getParentFile jar-f) p/PROP_N) p)))
+
+
+(defn- build-installer-props [installer-file]
+  (spit
+    (cio/file (.getParent installer-file) p/PROP_N)
+    (->
+      {:version (:version *project*)
+       :file    (.getName installer-file)
+       :size    (p/get-size installer-file)
+       :ts      (p/now-ts)}
+      p/map->properties
+      p/properties->str)))
 
 
 ;;; JAR
@@ -290,7 +303,7 @@
   (-> (if jpms? (jpms-dir) (jar-dir)) (f/ensure-dir) (f/clean-dir))
   (let [jar-f (if jpms? (jpms-file) (jar-file))]
     (cio/copy (uberjar-file) jar-f)
-    (build-prop- jar-f)))
+    (build-jar-props jar-f)))
 
 
 (defn- write-module-info []
@@ -466,18 +479,128 @@
                ["JarGroup" "JreGroup" "ScopeDlg" (George-version)]
                msi-file)
 
-    (spit
-      (cio/file (.getParent msi-file) p/PROP_N)
-      (->
-        {:version (:version *project*)
-         :file    (.getName msi-file)
-         :size    (p/get-size msi-file)
-         :ts      (p/now-ts)}
-        p/map->properties
-        p/properties->str))
-
     (when (.exists msi-file)
-      (sign-msi msi-file))))
+      (sign-msi msi-file))
+
+    (build-installer-props msi-file)
+
+    (clean wix-dir)))
+
+
+(defn- build-macos-app []
+
+  (let [jre-dir  (asserted-jre-dir)
+        jar-file (asserted-jar-file)
+
+        tmpl-data    {:jar-name        (jar-name)
+                      :app             (George)
+                      :ts              (p/now-ts)
+                      :identifier (str "no.andante." (George))
+                      :strict-version  (strict (:version *project*))}
+
+        pkg-dir    (cio/file "target" "pkg")
+        appl-dir    (cio/file pkg-dir "root" "Applications")
+        the-app    (cio/file appl-dir (str (George) ".app"))
+
+        contents-dir (cio/file the-app "Contents")
+
+        info-tmpl     (slurp (cio/file "src_macos" "tmpl" "Info.plist"))
+        info-rendered (render info-tmpl tmpl-data)
+        info-file  (cio/file  contents-dir "Info.plist")
+
+        sh-tmpl     (slurp (cio/file "src_macos" "tmpl" "George.sh"))
+        sh-rendered (render sh-tmpl tmpl-data)
+        sh-file  (cio/file  contents-dir "MacOS" (George))]
+
+    (clean pkg-dir)
+
+    (ensured-dir (.getParentFile sh-file))
+    (spit sh-file sh-rendered)
+    (le/sh "chmod" "755" (str sh-file))
+
+    (spit info-file info-rendered)
+
+    (cio/copy (cio/file "src_macos" "rsc" "George.icns")
+              (cio/file (ensured-dir (cio/file contents-dir "Resources")) "George.icns"))
+
+    (cio/copy jar-file
+              (cio/file (ensured-dir (cio/file contents-dir "jar")) (.getName jar-file)))
+    (le/sh "cp" "-a" (str jre-dir) (str (cio/file contents-dir "jre")))  ;; ensures correct "chmod"
+
+    (if-let [ cert-id (env :apple-developer-application-cert-id)]
+      (le/sh "codesign" "--verbose" "--sign" cert-id (str the-app))
+      (warn "Warning: Environment variable 'apple-developer-application-cert-id' not found."))
+
+    pkg-dir))
+
+
+(defn- build-pkg []
+  ;; https://stackoverflow.com/questions/11487596/making-os-x-installer-packages-like-a-pro-xcode-developer-id-ready-pkg
+  (let [pkg-dir (build-macos-app)
+        scripts-dir (cio/file pkg-dir "scripts")
+
+        pkg-file  (cio/file pkg-dir (installer-name))
+        product-file  (installer-file)
+
+        version        (:version *project*)
+        strict-version (strict version)
+        identifier (str "no.andante." (George))
+
+        tmpl-data {:app           (George)
+                   :version       version
+                   :stict-version strict-version
+                   :pkg-name      (installer-name)
+                   :identifier    identifier}
+
+        plist-tmpl     (slurp (cio/file "src_macos" "tmpl" "Pkg.plist"))
+        plist-rendered (render plist-tmpl tmpl-data)
+        plist-file     (cio/file  pkg-dir "Pkg.plist")
+
+        launch-tmpl     (slurp (cio/file "src_macos" "tmpl" "launch.sh"))
+        launch-rendered (render launch-tmpl tmpl-data)
+        launch-file     (cio/file  scripts-dir "launch.sh")
+
+        xml-tmpl     (slurp (cio/file "src_macos" "tmpl" "Distribution.xml"))
+        xml-rendered (render xml-tmpl tmpl-data)
+        xml-file  (cio/file  pkg-dir "Distribution.xml")]
+
+    (clean (installer-dir))
+    (ensured-dir (installer-dir))
+
+    (spit plist-file plist-rendered)
+    (spit xml-file xml-rendered)
+
+    (ensured-dir scripts-dir)
+    (spit launch-file launch-rendered)
+    (le/sh "chmod" "755" (str launch-file))
+
+    (le/sh "pkgbuild"
+           "--root" (str (cio/file pkg-dir "root"))
+           "--component-plist" (str plist-file)
+           "--scripts" (str scripts-dir)
+           "--identifier" identifier
+           "--version"  strict-version
+           "--install-location" "/"
+           (str pkg-file))
+
+    (le/sh "productbuild"
+           "--distribution" (str xml-file)
+           "--package-path" (str pkg-dir)
+           "--resources"    (str (cio/file "src_macos" "rsc"))
+           "--identifier" identifier
+           "--version" strict-version
+           (str product-file))
+
+    (if-let [cert-id (env :apple-developer-installer-cert-id)]
+      (let [signed-file-s (str product-file ".signed")]
+        (le/sh "productsign" "--sign" cert-id (str product-file) signed-file-s)
+        (le/sh "mv" signed-file-s (str product-file)))
+      (warn "Warning: Environment  variable 'apple-developer-installer-cert-id' not found."))
+
+    (le/sh "chmod" "755" (str product-file))
+    (build-installer-props product-file)
+
+    (clean pkg-dir)))
 
 
 ;;;; IMPLEMENTATIONS
@@ -565,13 +688,14 @@
 
 
 (defn build-embed [args]
-  (apply build-embed- (cons (:version (asserted-project)) args)))
+  (apply build-embed-props (cons (:version (asserted-project)) args)))
 
 
 (defn build-jar
   [args & [jpms?]]
-  (delete-module-info)  ;; Ensure that it isn't there from a failed build-jpms
+  (assert-java11)
   (assert-project)
+  (delete-module-info)  ;; Ensure no 'module-info.java' from failed build-jpms
   (clean (uberjar-dir))
   (clean (jar-dir))
   (build-embed args)
@@ -616,7 +740,7 @@
 (defn build-installer []
   (if (c/windows?)
     (build-msi)
-    (error "Error: build-pkg NOT IMPLEMENTED")))
+    (build-pkg)))
 
 
 (defn build-site []
@@ -637,22 +761,21 @@
           (error "Error: No platform dirs copied to Site."))))))
 
 
-(defn push-aws-invalidate []
+(defn aws-invalidate []
   (le/sh "aws" "cloudfront" "create-invalidation" "--distribution-id" "E3QSHE6V41FUEZ" "--paths" "/*"))
 
 
-(defn push-aws []
+(defn aws-deploy  []
   (assert-not-windows)
   (assert-aws)
   (let [site (asserted-site-dir)
         app (George)]
     (info "Deploying Site Amazon S3 for ...")
     (.delete (cio/file site ".DS_Store"))
-    ;(cio/copy (cio/file "src_lein" "leiningen" "george" "rsc" "aws-s3-bucket-listing.html") (cio/file site "index.html"))
     (le/sh "aws" "s3" "cp" (str site) "s3://download.george.andante.no/" "--acl" "public-read" "--recursive" "--region" "eu-central-1")
 
     (info "Invalidating CloudFront caches ...")
-    (push-aws-invalidate)
+    (aws-invalidate)
 
     (info "Give it a second or two ...")
     (Thread/sleep 5000)

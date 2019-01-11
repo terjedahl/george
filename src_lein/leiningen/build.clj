@@ -75,7 +75,8 @@ and includes the modules listen in [:module :jre] in project.clj."
   (g/build-installer))
 
 
-(defn site "NO IMPL  TODO:docs" []
+(defn site "Build Site structure with installers and jars."
+  []
   (g/build-site))
 
 

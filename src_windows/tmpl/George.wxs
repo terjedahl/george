@@ -7,7 +7,7 @@
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 
-    <Product Name="{{ app }} {{ version }}" Manufacturer="Andante AS" Version="{{ strict-version }}"
+    <Product Name="{{ app }} ({{ version }})" Manufacturer="Andante AS" Version="{{ strict-version }}"
              Id="*"  UpgradeCode="{{ upgrade-code }}"
              Language="1033" Codepage="1252">
 

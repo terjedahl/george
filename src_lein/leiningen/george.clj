@@ -13,7 +13,7 @@
   "Similar to how help prints builtin and plugin tasks"
   []
   (->> (blt/namespaces-on-classpath :prefix "leiningen" :classpath "src_lein")
-     (filter #(re-find #"^leiningen\.(?!do-args|george|server)[^\.]+$" (name %)))
+     (filter #(re-find #"^leiningen\.(?!do-args|george|serve)[^\.]+$" (name %)))
      (distinct)
      (sort)))
 

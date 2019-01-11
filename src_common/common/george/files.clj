@@ -102,8 +102,12 @@
   (assert (.isDirectory source))
   (ensure-dir target)
   (doseq [f-str (.list source)]
-    (cio/copy (cio/file source f-str)
-              (cio/file target f-str))))
+    (let [source-f (cio/file source f-str)
+          target-f (cio/file target f-str)]
+      (if (.isDirectory source-f)
+        (copy-dir source-f target-f)
+        (cio/copy source-f target-f)))))
+
 
 ;(defn delete
 ;  "Delete path p. If silent? is nil or false, raise an exception on failure, else return the value of silently."

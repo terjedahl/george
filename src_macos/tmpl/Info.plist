@@ -14,42 +14,41 @@
 	<string>English</string>
 
 	<key>CFBundleDisplayName</key>
-	<string>George</string>
+	<string>{{ app }}</string>
 
 	<key>CFBundleExecutable</key>
-	<string>George</string>
+	<string>{{ app }}</string>
 
 	<key>CFBundleIconFile</key>
 	<string>George.icns</string>
 
 	<key>CFBundleIdentifier</key>
-	<string>George.app</string>
+	<string>{{ identifier }}</string>
 
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 
 	<key>CFBundleName</key>
-	<string>George</string>
+	<string>{{ app }}</string>
 
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 
 	<key>CFBundleShortVersionString</key>
-	<string>2018.6-SNAPSHOT</string>
+	<string>{{ strict-version }}</string>
 
     <key>CFBundleVersion</key>
-    <string>yyyy-mm-ddThh:mm:ssZ</string>
+    <string>{{ ts }}</string>
     
 	<key>CFBundleSignature</key>
 	<string>????</string>
-
 
 	
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.education</string>
 	
     <key>LSMinimumSystemVersion</key>
-	<string>10.8</string>
+	<string>10.12</string>
 	
     <key>NSHighResolutionCapable</key>
 	<true/>
