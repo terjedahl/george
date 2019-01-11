@@ -7,9 +7,9 @@
 #open http://www.george.andante.no
 
 
-logdir="$HOME/Library/Logs/George"
+logdir="$HOME/Library/Logs/{{ app }}"
 [ ! -d $logdir ] && mkdir -p $logdir
-logfile="$logdir/George.`date '+%Y-%m-%d_%H-%M-%S'`.log"
+logfile="$logdir/{{ app }}.`date '+%Y-%m-%d_%H-%M-%S'`.log"
 exec &> >(tee -i $logfile)
 
 echo "START: [$(date)]"
@@ -27,7 +27,7 @@ java_cmd=$Contents/jre/bin/java
 icon=$Contents/Resources/George.icns
 #echo icon: $icon
 
-jar=$(ls "$Contents"/jar/*standalone.jar)
+jar=$(ls "$Contents"/jar/{{ jar-name }})
 echo jar: $jar
 
 "$java_cmd" -version

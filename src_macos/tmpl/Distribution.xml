@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+
+    <title>{{ app }}   ({{ version }})</title>
+    <background file="PkgUI.png" />
+
+    <domains enable_currentUserHome="true" enable_localSystem="true"/>
+
+    <options customize="never" require-scripts="false"/>
+
+    <choice id="default"/>
+    <choice id="{{ identifier }}" visible="false">
+        <pkg-ref id="{{ identifier }}"/>
+    </choice>
+
+    <choices-outline>
+        <line choice="default">
+            <line choice="{{ identifier }}"/>
+        </line>
+    </choices-outline>
+
+    <pkg-ref id="{{ identifier }}" /> <!-- why is this here? -->
+
+    <pkg-ref id="{{ identifier }}" version="{{ strict-version }}" onConclusion="none">{{ pkg-name }}</pkg-ref>
+
+</installer-gui-script>

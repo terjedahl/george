@@ -47,7 +47,7 @@
 
 
 (defn site
-  "Serve Site dir on localhost.  ...
+  "Serve Site dir on localhost.            ...
 
 If, on *nix, you do:
   lein site start &
