@@ -6,9 +6,20 @@
 :: https://superuser.com/questions/106848/batch-file-that-runs-cmd-exe-a-command-and-then-stays-open-at-prompt
 :: https://www.robvanderwoude.com/escapechars.php
 
-set java="jre\bin\java.exe"
-set jar="jar\{{ jar-name }}"
-set run=%java% -jar %jar%
+SET java="jre\bin\java.exe"
+SET jar="jar\{{ jar-name }}"
+SET run=%java% -jar %jar%
+CALL :set_ldt
 
-start cmd.exe /k "pushd %~dp0 & echo Available vars: ^%%java^%%, ^%%jar^%%, and ^%%run^%%"
+START cmd.exe /K "pushd %~dp0 & echo Available vars: ^%%java^%%, ^%%jar^%%, and ^%%run^%% && TITLE {{ app }} CLI"
 
+
+:set_ldt
+FOR /F "usebackq tokens=1,2 delims==" %%i IN (`wmic os get LocalDateTime /VALUE 2^>NUL`) DO IF '.%%i.'=='.LocalDateTime.' SET ldt=%%j
+SET yyyy=%ldt:~0,4%
+SET mm=%ldt:~4,2%
+SET dd=%ldt:~6,2%
+SET H2=%ldt:~8,2%
+SET M2=%ldt:~10,2%
+SET S2=%ldt:~12,2%
+EXIT /B 0

@@ -1,37 +1,23 @@
 #!/usr/bin/env bash
 
-# https://mathiasbynens.be/notes/shell-script-mac-apps
-
-#python -m SimpleHTTPServer 8080 &> /dev/null &
-#open http://localhost:8080/
-#open http://www.george.andante.no
-
-
 logdir="$HOME/Library/Logs/{{ app }}"
 [ ! -d $logdir ] && mkdir -p $logdir
-logfile="$logdir/{{ app }}.`date '+%Y-%m-%d_%H-%M-%S'`.log"
+
+logfile="$logdir/{{ app }}_`date '+%Y-%m-%d-%H%M%S'`.log"
 exec &> >(tee -i $logfile)
 
-echo "START: [$(date)]"
+echo "START: [$(date '+%Y-%m-%d %H:%M:%S')]"
 echo
 
 MacOS=$(cd "$(dirname "$0")"; pwd)
-#echo MacOS: $MacOS
 
 Contents=$(cd "$MacOS/.."; pwd)
 echo Contents: $Contents
 
 java_cmd=$Contents/jre/bin/java
-#echo java_cmd: $java_cmd
 
 icon=$Contents/Resources/George.icns
-#echo icon: $icon
 
 jar=$(ls "$Contents"/jar/{{ jar-name }})
-echo jar: $jar
 
-"$java_cmd" -version
 "$java_cmd" "-Xdock:icon=$icon" -jar  "$jar" $@
-
-echo
-echo "STOP: [$(date)]"

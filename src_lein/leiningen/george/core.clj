@@ -432,7 +432,8 @@
 
         wix-dir          (cio/file "target" "wix")
 
-        tmpl-data        {:jar-name     (jar-name)
+        tmpl-data        {:app          (George)
+                          :jar-name     (jar-name)
                           :upgrade-code (msi-upgrade-code)}
 
         bat-tmpl         (slurp (cio/file "src_windows" "tmpl" "George.bat"))
