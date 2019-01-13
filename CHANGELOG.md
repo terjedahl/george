@@ -3,9 +3,76 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2018.9] - 2018-11-14
+
+### Fixed
+- An issue with fonts not loading.
+- The Quit now appears on top of the turtle screen.
+- In fullscreen on MacOS turtle screen should now stay in same Space as application.
+
+### Added
+- Carret now blinks.
+- Resizing of text using CTRL-+/-.
+
+### Improved
+- Caret and selection colors are now blue instead of red.
+- Altered design for code blocks: No fill color gives clearer text and structure.
+
+
+## [2018.8] - 2018-11-07
+
+### Added
+- A file tree similar to other IDEs; with DnD and other common features.
+- A list of open files which replace "tabs".
+- Obligatory file creation; no more forgetting to save or lost data.
+- Preservation of state; files are re-opened as they were.
+
+### Changed
+- Default project path: \<home>/Documents/George -> \<home>/George.
+
+### Removed
+- Tabbed editors; replaced by "opened" list.
+- Unnamed (unsaved) files; a file must be created.
+
+
+## [2018.7] - 2018-10-14
+
+### Added
+- Added support for ARM Språklab
+
+### Fixed
+- Altered JavaFX initialization mechanism
+- JavaFX is not initialized during compile
+- Fonts are not loaded during compile
+
+### Improved
+- Upgraded some dependencies
+- Replace Thread with future everywhere
+- Enhanced george.javafx
+- Removed some unused files and altered project structure
+
+### Removed
+- Dynamic discovery of applets
+
+
+## [2018.6.2] - 2018-09-07
+
+### Fixed
+- Compiling no longer initializes JavaFX runtime.
+- JavaFX runtime now requires explisit intialization in code. As does pre-loading fonts.
+
+
+## [2018.6.1] - 2018-08-28
+
+### Improved
+- Use `future` everywhere in stead of `Thread(...).start()` for improved performance.
+- Improvements to `george.javafx/alert`
+- Improvements to `george.javafx/stage`
+
+
 ## [2018.6] - 2018-07-10
 
-## Added
+### Added
 - Undo/redo in text-editor
 
 ### Turtle API
@@ -25,10 +92,10 @@ All notable changes to this project will be documented in this file. This change
 
 ## [2018.5] - 2018-02-18
 
-## Added
+### Added
 - A basic DnD filetree, though not activated.
 
-## Fixed
+### Fixed
 - Metadata was being stripped before evaluation.
 
 ### Turtle API

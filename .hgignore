@@ -1,15 +1,21 @@
-# types
-.*.iml
-
-# directories
+# Directories
 .idea/
 target/
+checkouts/
+src_spraklab/*
+wix311-binaries/*
+signtool/*
+javafx-jmods-*/*
+javafx-sdk-*/*
 
-# files
+# Files
 .*.DS_Store
-.lein-repl-history
-.lein-env
+.lein-*
 .nrepl-port
 pom.xml
-src/main/java/module-info.java
-src/main/rsc/app.properties
+src/java/module-info.java
+src/rsc/app.properties
+codesign-*
+
+# Types
+.*.iml

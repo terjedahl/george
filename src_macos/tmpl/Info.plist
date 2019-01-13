@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+
+<!-- 
+    https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/AboutInformationPropertyListFiles.html  
+-->    
+    
+<dict>
+	<key>CFBundleAllowMixedLocalizations</key>
+	<true/>
+
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+
+	<key>CFBundleDisplayName</key>
+	<string>{{ app }}</string>
+
+	<key>CFBundleExecutable</key>
+	<string>{{ app }}</string>
+
+	<key>CFBundleIconFile</key>
+	<string>George.icns</string>
+
+	<key>CFBundleIdentifier</key>
+	<string>{{ identifier }}</string>
+
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+
+	<key>CFBundleName</key>
+	<string>{{ app }}</string>
+
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+
+	<key>CFBundleShortVersionString</key>
+	<string>{{ strict-version }}</string>
+
+    <key>CFBundleVersion</key>
+    <string>{{ ts }}</string>
+    
+	<key>CFBundleSignature</key>
+	<string>????</string>
+
+	
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.education</string>
+	
+    <key>LSMinimumSystemVersion</key>
+	<string>10.12</string>
+	
+    <key>NSHighResolutionCapable</key>
+	<true/>
+
+	<key>NSHumanReadableCopyright</key>
+	<string>2015-2019 Terje Dahl</string>
+
+</dict>
+</plist>
