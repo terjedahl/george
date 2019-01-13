@@ -5,11 +5,11 @@
 
 (ns george.editor.view
   (:require
-    [clojure.pprint :refer [pprint]]
-    [george.javafx.java :as fxj]
     [george.javafx :as fx]
     [george.editor.state :as st]
-    [george.util :as u]
+    [george.util
+     [math :as um]
+     [colls :as uc]]
     [common.george.util.text :as ut])
   (:import
     [org.fxmisc.flowless Cell VirtualFlow]
@@ -19,9 +19,7 @@
     [javafx.scene Node Group]
     [javafx.scene.shape Ellipse Rectangle ArcType StrokeLineCap]
     [javafx.scene.control Label]
-    [java.util List]
-    [javafx.collections ObservableList]
-    [javafx.scene.canvas Canvas] 
+    [javafx.scene.canvas Canvas]
     [javafx.scene.paint Color]))
   
 
@@ -98,7 +96,7 @@
           (.setFont (gutter-font (/ ^double line-height 2))))
         root
         (doto
-          (proxy [Group IGutter] [(fxj/vargs nr-label)]
+          (proxy [Group IGutter] [(into-array (list nr-label))]
             ;; Implements IGutter
             (getGutterWidth []
               (.layout ^Group this)
@@ -134,7 +132,7 @@
   [^StackPane pane chars font-size]
   ;(prn 'layout-texts 'font-size font-size)
   (let [texts (mapv #(new-text % font-size) chars)]
-    (-> pane .getChildren (.setAll ^List texts))
+    (fx/children-set-all pane texts)
     (loop [i 0 x 0.0]
       (when-let [text ^Text (get texts i)]
         (recur (inc i) (-> (doto text (.setTranslateX x)) .getBoundsInParent .getMaxX))))
@@ -266,15 +264,14 @@
 
 
 (defn set-blocks [^StackPane blocks-pane all-ranges mem_ row flow texts line-height]
-  (->  blocks-pane .getChildren .clear)
+  (fx/children-clear  blocks-pane)
   (let [ranges (get all-ranges row)]
     (when-not (empty? ranges)
       (let [spans (find-block-spans ranges mem_ row flow texts)]
         (doseq [[x1 x2 first? last? typ] spans]
-          (-> blocks-pane .getChildren 
-              (.add 
-                (doto (block-line (- x2 x1) line-height first? last? typ)
-                  (fx/set-translate-XY [(int x1) 0])))))))))
+          (fx/children-add blocks-pane
+             (doto (block-line (- x2 x1) line-height first? last? typ)
+               (fx/set-translate-XY [(int x1) 0]))))))))
 
 
 (defn- set-marks
@@ -285,7 +282,7 @@
         [arow acol] anchor-pos
 
         [low ^int high] (sort [caret anchor])
-        do-mark? (partial u/in-range? low (dec high))
+        do-mark? (partial um/in-range? low (dec high))
 
         ^int row-index (st/location->index-- lines [row 0])]
 
@@ -295,18 +292,18 @@
           (when (do-mark? (+ row-index i))
             (let [marking (selection-background-factory w line-height (chars i))]
               (.setTranslateX ^Node marking (- x 0.5)) ;; offset half pixel to left
-              (-> pane .getChildren (.add marking))))
+              (fx/children-add pane marking)))
           (recur (inc i) (+ x w)))))
 
     (when (and (= arow row) caret-visible)
       (let [anchor (anchor-factory line-height)]
         (.setTranslateX anchor (- ^double (calculate-offset texts acol) 0.25))
-        (-> pane .getChildren (.add anchor))))
+        (fx/children-add pane anchor)))
 
     (when (and (= crow row) caret-visible)
       (let [caret ^Node (caret-factory line-height)]
         (.setTranslateX caret (- ^double (calculate-offset texts ccol) 1.0)) ;; negative offset for cursor width
-        (-> pane .getChildren (.add caret))))))
+        (fx/children-add pane caret)))))
 
 
 (defn- highlight-row [^StackPane pane current-row? line-height]
@@ -327,7 +324,8 @@
 
   (highlight-row line-background-pane (current-row-p? row) line-height)
 
-  (->  marks-pane .getChildren .clear)
+  (fx/children-clear  marks-pane)
+
   (when (marked-row-p? row)
     (set-marks ^StackPane marks-pane derived row chars texts line-height)))
 
@@ -399,7 +397,7 @@
 
         scrolling-pane
         (doto
-          (proxy [StackPane IScrollableText] [(fxj/vargs marks-pane blocks-pane text-pane)]
+          (proxy [StackPane IScrollableText] [(into-array (list marks-pane blocks-pane text-pane))]
             ;; Implements IScrollableText
             (getTextColumn [^double offset-x] ;; offset-x already considers scrolled offset
               (let [^double  gw (.getGutterWidth gutter)
@@ -427,7 +425,7 @@
 
 
 (defn new-line-cell [state_ scroll-offset_ flow_ chars]
-  (if (= chars u/*DEL_OBJ*)
+  (if (= chars uc/*DEL_OBJ*)
     (Cell/wrapNode (Rectangle.))  ;; A minimum cell which will be disposed of anyways. For speed.
     (let [k (Object.)
 
@@ -489,7 +487,7 @@
                 (.resizeRelocate ^Region gutter go 0 gw h)
                 (.resizeRelocate  line-background-pane go 0 w h))))]
 
-      (->  node ^ObservableList .getChildren (.setAll ^List (list line-background-pane scrolling-part gutter)))
+      (fx/children-set-all node (list line-background-pane scrolling-part gutter))
 
       (add-watch scroll-offset_ k (constantly (.requestLayout node)))
 

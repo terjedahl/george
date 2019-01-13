@@ -5,8 +5,7 @@
 
 (ns george.editor.input
   (:require 
-    [george.javafx :as fx]
-    [george.util.javafx :as ufx])
+    [george.javafx :as fx])
   (:import
     [javafx.scene.input MouseEvent MouseDragEvent KeyEvent]
     [org.fxmisc.flowless VirtualFlow]))
@@ -114,36 +113,36 @@
   (let [codes (code-actions key-pressed-fn)
         chars (char-actions key-pressed-fn)]
 
-    (fx/event-handler-2 [_ e]
-       (let [e-type (.getEventType e)]
+    (fx/new-eventhandler
+       (let [e-type (.getEventType event)]
 
          (when (= e-type KeyEvent/KEY_PRESSED)
-           (let [combo (ufx/code-modifier-set e)]
+           (let [combo (fx/code-modifier-set event)]
 
              (when-let [f (codes combo)]
                (f)
-               (.consume e))))
+               (.consume event))))
 
          (when (= e-type KeyEvent/KEY_TYPED)
-           (let [combo (ufx/char-modifier-set e)]
+           (let [combo (fx/char-modifier-set event)]
              (doseq [c combo]
                (when (and (char? c) (win-problem-char-set c))
                  ;(println "Handled a problem-char:" c)
                  (char-entered-fn c)
-                 (.consume e)))
+                 (.consume event)))
 
              (when-let [f (chars combo)]
                (f)
-               (.consume e))
+               (.consume event))
 
-             (when-not (.isConsumed e)
+             (when-not (.isConsumed event)
                (when (combo :SHORTCUT)
-                 (.consume e)))
+                 (.consume event)))
 
-             (when-not (.isConsumed e)
-               (when-let [ch (ufx/char-ensured e)]
+             (when-not (.isConsumed event)
+               (when-let [ch (fx/char-ensured event)]
                  (char-entered-fn ch)
-                 (.consume e)))))))))
+                 (.consume event)))))))))
 
 
 (defn- hit-data [^VirtualFlow flow e]
@@ -163,11 +162,10 @@
 
 (defn mouse-event-handler [flow mouse-action-fn]
   (let [mouse-state_ (atom nil)]
-    (fx/event-handler-2
-      [_ e]
+    (fx/new-eventhandler
       (.requestFocus flow)
       (let [
-            e-typ (.getEventType e)
+            e-typ (.getEventType event)
             ;_ (println "  ## e-typ:" e-typ)
             e-typ-kw
             (condp = e-typ
@@ -178,10 +176,10 @@
               MouseEvent/MOUSE_RELEASED :released
               MouseDragEvent/MOUSE_DRAG_RELEASED :drag-released
               nil)
-            sel-or-move (if (.isShiftDown e) :select :move)
-            [_ row col :as hit] (hit-data flow e)]
+            sel-or-move (if (.isShiftDown event) :select :move)
+            [_ row col :as hit] (hit-data flow event)]
         (if hit
           (mouse-action-fn @mouse-state_ e-typ-kw sel-or-move [row col])
           (mouse-action-fn @mouse-state_ e-typ-kw sel-or-move  :end))
-        (.consume e)
+        (.consume event)
         (reset! mouse-state_ e-typ-kw)))))

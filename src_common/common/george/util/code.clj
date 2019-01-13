@@ -3,9 +3,9 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns common.george.code)
+(ns common.george.util.code)
 
-;; TODO: move these two fun macros into a more useful place.
+
 (defmacro code
   "Returns a single string containing the pr-str'd representations of the given expressions, wrapped in a do if more than one.
   Useful for writing expressions to be evaluated in leiningen aliases using 'exec -e'.

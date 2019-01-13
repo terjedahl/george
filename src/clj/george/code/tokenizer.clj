@@ -49,7 +49,7 @@
 
 
 (defn indexing-pushback-stringreader [s]
-    (let [indx (atom 0) s-len (. s length)]
+    (let [indx (atom 0) s-len (.length s)]
         (proxy [LineNumberingPushbackReader
                 IIndex] [(StringReader. s)]
             (read []
@@ -194,7 +194,7 @@
 
 (defn- unread-char [rdr c]
     (when c
-        (. rdr unread (int c))))
+        (.unread rdr (int c))))
 
 
 (defn- peek-char [rdr]
@@ -259,7 +259,7 @@
 
 (defn- read-keyword [rdr _]
     (let [
-          start-index (dec (. rdr getIndex))
+          start-index (dec (.getIndex rdr))
           ch (read-char rdr)
 
           res
@@ -285,7 +285,7 @@
 
              ; we only care about the )
 
-        (Token. start-index (. rdr getIndex) res)))
+        (Token. start-index (.getIndex rdr) res)))
 
 
 
@@ -316,7 +316,7 @@
     "Read in a character literal"
     [rdr _]
     (let [
-            start-index (dec (. rdr getIndex))
+            start-index (dec (.getIndex rdr))
             ch (read-char rdr)
             value
                 (if (nil? ch)
@@ -342,7 +342,7 @@
                             (.startsWith token "o") (parse-octal token token-len)
                             :else  (TokenError. INVALID_CHAR (str "Unsupported character: \\" token)))))]
 
-        (Token. start-index (. rdr getIndex) value)))
+        (Token. start-index (.getIndex rdr) value)))
 
 
 
@@ -377,22 +377,22 @@
 
 (defn- read-string* [rdr _]
     (let [
-             start-index (dec (. rdr getIndex))]
+             start-index (dec (.getIndex rdr))]
 
 
         (loop [sb (StringBuilder.) ch (read-char rdr)]
             (case ch
 
                 nil
-                ;(Token. start-index (. rdr getIndex) (TokenError. EOF "EOF while reading string"))
-                (Token. start-index (. rdr getIndex) (str sb))
+                ;(Token. start-index (.getIndex rdr) (TokenError. EOF "EOF while reading string"))
+                (Token. start-index (.getIndex rdr) (str sb))
                 \\
                 (let [r (escape-char sb rdr)]
                     (if (instance? Token r)
                         r
                         (recur (doto sb (.append r)) (read-char rdr))))
                 \"
-                (Token. start-index (. rdr getIndex) (str sb))
+                (Token. start-index (.getIndex rdr) (str sb))
 
                 ;default
                 (recur (doto sb (.append ch)) (read-char rdr))))))
@@ -402,12 +402,12 @@
 
 (defn- read-number
     [rdr initch]
-    (let [start-index (dec (. rdr getIndex))]
+    (let [start-index (dec (.getIndex rdr))]
         (loop [sb (doto (StringBuilder.) (.append initch)) ch (read-char rdr)]
             (if (or (whitespace? ch) (macros ch) (nil? ch))
                 (let [s (str sb)]
                     (unread-char rdr ch)
-                    (Token. start-index (. rdr getIndex)
+                    (Token. start-index (.getIndex rdr)
                         (if-let [v (match-number s)]
                              v
                             (TokenError. INVALID_NUMBER (str "Invalid number format [" s "]")))))
@@ -418,28 +418,28 @@
 (defn-
     read-delim-char
     [rdr ch]
-    (assoc (Token. (dec (. rdr getIndex)) (. rdr getIndex) (DelimChar. ch))
-        :line (. rdr getLineNumber)))
+    (assoc (Token. (dec (.getIndex rdr)) (.getIndex rdr) (DelimChar. ch))
+        :line (.getLineNumber rdr)))
 
 
 (defn-
     read-macro-char
     [rdr ch]
-    (Token. (dec (. rdr getIndex)) (. rdr getIndex) (MacroChar. ch)))
+    (Token. (dec (.getIndex rdr)) (.getIndex rdr) (MacroChar. ch)))
 
 (defn-
     read-macro-dispatch-char
     [rdr ch]
-    (Token. (dec (. rdr getIndex)) (. rdr getIndex) (MacroDispatchChar. ch)))
+    (Token. (dec (.getIndex rdr)) (.getIndex rdr) (MacroDispatchChar. ch)))
 
 (defn- parse-integer [s]
     (try
         (Integer/parseInt (str s))
-        (catch NumberFormatException nfe nil)))
+        (catch NumberFormatException _ nil)))
 
 (defn- read-arg [rdr pct]
         (let [
-                 start-index (dec (. rdr getIndex))
+                 start-index (dec (.getIndex rdr))
                  sb (StringBuilder. (str pct))
                 token
                 (loop  [sb sb ch (read-char rdr)]
@@ -458,7 +458,7 @@
                         :else
                         (recur (.append sb ch) (read-char rdr))))]
 
-            (Token. start-index (. rdr getIndex) token)))
+            (Token. start-index (.getIndex rdr) token)))
 
 
 (defn- macros [ch]
@@ -477,9 +477,9 @@
 
 (defn- read-symbol
     [rdr initch]
-    (let [start-index (dec (. rdr getIndex))]
+    (let [start-index (dec (.getIndex rdr))]
         (when-let [token (read-token rdr initch)]
-            (Token. start-index (. rdr getIndex)
+            (Token. start-index (.getIndex rdr)
                 (case token
                     ;; special symbols
                     "nil" :nil ;nil

@@ -1,7 +1,6 @@
 (ns george.editor.readers.core
   (:require
     [clojure.pprint :refer [pprint]]
-    [george.util :as u]
     [common.george.util.text :as ut]))
 
 

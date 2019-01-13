@@ -15,6 +15,7 @@
      [output :refer [oprint oprintln output-showing?]]]
     [george.javafx :as fx]
     [common.george.util.text :as ut]
+    [common.george.util.cli :refer [err errln]]
     [george.code.tokenizer :refer [indexing-pushback-stringreader]])
   (:import
     [javafx.scene.layout GridPane Priority]
@@ -67,61 +68,60 @@
 (defn- update-type-in-parsed [orig]
   ;(println "/update-orig orig:" orig)
   (try (resolve orig)
-       (catch Throwable t orig)))
+       (catch Throwable _ orig)))
        ;(catch Throwable t (.printStackTrace t))))
 
 
 (defn- process-error [e F L C]
-  (binding [*out* *err*]
-    (let [raw-exception-data
-          (if e
-            (parse-exception e)
-            (->
-              (repl/eval-do
-                :code "(clj-stacktrace.core/parse-exception *e)"
-                :session (repl/session))
-              first
-              :value
-              read-string))
-
-          exception-data
+  (let [raw-exception-data
+        (if e
+          (parse-exception e)
           (->
-            raw-exception-data
-            (update-in [:class] update-type-in-parsed)
-            ((fn [m]
-               (if (-> m :cause :class)
-                 (update-in m [:cause :class] update-type-in-parsed)
-                 m))))
+            (repl/eval-do
+              :code "(clj-stacktrace.core/parse-exception *e)"
+              :session (repl/session))
+            first
+            :value
+            read-string))
 
-          exception-str
-          (format "%s:\n    %s" (.getName ^Class (:class exception-data)) (:message exception-data))
-          stacktrace-str
-          (pst-str exception-data)
-          caused-by-str
-          (if-let [cause (:cause exception-data)]
-            (format "Caused by:\n    %s %s\n" (:class cause) (:message cause))
-            "")
-          location-str (format "In file:\n    %s\nStarting at:\n    row: %s  column: %s" F L C)]
+        exception-data
+        (->
+          raw-exception-data
+          (update-in [:class] update-type-in-parsed)
+          ((fn [m]
+             (if (-> m :cause :class)
+               (update-in m [:cause :class] update-type-in-parsed)
+               m))))
 
-      ;; print to Output
-      ;(pprint exception-data)
-      (println stacktrace-str)
-      (println "=================")
-      (println "An error occurred")
-      (println "=================")
-      (println (format "%s\n\n%s\n%s\n" exception-str caused-by-str location-str))
+        exception-str
+        (format "%s:\n    %s" (.getName ^Class (:class exception-data)) (:message exception-data))
+        stacktrace-str
+        (pst-str exception-data)
+        caused-by-str
+        (if-let [cause (:cause exception-data)]
+          (format "Caused by:\n    %s %s\n" (:class cause) (:message cause))
+          "")
+        location-str (format "In file:\n    %s\nStarting at:\n    row: %s  column: %s" F L C)]
 
-      ;; maybe show dialog
-      (when-not (output-showing?)
-        (fx/now
-          (exception-dialog
-            ;; header
-            (.getName ^Class (:class exception-data))
-            ;; info-area
-            (format "%s\n\n%s\n%s\n" (:message exception-data) caused-by-str location-str)
-            ;; details
-            stacktrace-str))))
-    (println)))
+    ;; print to Output
+    ;(pprint exception-data)
+    (errln stacktrace-str)
+    (errln "=================")
+    (errln "An error occurred")
+    (errln "=================")
+    (errln (format "%s\n\n%s\n%s\n" exception-str caused-by-str location-str))
+
+    ;; maybe show dialog
+    (when-not (output-showing?)
+      (fx/now
+        (exception-dialog
+          ;; header
+          (.getName ^Class (:class exception-data))
+          ;; info-area
+          (format "%s\n\n%s\n%s\n" (:message exception-data) caused-by-str location-str)
+          ;; details
+          stacktrace-str)))
+    (errln)))
 
 
 (defn- process-response
@@ -147,8 +147,7 @@
       (print o) (flush))
 
     (when-let [o (:err res)]
-      (binding [*out* *err*]
-        (print o) (flush)))
+      (err o))
 
     ns))
 

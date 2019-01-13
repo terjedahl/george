@@ -5,32 +5,22 @@
 
 (ns george.application.launcher
   (:require
-    [george.application.core :as core]
     [clojure.repl :refer [doc]]
     [clojure.java
-     [io :as cio]
      [browse :refer [browse-url]]]
-
     [environ.core :refer [env]]
-
     [g]
-    
     [george
      [javafx :as fx]
      [applet :as applet]]
-
-    [george.javafx.java :as fxj]
-
+    [george.application.core :as core]
+    [george.application.repl-server :as repl-server]
     [george.application.ui
      [stage :as ui-stage]
      [layout :as layout]
      [styled :as styled :refer [hr padding]]]
-
     [george.util.singleton :as singleton]
-    [george.application.repl-server :as repl-server]
-
-    [common.george.launch.properties :as p])
-
+    [common.george.config :as c])
   (:import
     [javafx.geometry Rectangle2D]
     [javafx.stage Stage]
@@ -64,7 +54,7 @@ Powered by open source software.")
 (defn george-version-ts []
   ;(slurp (cio/resource "george-version.txt")))
   ;(slurp (resource "george-version.txt")))
-  (let [{:keys [version ts]} (p/this-props)]
+  (let [{:keys [version ts]} (c/this-props)]
     [version ts]))
 
 
@@ -99,7 +89,7 @@ Powered by open source software.")
       (fx/stage
          :style :utility
          :sizetoscene true
-         :title (str "About " (p/this-app))
+         :title (str "About " (c/this-app))
          :onhidden #(singleton/remove ABOUT_STAGE_KW)
          :resizable false
          :scene (fx/scene root)))))
@@ -168,9 +158,11 @@ Powered by open source software.")
             (.setStyle (format "-fx-background-radius: %s;" arc))
             (.setFocusTraversable false)
             (.setContextMenu
-              (ContextMenu. (fxj/vargs
-                              (doto (MenuItem. (format "Dispose of (quit) '%s'" (label)))
-                                    (fx/set-onaction dispose-fn))))))
+              (ContextMenu.
+                (into-array
+                  (list
+                    (doto (MenuItem. (format "Dispose of (quit) '%s'" (label)))
+                          (fx/set-onaction dispose-fn)))))))
           (doto (fx/new-label (label)
                               :size label-font-size)
                 (.setMaxWidth tile-width)
@@ -199,7 +191,7 @@ Powered by open source software.")
                           (.setFitWidth tile-width)
                           (.setFitHeight tile-width)) 
            :tooltip  "\"home\""
-           :mouseclicked  #(detail-setter (styled/new-heading (p/this-app) :size 24)))
+           :mouseclicked  #(detail-setter (styled/new-heading (c/this-app) :size 24)))
 
         about-label
         (fx/new-label "About" 
@@ -317,7 +309,7 @@ Powered by open source software.")
     (fx/later
       ;; TODO: prevent fullscreen.  Where does the window go after fullscreen?!?
       (doto stage
-        (.setTitle (p/this-app))
+        (.setTitle (c/this-app))
         (.setResizable true)
         (core/set-application-stage)
         (fx/setoncloserequest (stage-close-handler stage dispose-fn))))))

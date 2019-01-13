@@ -4,10 +4,10 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns
-  george.core.visual
+  labs.visual
   (:require
     [george.javafx :as fx]
-    [george.javafx.3d :as fx3d])
+    [labs.3d :as fx3d])
   (:import 
     [javafx.scene DepthTest PerspectiveCamera CacheHint]
     [javafx.scene.transform Translate Rotate]

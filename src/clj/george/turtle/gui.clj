@@ -8,7 +8,6 @@
   This includes facilities for handling stage, menus and more."}
   george.turtle.gui
   (:require
-    [george.javafx.java :as fxj]
     [george.javafx :as fx]
     [clojure.java.io :as cio])
   (:import
@@ -95,7 +94,7 @@
   (let [png-mime "image/png"
         png
         (if-let [df (DataFormat/lookupMimeType png-mime)]
-          df (DataFormat. (fxj/vargs png-mime)))
+          df (DataFormat. (into-array (list png-mime))))
         tempfile
         (write-image-to-tempfile image)
         cc
@@ -170,23 +169,23 @@ One might in future choose to save the 'initial directory' so as to return user 
   (put-image-on-clipboard (screenshot scene) (format "<%s>" SCREENSHOT_BASE_FILENAME)))
 
 
-
 (defn set-cm-menu-on-stage [stage]
   (let [scene (.getScene stage)
         root (.getRoot scene)
         cm
         (ContextMenu.
-          (fxj/vargs
-            (doto (MenuItem. "Copy screenshot to clipboard")
-              (.setOnAction (fx/event-handler-2 [_ e] (copy-screenshot-to-clipboard scene))))
-            (doto (MenuItem. "Save screenshot to file ...")
-              (.setOnAction (fx/event-handler-2 [_ e] (save-screenshot-to-file scene))))))
+          (into-array
+            (list
+             (doto (MenuItem. "Copy screenshot to clipboard")
+               (.setOnAction (fx/new-eventhandler (copy-screenshot-to-clipboard scene))))
+             (doto (MenuItem. "Save screenshot to file ...")
+               (.setOnAction (fx/new-eventhandler (save-screenshot-to-file scene)))))))
 
         cm-handler
-        (fx/event-handler-2 [_ e]
+        (fx/new-eventhandler
                             (.show cm root
-                                   (.getScreenX e)
-                                   (.getScreenY e)))]
+                                   (.getScreenX event)
+                                   (.getScreenY event)))]
 
     (.setOnContextMenuRequested scene cm-handler)
     stage))

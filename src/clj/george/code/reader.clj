@@ -1246,7 +1246,7 @@
 
 (defn indexing-pushback-stringreader [s]
     (let [indx (atom 0)
-          s-len (. s length)]
+          s-len (.length s)]
 
         (proxy [PushbackReader IIndex IUnread] [(StringReader. s) (if (== 0 s-len) 1 s-len)]
             (read []
@@ -1275,8 +1275,8 @@
                          len (- i-prev i)
                          ss (.substring s i i-prev)]
 
-                    (. this  unread
-                        (. ss toCharArray) 0 len))))))
+                    (.unread this
+                        (.toCharArray ss) 0 len))))))
 
 
 

@@ -6,7 +6,6 @@
 (ns george.application.ui.styled
   (:require
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
     [clojure.string :as cs]
     [clojure.java 
      [io :as cio]
@@ -17,7 +16,8 @@
     [javafx.stage Stage]
     [javafx.scene.image Image]
     [javafx.scene.control Hyperlink ProgressIndicator]
-    [javafx.scene.web WebView WebEvent]))
+    [javafx.scene.web WebView WebEvent]
+    [java.util Collection]))
 
 
 (defn ns-label []
@@ -68,9 +68,9 @@
      (-> stage
        .getIcons
        (.setAll
-         (fxj/vargs*
-           (map #(Image. (format "graphics/George_icon_%s.png" %))
-                 [16 32 64 128 256])))))
+         ^Collection
+         (map #(Image. (format "graphics/George_icon_%s.png" %))
+               [16 32 64 128 256]))))
   stage)
 
 
@@ -186,7 +186,7 @@ hljs.initHighlightingOnLoad();
   (doto webview
     (-> .getEngine 
         (.setOnStatusChanged 
-          (fx/event-handler-2 [_ e] (handler-fn e))))))
+          (fx/new-eventhandler (handler-fn event))))))
 
 
 (defn set-content [^WebView webview ^String content]

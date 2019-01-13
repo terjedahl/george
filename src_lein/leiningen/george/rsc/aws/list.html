@@ -28,12 +28,12 @@
 
 //document.write(window.location.search);
 
-function getSpace(s,l){
-var ret = "";
-while(s.length+ret.length<l){
-  ret = ret + " ";
-}
-return ret;
+function getSpace(s, l) {
+    var ret = "";
+    while(s.length + ret.length < l) {
+      ret = ret + " ";
+    }
+    return ret;
 }
 
 
@@ -123,12 +123,12 @@ fileList.sort(getSort());
 for(i=0; i<fileList.length; i++){ //length is the same as count($array)
         fileData = fileList[i];
         name = fileData[0];
-        size = fileData[1];
+        size = Number(fileData[1]).toLocaleString();
         lastmod = fileData[2];
         link = fileData[3];
-        res = res +  getSpace(size,15) +size + " B ";
-        res = res + "  "+ getSpace(lastmod,20)+ lastmod + " ";
-        res = res + "  "+ link+ getSpace(name,50) + " ";
+        res = res +  getSpace(size, 15) + size + " B ";
+        res = res + "  " + getSpace(lastmod, 20)+ lastmod + " ";
+        res = res + "  " + link + getSpace(name, 50) + " ";
         res = res + "<BR>";
 }
 

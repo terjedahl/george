@@ -137,7 +137,7 @@
 ;;;;;;
 
 (defn- test-linestarts []
-  (let [sb (StringBuilder. ^String (slurp (cio/resource "texts/triangle.clj")))
+  (let [;sb (StringBuilder. ^String (slurp (cio/resource "texts/triangle.clj")))
         sb (StringBuilder. "")
         ;sb (time (StringBuilder. ^String (slurp (cio/resource "texts/text-180k.html"))))
         lines-at (time (line-start-indexes sb))

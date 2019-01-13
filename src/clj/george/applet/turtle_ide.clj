@@ -8,7 +8,6 @@
     [george.applet :refer [->AppletInfo]]
 
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
 
     [george.application
      [environment :as ide]]
@@ -52,11 +51,11 @@
                                :x2 x2
                                :y2 y2
                                :color Color/DODGERBLUE)
-                  (-> .getStrokeDashArray (.setAll (fxj/vargs 5. 5.))))
+                  (-> .getStrokeDashArray (.setAll (into-array (list 5. 5.)))))
                 trtl)
 
-          (.setOnMouseEntered (fx/event-handler (.play t)))
-          (.setOnMouseExited (fx/event-handler (.pause t))))]
+          (.setOnMouseEntered (fx/new-eventhandler (.play t)))
+          (.setOnMouseExited (fx/new-eventhandler (.pause t))))]
     g))
 
 

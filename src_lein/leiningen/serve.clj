@@ -7,7 +7,10 @@
   "Start a web server in the current or specified directory, on specified port or 8080"
   (:require
     [clojure.pprint :refer [pprint]]
-    [leiningen.george.core :as g])
+    ;; src_lein
+    [leiningen.george.load-common]
+    ;; src_common
+    [common.george.util.cli :refer [warn except error]])
   (:import
     [org.eclipse.jetty.server Handler Server]
     [org.eclipse.jetty.server.handler DefaultHandler HandlerList ResourceHandler AbstractHandler]
@@ -17,7 +20,7 @@
 (defn- static-file-handler [base-dir]
   (doto (ResourceHandler.)
         (.setDirectoriesListed true)
-        (.setWelcomeFiles (into-array ["index.html"]))
+        (.setWelcomeFiles (into-array (list "index.html")))
         (.setResourceBase base-dir)))
         ;(.setResourceBase ".")))
 
@@ -57,7 +60,7 @@
                         
                         ;; else
                         (let [m (format "Unknown command: %s" target)]
-                          (binding [*out* *err*] (println m))
+                          (except m)
                           m))))))))
 
 
@@ -110,4 +113,4 @@ Starts a web server in the specified directory (defaults to current), listening 
     (try
       (run-server)
       (catch BindException _
-        (g/error "Error: Start failed. Port already in use.")))))
+        (error "Start failed. Port already in use.")))))

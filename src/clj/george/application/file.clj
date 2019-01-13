@@ -9,12 +9,13 @@
   (:require
     [clojure.java.io :as cio]
     [george.javafx :as fx]
-    [george.util.file :as guf]
-    [george.application.config :as conf]
-    [george.util.time :as t]
-    [george.application.output :refer [oprintln]]
-    [george.application.core :as core])
-  (:import 
+    [george.application.core :as core]
+    [common.george.config :as c]
+    [common.george.launch.props :as p]
+    [common.george.util
+     [cli :refer [except]]
+     [files :as f]])
+  (:import
     [java.io File]))
 
 
@@ -36,7 +37,7 @@
 
 (defonce clj-filechooser
          (doto (apply fx/filechooser (fx/filechooser-filters-clj))
-               (.setInitialDirectory (conf/documents-dir))))
+           (.setInitialDirectory (c/documents-dir))))
 
 
 (defn select-file-for-open
@@ -48,7 +49,7 @@
                (try (.showOpenDialog fc owner)
                     (catch IllegalArgumentException _
                            (show-something-missing-alert :folder)
-                           (.setInitialDirectory fc (conf/documents-dir))
+                           (.setInitialDirectory fc (c/documents-dir))
                            (select-file-for-open)))]
       ;; leave the filechooser in a useful location
       (.setInitialDirectory clj-filechooser (.getParentFile f))
@@ -63,9 +64,9 @@
         owner (core/get-application-stage)]
     (when-let [^File f
                (try (.showSaveDialog fc owner)
-                    (catch IllegalArgumentException e
+                    (catch IllegalArgumentException _
                       (show-something-missing-alert :folder)
-                      (.setInitialDirectory fc (conf/documents-dir))
+                      (.setInitialDirectory fc (c/documents-dir ))
                       (create-file-for-save)))]
 
       (.setInitialDirectory clj-filechooser (.getParentFile f))
@@ -103,7 +104,7 @@
       (fx/now
         (when alert?
           (show-something-missing-alert :swap-dir))
-        (oprintln :err "Directory missing: " (str d))
+        (except "Directory missing: " (str d))
         false)))
 
 
@@ -111,11 +112,11 @@
   "Creates a swap-file in same location as f, and returns it.
   If parent-dir doesn't exist, then it returns nil."
   [f alert?]
-  (let [d (guf/parent f)
+  (let [d (f/parent f)
         n (.getName f)
         f (cio/file d (swap-wrap n))]
     (when (parent-dir-exists-or-alert-print d alert?)
-          (guf/ensure-file f))))
+      (f/ensured-file f))))
 
 
 (defn swap-file-exists-or-alert-print [^File swapf alert?]
@@ -124,5 +125,5 @@
     (fx/now
       (when alert?
         (show-something-missing-alert :swap-file))
-      (oprintln :err "Swap file missing: " (str swapf))
+      (except "Swap file missing: " (str swapf))
       false)))

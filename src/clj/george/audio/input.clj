@@ -203,9 +203,7 @@ It there a need / purpose for for this, though, as long as whatever data they ar
     (when (not= o n)
        ; (println "selected-MID-watcher MID changed:" n)
         (doseq [pane @selected-input-panes-atom]
-            (fx/set-all pane
-                       (doto (create-monitor-pane n)
-                           (set-active))))))
+            (fx/children-set-all pane (list (doto (create-monitor-pane n) (set-active)))))))
 
 
 
@@ -475,7 +473,7 @@ It there a need / purpose for for this, though, as long as whatever data they ar
                 ;(pprint MID)
                 (when-not (monitor-MIDs-set m)
                     (println "adding monitor for MID:" m)
-                    (fx/add monitors-vbox
+                    (fx/children-add monitors-vbox
                             (create-radiobutton-monitor-pane
                                 m
                                 (-> monitors-vbox .getUserData :togglegroup))))
@@ -530,7 +528,7 @@ It there a need / purpose for for this, though, as long as whatever data they ar
 (defn selected-input-pane []
     (let [pane (fx/group)]
         (refresh-MIDs)
-        (fx/set-all pane (create-monitor-pane (get-selected-MID)))
+        (fx/children-set-all pane (list (create-monitor-pane (get-selected-MID))))
         ;; FIX: Memory leak: The panes aren't removed again when disposed of
         (swap! selected-input-panes-atom conj pane)
         pane))

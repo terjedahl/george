@@ -11,24 +11,23 @@
 
   (:require
     [clojure.core.async :refer [>!! <! chan timeout sliding-buffer thread go go-loop close!]]
+    [clojure.java.io :as cio]
     [environ.core :refer [env]]
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
     [george.application.ui.styled :as styled]
     [george.editor.core :as ed]
     [george.application.input :as input]
-    [george.application.output :refer [oprint oprintln]]
     [george.application.ui.layout :as layout]
-    [george.util :as u]
-    [george.util.file :as guf :refer [->file ->path ->string filename]]
     [george.application.file :as gaf]
-    [clojure.java.io :as cio])
+    [common.george.util
+     [platform :as pl]
+     [files :refer [to-file to-path to-string filename parent delete]]])
   (:import
     [javafx.scene.control SplitMenuButton]
     [javafx.geometry Side]
     [javafx.scene.input KeyEvent]
     [javafx.scene.text TextFlow Text]
-    [java.util List]))
+    [java.util List Collection]))
 
 
 (defn save-to-swap-channel []
@@ -74,8 +73,8 @@
       path
       (when 
         (try 
-          (cio/copy (->file swap-path) (->file path))
-          (guf/delete swap-path)
+          (cio/copy (to-file swap-path) (to-file path))
+          (delete swap-path)
           true
           (catch Exception e (.printStackTrace e) 
             false))
@@ -92,18 +91,18 @@
   [editor file-info_]
   (let [{:keys [path swap-path]} @file-info_
         p (or swap-path
-              (->path (gaf/create-swap (->file path) (alert-on-missing-dir file-info_))))         
+              (to-path (gaf/create-swap (to-file path) (alert-on-missing-dir file-info_))))
         content (ed/text editor)]
     ;(prn 'save-to-swap)    
-    (if-not (gaf/swap-file-exists-or-alert-print (->file p) (alert-on-missing-swap file-info_))
+    (if-not (gaf/swap-file-exists-or-alert-print (to-file p) (alert-on-missing-swap file-info_))
       (set-alert-on-missing-swap file-info_ false)
       (do
-        (spit (->file p) content)
+        (spit (to-file p) content)
         (swap! file-info_ assoc :saved-to-swap? true :saved? false :swap-path p)
         (when-not (alert-on-missing-dir file-info_)
-          (oprintln :out "Directory available:" (str (guf/parent p))))
+          (println "Directory available:" (str (parent p))))
         (when-not (alert-on-missing-swap file-info_)
-          (oprintln :out "Swap file available:" (str p)))
+          (println "Swap file available:" (str p)))
 
         (set-alert-on-missing-dir file-info_ true)
         (set-alert-on-missing-swap file-info_ true)))
@@ -162,7 +161,7 @@
           (.setPopupSide Side/TOP)
           (fx/set-tooltip
             (format "Load code: %s-L       (Silent)                     
- Run code: %s-ENTER   (Verbose)" u/SHORTCUT_KEY u/SHORTCUT_KEY)))
+ Run code: %s-ENTER   (Verbose)" (pl/shortcut-key) (pl/shortcut-key))))
         
         bar
         (layout/menubar false
@@ -192,7 +191,7 @@
         
     (doto eval-button
       (fx/set-onaction  do-load-fn)
-      (-> .getItems (.addAll (fxj/vargs (layout/menu [:item "Run" do-eval-fn])))))
+      (-> .getItems (.addAll ^Collection (list (layout/menu [:item "Run" do-eval-fn])))))
 
     {:eval-bar bar
      :do-eval-fn do-eval-fn
@@ -202,7 +201,7 @@
 
 (defn- path-indicate [textflow file-info]
   (let [path      (:path file-info)
-        path-str  (->string path)
+        path-str  (to-string path)
         nam       (filename path)
         dir-txt   (doto (Text. (-> path str (subs 0 (- (count path-str) (count nam)))))
                         (.setStyle "-fx-font-size: 14; -fx-fill: gray;"))

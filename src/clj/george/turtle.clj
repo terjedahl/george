@@ -29,14 +29,14 @@
 "}
 
   (:require
+    [clojure.string :as cs]
     [defprecated.core :as depr]
     [flatland.ordered.map :refer [ordered-map]]
     [george.javafx :as fx]
-    [george.javafx.util :as fxu]
-    [george.util :as gu]
-    [clojure.string :as cs]
+    [george.util.math :as um]
     [george.turtle.extra :as aux]
-    [george.application.core :as core])
+    [george.application.core :as core]
+    [common.george.util.cli :refer [warn]])
   (:import
     [javafx.scene.paint Color]
     [javafx.scene Group Node Scene]
@@ -46,7 +46,7 @@
     [javafx.geometry VPos]
     [javafx.scene.transform Rotate]
     [javafx.animation Timeline Animation Animation$Status]
-    [clojure.lang Atom]))
+    [clojure.lang Atom RT]))
 
 "UCB Logo commands (to be) implemented:
 (ref: https://people.eecs.berkeley.edu/~bh/usermanual )
@@ -210,15 +210,15 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
 
 (defn- add-now [parent node]
-  (fx/now (fx/add parent node)))
+  (fx/now (fx/children-add parent node)))
 
 
 (defn- add-later [parent node]
-  (fx/later (fx/add parent node)))
+  (fx/later (fx/children-add parent node)))
 
 
 (defn- set-now [parent node]
-  (fx/now (fx/set-all parent node)))
+  (fx/now (fx/children-set-all parent (list node))))
 
 
 (defn flip-Y
@@ -349,7 +349,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
      (let [[prev-state nodes] popped]
        (set-state turtle prev-state)
        (doseq [^Node n nodes]
-         (fx/later (fx/remove (.getParent n) n)))
+         (fx/later (fx/children-remove (.getParent n) n)))
        1)
      0)))
 
@@ -379,7 +379,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
           turtle-or-xy-start-position)
         w (double (- x start-x))
         h (double (- y start-y))]
-    (fxu/hypotenuse w h))))
+    (um/hypotenuse w h))))
 
 
 (defn turn-to
@@ -622,11 +622,9 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
         
         speed
         (if (and speed0 (fx/fxthread?))
-            (binding [*out* *err*]
-              (println "Warning! using speed 'nil'")
-              (println "  (Animated movements not allowed on FX application thread.
-  Wrap movement in 'future' or Thread, or set turtle's speed to 'nil')")
-              nil)
+            (warn "Using speed 'nil'
+   (Animated movements not allowed on FX application thread.
+    Wrap movement in 'future' or Thread, or set turtle's speed to 'nil')")
             speed0)
             
         duration
@@ -634,7 +632,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
           (let [
                 diff-x (- stop-x start-x)
                 diff-y (- stop-y start-y)
-                dist (fxu/hypotenuse diff-x diff-y)]
+                dist (um/hypotenuse diff-x diff-y)]
             ;; 500 px per second is "default"
             (* (/ (Math/abs (double dist))
                   (* 500. (double speed)))
@@ -645,7 +643,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
     
     (when line
       (fx/now
-        (fx/add parent line)
+        (fx/children-add parent line)
         (.toFront node)))
     
     (if duration
@@ -710,7 +708,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
         ;_ (println "  ## forward heading:" heading)
         [^double x ^double y] (get-position turtle)
         ;_ (println "  ## forward pos:" pos)
-        [^double x-fac ^double y-fac] (fxu/degrees->xy-factor heading)]
+        [^double x-fac ^double y-fac] (um/degrees->xy-factor heading)]
     
     (move-to turtle 
              [(+ x (* dist x-fac)) 
@@ -889,12 +887,12 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
        (-> @turtle 
            :group 
            (.setOnMouseClicked 
-             (fx/event-handler-2 [_ e]
+             (fx/new-eventhandler
                (when-let [f (:onclick @turtle)]
                  ;; 'future' both ensures that the gui remains responsive 
                  ;; and that turtle-commands are initially off the fxthread (for animation issues)
                  (future (f))
-                 (.consume e))))) 
+                 (.consume event)))))
                    
 
        
@@ -1291,35 +1289,6 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
     node))
 
 
-;(defn- set-node_
-;  "Applied to deref-ed turtle."
-;  [turt node  & [[off-x off-y]]]
-;  (let [g
-;        (:group turt)
-;        n 
-;        (cond 
-;          (sequential? node)    (fx/now (fx/group* (map remove-parent node)))
-;          (instance? Node node) (remove-parent g))]
-;    (when (and off-x off-y)
-;      (fx/set-translate-XY n [off-x (- off-y)]))
-;    (set-now g n)))
-
-
-
-
-
-;(defn- set-node_
-;  "Applied to deref-ed turtle."
-;  [turt node]
-;  (let [g (:group turt)]
-;    (cond
-;      (sequential? node)    
-;      (fx/now (fx/set-all* g (map remove-parent node)))
-;      
-;      (instance? Node node)
-;      (set-now g (remove-parent node)))))
-
-
 (defn set-shape
   "Sets the \"node\" for the turtle. 'node' can be any JavaFX Node."
  ([node-or-shapes]
@@ -1347,7 +1316,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   [turt]
   (when-let [p (get-parent_ turt)]
     (fx/now
-      (fx/remove p (:group turt)))))
+      (fx/children-remove p (:group turt)))))
 
 
 (defn- set-parent_
@@ -1434,8 +1403,8 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
       (let [step-len0 (/ radius 5.)
             step-len 
             (if (pos? step-len0)  ;; a 5th of radius is pretty good, min 1, max 5
-              (gu/clamp-double 1.5 step-len0 15.)
-              (gu/clamp-double -15. step-len0 -1.5))
+              (um/clamp-double 1.5 step-len0 15.)
+              (um/clamp-double -15. step-len0 -1.5))
             circumference (* 2 radius Math/PI)  ;; if 360 degrees
             travel (* circumference (/ (Math/abs degrees) 360.)) ;; how much of the circ. we will travel
             step-cnt (/ travel step-len) ;; break travel into tiny (hardly visible steps).
@@ -2219,8 +2188,7 @@ There are a number of optional ways to set font:
      (let [positions# (map flip-Y (-> ~t deref :positions))
            moves# (count positions#)]
        (if (< moves# 3)
-         (binding [*out* *err*] 
-           (printf "Warning! The turtle used for 'filled' needs to move at least twice. Got %s\n" (dec moves#)))
+         (warn (format "The turtle used for 'filled' needs to move at least twice. Got %s\n" (dec moves#)))
          ;; Get the turtles fill.  (Setting fill to nil is a way of preventing fill)
          (when-let [fill# (get-fill ~t)]
            ;; Build a polygon
@@ -2228,7 +2196,7 @@ There are a number of optional ways to set font:
                            (flatten [positions# :fill (aux/to-color fill#) :stroke nil]))]
              (append-undo-maybe ~t (get-state ~t) [p#])
              ;; We insert the polygon at the layer the turtle was at start.
-             (fx/now (fx/add-at (get-parent ~t) layer# p#))
+             (fx/now (fx/children-add (get-parent ~t) layer# p#))
              (append-grouped-maybe [p#]))))
        ;; Stop further logging of positions
        (swap! ~t dissoc :positions)
@@ -2453,7 +2421,7 @@ If you need to get the count in the body, then use the standard Clojure `dotimes
 See topic [Clojure](:Clojure) for more information."
 
   [n & body]
-  `(let [n# (try (clojure.lang.RT/longCast ~n)
+  `(let [n# (try (RT/longCast ~n)
                  (catch Exception ~'e
                    (throw (IllegalArgumentException.
                             (format "First argument to `rep` must be a number. Cannot convert '%s' to number." ~n)
@@ -2749,12 +2717,12 @@ See topic [Clojure](:Clojure) for more information."
        (-> @screen
            :pane
            (.setOnMouseClicked
-             (fx/event-handler-2 [_ e]
+             (fx/new-eventhandler
                (when-let [f (:onclick @screen)]
                  ;; 'future' both ensures that the gui remains responsive 
                  ;; and that turtle-commands are initially off the fxthread (for animation issues)
                  (future (f))
-                 (.consume e)))))
+                 (.consume event)))))
 
        screen)))
 

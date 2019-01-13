@@ -244,16 +244,15 @@ paired-tokens: seq of vectors of paired tokens: [[Token0 Token4][Token1 Token3]]
           last-hovered-index_ (atom nil)
 
           begin-handler
-          (fx/event-handler-2
-            [_ e]
+          (fx/new-eventhandler
             ;(println "  ## begin-handler")
             (swap! last-hovered-index_
                    set-hover codearea @tokenindex_ false)
             (reset! last-hovered-index_
-                  (set-hover (.getCharacterIndex e) codearea @tokenindex_ true)))
+                  (set-hover (.getCharacterIndex event) codearea @tokenindex_ true)))
 
           end-handler
-          (fx/event-handler (println "  ## end-handler"))
+          (fx/new-eventhandler (println "  ## end-handler"))
 
           changelistener
           (codearea-changelistener codearea tokenindex_)]

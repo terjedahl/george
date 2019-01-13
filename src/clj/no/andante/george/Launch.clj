@@ -4,16 +4,17 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns no.andante.george.Launch
-
   (:require
     [clojure.java.io :as cio]
     [george.javafx :as fx]
-    [george.launch.load :refer [run-jar]]
-    [common.george.launch
-     [config :as c]
-     [properties :as p]
-     [utils :refer [download]]]
-    [common.george.files :as f])
+    [george.launch
+     [load :refer [run-jar]]
+     [core :as core]]
+    [common.george.config :as c]
+    [common.george.launch.props :as p]
+    [common.george.util
+     [files :as f]
+     [cli :refer [debug info exit]]])
   (:import
     [javafx.scene Node Scene]
     [javafx.scene.control ProgressIndicator ProgressBar Label]
@@ -22,7 +23,6 @@
     [javafx.application Platform]
     [javafx.geometry Insets]
     [javafx.stage Stage])
-
   (:gen-class
     :name no.andante.george.Launch
     :main true))
@@ -30,7 +30,7 @@
 
 (defn- loader-root []
   (doto
-    (StackPane. (into-array [(ProgressIndicator.)]))
+    (StackPane. (into-array (list (ProgressIndicator.))))
     ;(.setPrefSize 200 80)
     (.setPrefSize 240 120)
     (.setPadding (Insets. 10))))
@@ -41,7 +41,7 @@
                   (.setStyle "-fx-pref-width: 200;"))
         label (doto (Label. "Updating ...")
                     (.setStyle "-fx-font-weight: bold;"))
-        box (doto (VBox. (into-array Node [label bar]))
+        box (doto (VBox. (into-array Node (list label bar)))
                   (.setStyle "-fx-spacing: 10; -fx-padding: 25;"))]
     
     [box label bar]))
@@ -55,9 +55,7 @@
     (let [[box label bar] (updater)
           root (-> @screen_ :stage .getScene .getRoot)]
       (Platform/runLater
-        #(doto (.getChildren root) 
-               (.clear)
-               (.add box)))
+        #(-> root fx/children-clear (fx/children-add box)))
       
       (swap! screen_ assoc :text label :bar bar)
       [label bar])))
@@ -77,7 +75,7 @@
 
 
 (defn- update-text [s]
-  (println "[UPDATE]:" s)
+  (info "[UPDATER]" s)
   (when-let [[label _] (ensure-updater)]
     (Platform/runLater
       #(.setText label s))))
@@ -90,7 +88,7 @@
     #(let [stage 
              (doto (Stage.)
                    (.setTitle "Launch")
-                   (.setScene (Scene. (StackPane. (into-array [(loader-root)]))))      
+                   (.setScene (Scene. (StackPane. (into-array (list (loader-root))))))
                    (.show))]
        (reset! screen_ {:stage stage}))))
 ;(init-launch-screen)
@@ -106,31 +104,41 @@
 
 
 (defn- no-gui? [args]
-  ((set args) "--no-gui"))
+  (let [args- (set args)]
+    (or (args- "--no-gui") (args- ":no-gui"))))
 
 
 (defn- no-check? [args]
-  ((set args) "--no-check"))
+  (let [args- (set args)]
+    (or (args- "--no-check") (args- ":no-check"))))
 
 
 (defn- no-installed-check? [args]
   (let [args- (set args)]
-    (or (args- "--no-check") (args- "--no-installed-check"))))
+    (or (args- "--no-check") (args- ":no-check")
+        (args- "--no-installed-check") (args- ":no-installed-check"))))
 
 
 (defn- no-online-check? [args]
   (let [args- (set args)]
-    (or (args- "--no-check") (args- "--no-online-check"))))
+    (or (args- "--no-check") (args- ":no-check")
+        (args- "--no-online-check") (args- ":no-online-check"))))
+
+
+(defn- help? [args]
+  (#{"-h" "--help" "help" ":help"} (first args)))
+
 
 ;;;;;;;;;;;;;
+
 
 (defn- use-installed? 
   "Returns true if there is an installed version and it's timestamp is newer than this."
   []
-  (let [{:keys [app ts]} (p/this-props)
-        installed-props (p/installed-props app)]
+  (let [{:keys [app ts]} (c/this-props)
+        installed-props (c/installed-props app)]
     (when installed-props
-      (p/gt (:ts installed-props) ts))))
+      (core/gt (:ts installed-props) ts))))
 
 
 (defn- use-online?
@@ -138,10 +146,10 @@
   []
   ;(println "## LAUNCHER - Inform that we are checking online.")
   (update-text "Checking online version ...")
-  (let [{:keys [app uri ts]} (p/this-props)
-        online-props (p/online-props app uri)]
+  (let [{:keys [app uri ts]} (c/this-props)
+        online-props (c/online-props app uri)]
     (when online-props
-      (p/gt (:ts online-props) ts))))
+      (core/gt (:ts online-props) ts))))
 
 
 ;;;;;;;;;;;;;
@@ -163,9 +171,9 @@
   (prn 'Launch/installed-load args)
   ;(println "## LAUNCHER - inform that (installed) application is loading.")
   (update-text "Loading installed application ...")
-  (let [app (p/this-app)
-        installed-props (p/installed-props app)
-        jar-url (f/url (f/path (c/install-dir app) (:file installed-props)))]
+  (let [app (c/this-app)
+        installed-props (c/installed-props app)
+        jar-url (f/to-url (f/->path (c/installed-dir app) (:file installed-props)))]
     (future (Thread/sleep 2000) (destroy-launcher-screen))
     (run-jar jar-url "no.andante.george.Launch" args)))
     ;(println "## LAUNCHER - close. (New version will be used - for now!)")
@@ -177,19 +185,19 @@
   ;(println "## LAUNCHER - inform that (online) application is downloading.")
   (update-text "Downloading ...")
   (update-progress -1)
-  (let [{:keys [app uri]} (p/this-props)
-        {:keys [file size]} (p/online-props app uri)
-        install-d           (f/ensure-dir (c/install-dir app))
+  (let [{:keys [app uri]} (c/this-props)
+        {:keys [file size]} (c/online-props app uri)
+        install-d           (c/installed-dir app)
         bytes-total-d       (Double/parseDouble size)]
         
     ;; install JAR and app-file
     ;(println "## LAUNCHER - update download progress.")
     ;(download  (f/url (str uri file))   (cio/file install-d file)  #(println "bytes:" % "/" size))
-    (download  (f/url (str uri file))   (cio/file install-d file)  #(update-progress (/ % bytes-total-d)))
+    (f/download  (f/to-url (str uri file))   (cio/file install-d file)  #(update-progress (/ % bytes-total-d)))
 
     (update-text "Installing ...")
     (update-progress -1)
-    (download  (f/url (str uri p/PROP_N))  (cio/file install-d p/PROP_N))
+    (f/download  (f/to-url (str uri c/PROP_NAME))  (cio/file install-d c/PROP_NAME))
 
     ;; start the downloaded version
     (installed-load args)))
@@ -197,17 +205,36 @@
 
 ;;;;;;;;;;;;;
 
+(defn- print-help []
+  (println "George CLI help:
+
+Optional arguments are:
+  :help | help
+    Prints this help text.
+  :no-gui
+    Runs without GUI, and then exits. Useful for quick testing of update-mechanism.
+  :no-check
+    Immediately runs this version, without checking installed or online version.
+  :no-installed-check
+    Does not check installed version, but may check online version, and if that is newer, will install and run it.
+  :no-online-check
+    Does not check online version, but may check installed version, and if that is newer, will run it.
+"))
 
 
 (defn main1 [args]
   (prn 'Launch/main1 args)
-  (println "  I am ts:" (:ts (p/this-props)))
+
+  (when (help? args)
+    (print-help)
+    (exit))
+
+  (println "  I am ts:" (:ts (c/this-props)))
 
   (when-not (no-gui? args)
     (init-launch-screen))
   
   ;(println "## LAUNCHER - an initial scroller should show (replacing splashimage).")
-
   (cond
     (or (no-check? args)
         (and (no-online-check? args) (no-installed-check? args)))
@@ -223,15 +250,5 @@
     (this-run args)))
 
 
-(defn- print-help []
-  ;; TODO: Write help details
-  (println "George CLI help:
-
-Optional arguments for George are:
-  INCOMPLETE!!"))
-
-
 (defn -main [& args]
-  (if (#{"-h" "--help" ":help"} (first args))
-    (print-help)
-    (main1 args)))
+  (main1 args))

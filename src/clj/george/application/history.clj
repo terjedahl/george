@@ -5,14 +5,13 @@
 
 (ns
   ^{:docs "Keeps track of \"Input\" history.  Also, persists state of editors et al."}
-  george.core.history
+  george.application.history
   (:require
     [clojure.java.io :as cio]
     [clojure.edn :as edn]
-    [george.util :as u]
-    [george.util.file :as guf]
     [george.editor.core :as ed]
-    [george.application.config :as conf])
+    [common.george.config :as c]
+    [common.george.util.files :as f])
   (:import
     [java.util Date]
     [java.sql Timestamp]
@@ -21,14 +20,12 @@
 
 (def history-file
   (memoize
-    #(guf/ensure-parent-dir
-       (cio/file (conf/appdata-dir) "repl" "history.edn"))))
+    #(cio/file (c/data-dir) "repl" "history.edn")))
 
 
 (def open-files-file
   (memoize
-    #(guf/ensure-parent-dir
-       (cio/file (conf/appdata-dir) "state" "open-files.edn"))))
+    #(cio/file (c/data-dir) "state" "open-files.edn")))
 
 
 (def NEXT 1)
@@ -72,7 +69,8 @@
     (swap! history_ #(-> % (prune 100) (conj item)))
     (future
       ;(println "writing history to file ...")
-      (spit (history-file) (pr-str @history_)))))
+      (spit (f/ensured-file (history-file))
+            (pr-str @history_)))))
       ;(println " ... done")
 
 
@@ -112,7 +110,8 @@
 
 (defn set-open-files [paths]
   (future
-    (spit (open-files-file) (pr-str {:open-files (vec paths)}))))
+    (spit (f/ensured-file (open-files-file))
+          (pr-str {:open-files (vec paths)}))))
 
 
 (defn get-open-files []

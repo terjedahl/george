@@ -6,7 +6,8 @@
 
 (ns george.applet
   (:require
-    [clojure.pprint :refer [pprint]])
+    [clojure.pprint :refer [pprint]]
+    [common.george.util.cli :refer [info warn except]])
   (:import
     [clojure.lang Symbol]))
 
@@ -35,7 +36,7 @@
 
 (defn- verify-applet
   [applet-ns]
-  (println "Verifying applet:" applet-ns)
+  (info "Verifying applet:" applet-ns)
   (try
     (require applet-ns)
     (if-let [info-fn (ns-resolve applet-ns 'applet-info)]
@@ -44,15 +45,13 @@
           (into {} (map 
                      #(if-let [f (ns-resolve applet-ns (% info))]
                         [% f]
-                        (println (format "  ERROR: Was not able to resolve AppletInfo's '%s': %s" (name %) (% info))))
+                        (except (format "  ERROR: Was not able to resolve AppletInfo's '%s': %s" (name %) (% info))))
                      [:label :description :icon :main :dispose])))
-        (catch Exception e (println (format "  ERROR: Calling %s/info failed!  %s" applet-ns e)) (set! *e e)))
+        (catch Exception e (except (format "  ERROR: Calling %s/info failed!  %s" applet-ns e)) (set! *e e)))
       ;; else
-      (println "ERROR: The applet's 'info' function could not be resolved!"))
-    (catch Exception e
-      (binding [*out* *err*] 
-        (println (format "Warning: Loading namespace '%s' failed!" applet-ns))))))
-        ;(.printStackTrace e)))))
+      (except "ERROR: The applet's 'info' function could not be resolved!"))
+    (catch Exception _
+      (warn (format "Loading namespace '%s' failed!" applet-ns)))))
 
 
 ;; The whole dynamic loading from classpath was cool,

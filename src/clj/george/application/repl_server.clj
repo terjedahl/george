@@ -12,8 +12,7 @@
     [clojure
      [pprint :refer [pprint]]]
     [nrepl.core :as nrepl]
-    [nrepl.server :refer [start-server stop-server]]
-    [george.util :refer [pprint-str]]))
+    [nrepl.server :refer [start-server stop-server]]))
 
 
 (defonce ^:private server_ (atom nil))

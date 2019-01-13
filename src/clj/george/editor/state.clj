@@ -8,7 +8,9 @@
     [clojure.string :as cs]
     [clojure.pprint :refer [pprint]]
     [clj-diff.core :as diff]
-    [george.util :as u]
+    [george.util
+     [math :as um]
+     [colls :as uc]]  ;; loads defmethod for diff/patch
     [common.george.util.text :as ut]
     [george.editor.buffer :as b]
     [george.editor.readers.core :as readers]
@@ -507,7 +509,7 @@
 
 (defn set-marks_ [state index move-prefcol? move-anchor? & [anchor-index]]
   ;(println "/set-marks_" "_" index move-prefcol? move-anchor? anchor-index)
-  (let [clamper #(u/clamp-int 0 %  (length_ state))
+  (let [clamper #(um/clamp-int 0 %  (length_ state))
         anc
         (or anchor-index index)]
         ;_ (println "  ## anc:" anc)
@@ -537,7 +539,7 @@
         sel-reset? (and (not= car anc) move-anchor?)
 
         car1
-        (u/clamp-int 0 (+ car ^int steps) (length_ state))
+        (um/clamp-int 0 (+ car ^int steps) (length_ state))
 
         car2
         (if (and sel-reset? (not move-caret-if-sel-reset?))
@@ -592,11 +594,11 @@
             lns (lines_ state)
             lns-cnt (count lns)
             row1 (+ row ^int steps)
-            row2 (u/clamp-int 0 row1 (dec lns-cnt))
+            row2 (um/clamp-int 0 row1 (dec lns-cnt))
             ln (lns row2)
             newline-end? (= (last ln) \newline)
             ln-len (count ln)
-            col1  (u/clamp-int 0 pcol (max 0 (int (if newline-end? (dec ln-len) ln-len))))
+            col1  (um/clamp-int 0 pcol (max 0 (int (if newline-end? (dec ln-len) ln-len))))
             col2
             (if (not= row1 row2)  ;; we got clamped! Move to end or row.
               (if (neg? ^int steps) 0 ln-len)
@@ -625,15 +627,15 @@
 
 
 (defn insert-at [buffer offset chars]
-  (u/insert-at buffer offset chars))
+  (uc/insert-at buffer offset chars))
 
 
 (defn replace-range [buffer start end chars]
-  (u/replace-range buffer start end chars))
+  (uc/replace-range buffer start end chars))
 
 
 (defn delete-range [buffer start end]
-  (u/remove-range buffer start end))
+  (uc/remove-range buffer start end))
 
 
 (defn update-buffer_ [state f & args]
@@ -909,7 +911,7 @@
   [^Atom state_ inc?]
   (let [
         ^int size (:font-size @state_)
-        new-size (u/clamp-int 8 (+ size (if inc? 2 -2)) 48)]
+        new-size (um/clamp-int 8 (+ size (if inc? 2 -2)) 48)]
     (if (= size new-size)
         (.beep (Toolkit/getDefaultToolkit))
         (font-size-set state_ new-size))))

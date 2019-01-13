@@ -10,8 +10,7 @@
     [clojure.java.io :as cio]
     ;[george.application.input :as input]
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
-    [george.application.output :as output]))
+    [common.george.util.cli :refer [warn except]]))
 
 
 
@@ -108,12 +107,10 @@
         (try
           (let [pth (str "shared/" k)]
             (slurp (cio/resource pth)))
-          (catch IllegalArgumentException e
-            (binding [*out* *err*]
-              (output/oprint :err (format "Resource not found for 'shared-key':  %s\n" shared-key))))))
-      (catch Exception e
-        (binding [*out* *err*]
-          (output/oprint :err (format "Exception: 'shared-key' not string or keyword:  %s\n" (if (nil? shared-key) "nil" shared-key))))))))
+          (catch IllegalArgumentException _
+            (warn (format "Resource not found for 'shared-key':  %s\n" shared-key)))))
+      (catch Exception _
+        (except (format "'shared-key' not string or keyword:  %s\n" (if (nil? shared-key) "nil" shared-key)))))))
 
 ;(println (slurp-shared :tree2))
 ;(println (slurp-shared :tree3))

@@ -7,8 +7,10 @@
   "Namespace contains utilities for creating and working with stages"
   (:require
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
-    [george.application.ui.styled :as styled]))
+    [george.application.ui.styled :as styled])
+  (:import
+    [javafx.stage Stage]
+    [javafx.scene.layout StackPane]))
 
 
 (defn scene-root-with-child []
@@ -24,7 +26,7 @@
     (let [parent (scene-root-with-child)]
       (if-let [scene (.getScene stage)]
         (do
-          (-> parent .getChildren (.setAll (fxj/vargs (.getRoot scene))))
+          (fx/children-set-all parent (list (.getRoot scene)))
           (.setRoot scene parent))
         (.setScene stage (fx/scene parent)))
       (.setUserData stage {:swap-parent parent})
@@ -39,9 +41,9 @@
   [stage new-root & [crossfade? duration]]
   ;(println "/swap-with-fades " "crossfade?:" crossfade? "duration" duration)
   (let [stage (swap-stage-ensure stage)
-        parent (-> stage .getUserData :swap-parent)
+        parent (-> ^Stage stage .getUserData :swap-parent)
         duration (if duration duration 1500)
-        children (.getChildren parent)
+        children (.getChildren ^StackPane parent)
         old-root (.get children 0)]
     (.setOpacity new-root 0)
     (if crossfade?

@@ -7,15 +7,13 @@
   (:require
     [markdown.core :refer [md-to-html-string]]
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
     [george.application.ui.styled :as styled]
     [clojure.string :as cs])
   (:import
     [javafx.scene Node]
-    [javafx.scene.control TabPane SeparatorMenuItem MenuItem MenuButton Tab]
+    [javafx.scene.control TabPane SeparatorMenuItem MenuItem MenuButton]
     [javafx.scene.layout AnchorPane]
     [javafx.scene.input KeyEvent]))
-
 
 
 (defn- nil-or-node? [n] (or (nil? n) (instance? Node n)))
@@ -77,7 +75,7 @@
         (styled/new-heading empty-label)
 
         root
-        (doto (AnchorPane. (fxj/vargs-t Node empty-text tpane newbutton-box))
+        (doto (AnchorPane. (into-array Node (list empty-text tpane newbutton-box)))
               (.setMinHeight  2))]
 
     (doto empty-text
@@ -106,7 +104,6 @@
 
 
 (defn set-listeners [tabpane selected_ focused_]
-
   (when selected_
     (-> tabpane
         .getSelectionModel
@@ -114,7 +111,6 @@
         (fx/add-changelistener (reset! selected_
                                        (when-not (neg? new-value)
                                          (-> tabpane .getTabs (.get new-value))))))
-
     (when focused_
       (-> tabpane
         .focusedProperty
@@ -133,7 +129,7 @@
       :separator (SeparatorMenuItem.)
       :item      (let [[_ label action] root] (doto (MenuItem. label) (fx/set-onaction action)))
       :button    (let [[_ label side children] root]
-                   (doto (MenuButton. label  nil (fxj/vargs* (map menu (filter some? children))))
+                   (doto (MenuButton. label  nil (into-array (map menu (filter some? children))))
                          (.setStyle "-fx-box-border: -fx-text-box-border;")
                          (.setPopupSide (fx/side side))
                          (.setFocusTraversable false))))))

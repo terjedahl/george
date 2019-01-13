@@ -7,14 +7,14 @@
   (:require
     [environ.core :refer [env]]
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
-    [george.core.history :as hist]
-    [george.editor.core :as ed]
-    [george.application.editors :as eds]
-    [george.files.filetree :as filetree]
+    [george.application
+     [history :as hist]
+     [editors :as eds]]
     [george.application.ui.styled :as styled]
+    [george.editor.core :as ed]
+    [george.files.filetree :as filetree]
     [george.util.singleton :as singleton]
-    [george.util.file :refer [ ->path ->file ->string exists? filename]])
+    [common.george.util.files :refer [ ->path ->file ->string exists? filename]])
   (:import
     [javafx.scene.control SplitPane ListCell ListView]
     [javafx.geometry Orientation]
@@ -76,8 +76,8 @@
           (fx/new-label "X" :size 10 :color Color/DIMGRAY :tooltip "Close editor"))]
 
     (doto x-pane
-      (.setOnMouseExited (fx/event-handler (.setFill x-circle Color/GAINSBORO)))
-      (.setOnMouseEntered (fx/event-handler (.setFill x-circle Color/ORANGERED)))
+      (.setOnMouseExited (fx/new-eventhandler (.setFill x-circle Color/GAINSBORO)))
+      (.setOnMouseEntered (fx/new-eventhandler (.setFill x-circle Color/ORANGERED)))
       (.addEventFilter MouseEvent/MOUSE_CLICKED
         (fx/new-eventhandler
           (when (close-file! (:path @file-info_) true)
@@ -199,7 +199,7 @@ Has it been renamed, moved, or deleted?
           (.setCellFactory (reify Callback (call [_ param] (opens-listcell param)))))
               
         splitpane
-        (doto (SplitPane. (fxj/vargs-t Node files opens))
+        (doto (SplitPane. (into-array Node (list files opens)))
               (.setOrientation Orientation/VERTICAL))]
 
     (.setOnMouseClicked opens (click-handler))
@@ -212,8 +212,7 @@ Has it been renamed, moved, or deleted?
     (-> opens .getItems 
         (.addListener  (fx/new-listchangelistener (set-open-files (.getList change))))) 
     
-    (future (Thread/sleep 200)
-            (fx/later (.setDividerPosition splitpane 0 0.6)))
+    (fx/future-sleep-later 200 (.setDividerPosition splitpane 0 0.6))
 
     splitpane))
 
@@ -227,11 +226,10 @@ Has it been renamed, moved, or deleted?
         (reset! editor-pane_ (fx/borderpane :center (fx/new-label "No file selected")))
 
         splitpane
-        (doto (SplitPane. (fxj/vargs-t Node lr container))
+        (doto (SplitPane. (into-array Node (list lr container)))
               (.setOrientation Orientation/HORIZONTAL))]
     
-    (future  (Thread/sleep 333) 
-             (fx/later (.setDividerPosition splitpane 0 0.4)))
+    (fx/future-sleep-later 333 (.setDividerPosition splitpane 0 0.4))
 
     ;; set "services" for filetree
     (reset! filetree/open-or-reveal_ (fn [path] (open-or-reveal filenav-state_ path)))

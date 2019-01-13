@@ -7,7 +7,6 @@
   george.application.environment
   (:require
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
     [george.util.singleton :as singleton]
 
     [george.turtle.help :as help]
@@ -48,7 +47,7 @@
   (let [[o-root clear-button] (output/output-root)
         inputs-root (input/new-tabbed-input-root :ns ns)
         split-pane
-        (doto (SplitPane. (fxj/vargs-t Node o-root inputs-root))
+        (doto (SplitPane. (into-array Node (list o-root inputs-root)))
           (.setOrientation Orientation/VERTICAL))]
 
     (.fire clear-button)
@@ -64,8 +63,7 @@
         (if (= ide-type :turtle) "user.turtle" "user")
 
         left
-        (doto
-          (f-eds/main-root))
+        (f-eds/main-root)
 
         oi-root ^SplitPane
         (doto
@@ -74,7 +72,7 @@
 
         root
         (doto
-          (SplitPane. (fxj/vargs-t Node left oi-root))
+          (SplitPane. (into-array Node (list left oi-root)))
           (.setDividerPosition 0 0.6)
           (.setStyle "-fx-box-border: transparent;"))]
 

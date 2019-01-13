@@ -11,7 +11,7 @@ SET logdir=%TEMP%\{{ app }}
 IF NOT EXIST %logdir% MKDIR %logdir%
 
 CALL :set_ldt
-SET logfile=%logdir%\{{ app }}_%yyyy%-%mm%-%dd%-%H2%%M2%%S2%.log
+SET logfile=%logdir%\{{ app }}_%yyyy%%mm%%dd%T%H2%%M2%%S2%.log
 
 ECHO START: [%yyyy%-%mm%-%dd% %H2%:%M2%:%S2%] >> %logfile%
 ECHO. >> %logfile%

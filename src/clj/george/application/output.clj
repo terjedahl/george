@@ -15,7 +15,6 @@
      [repl :as client]
      [repl-server :as server]]
     [george.application.ui.layout :as layout]
-    [clojure.string :as cs]
     [george.util.java :as j])
   (:import
     [java.io StringWriter PrintStream OutputStreamWriter]
@@ -23,7 +22,7 @@
     [org.fxmisc.flowless VirtualizedScrollPane]
     [org.fxmisc.richtext StyleClassedTextArea]
     [clojure.lang Keyword]
-    (javafx.scene.paint Color)))
+    [javafx.scene.paint Color]))
 
 
 (declare oprint)
@@ -199,8 +198,7 @@
  ([] nil)
  ([^Keyword _] nil)
  ([^Keyword typ obj & more]
-  (when-not (keyword? typ)
-    (throw (IllegalArgumentException. "First argument to vprint/oprintln must be keyword")))
+  (assert (keyword? typ) "First argument to vprint/oprintln must be keyword.")
   (print-output* typ obj)
   (when-let [obj2 (first more)]
     (print-output* typ " ")
@@ -283,7 +281,7 @@
 
 (defn output-root []
   (let [codearea
-        (doto (ca/new-codearea false)
+        (doto (ca/new-codearea)
           (.setStyle "-fx-font-size:14;")
           (.setEditable false)
           (.setFocusTraversable true)

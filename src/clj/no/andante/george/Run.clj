@@ -4,15 +4,11 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns no.andante.george.Run
-  
   (:require
-    [george.javafx.java :as fxj]
     [george.application.launcher :as launcher]
-    [common.george.launch.properties :as p])
-  
+    [common.george.config :as c])
   (:import
     [javafx.application Preloader$ProgressNotification])
-
   (:gen-class
     :name no.andante.george.Run
     :extends javafx.application.Application
@@ -65,7 +61,7 @@
 
 (defn main1 [args]
   (prn 'Run/main1 args)
-  (println "  I am ts:" (:ts (p/this-app)))
+  (println "  I am ts:" (:ts (c/this-app)))
   (if (no-gui? args)
     (do 
       (println "No GUI.  Exiting")

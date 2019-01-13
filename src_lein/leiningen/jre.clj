@@ -17,7 +17,7 @@ Examples:
 lein jre -version
 lein jre --list-modules
 lein jre :jar
-lein jre :jar :help
+lein jre :jar help
 lein jre :jpms"
 
   [project & args]

@@ -15,8 +15,7 @@
     [clojure.data.json :as json]
     [clojure.pprint :refer [pp pprint]]
     [clj-diff.core :as diff]
-    [george.util]  ;; important - to ensure loading of 'defmethod diff/patch Vector'
-    [george.javafx.java :as j]
+    [george.util.colls]  ;; important - to ensure loading of 'defmethod diff/patch Vector'
     [george.editor.state :as st]
     [george.editor.formatters.defs :as defs]
     [george.editor.buffer :as b]
@@ -113,9 +112,9 @@ It will be synchronous, and it will operate on content directly.
 
         ;; We need a reference the engine's JSON-object to convert our ops to a native structure
         JSON-js (.eval engine "JSON")
-        ops-js (.invokeMethod engine JSON-js "parse" (j/vargs ops-json))
+        ops-js (.invokeMethod engine JSON-js "parse" (into-array (list ops-json)))
 
-        res-js (.invokeMethod engine parinfer-js method-name (j/vargs-t Object text ops-js))
+        res-js (.invokeMethod engine parinfer-js method-name (into-array Object (list text ops-js)))
         res (clojurize-kv res-js)
         res-text (:text res)
         res-mark-pos [(:cursorLine res) (:cursorX res)]

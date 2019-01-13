@@ -3,10 +3,9 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns george.core.overlayed
+(ns labs.overlayed
   (:require
-    [george.javafx :as fx]
-    [george.javafx.java :as fxj])
+    [george.javafx :as fx])
   (:import
     [javafx.scene.layout StackPane]
     [javafx.scene Node]
@@ -41,13 +40,9 @@ asølkdfja sfd"
 
         pane
         (StackPane.
-          (fxj/vargs-t Node
-                       (fx/vbox
-                         (fx/new-label "")
-                         a-textfield
-                         a-button)
-
-                       a-textarea))]
+          (into-array Node (list
+                             (fx/vbox (fx/new-label "") a-textfield a-button)
+                             a-textarea)))]
     pane))
 
 

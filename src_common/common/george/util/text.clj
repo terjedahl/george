@@ -5,7 +5,7 @@
 
 (ns common.george.util.text
   (:require
-    [clojure.pprint :as pprint]))
+    [clojure.pprint :as cpp]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -76,15 +76,15 @@
 (defn ^String pprint
   "Same as clojure.core/pprint"
  ([object]
-  (pprint/pprint  object))
+  (cpp/pprint  object))
  ([object writer]
-  (pprint/pprint object writer)))
+  (cpp/pprint object writer)))
 
 
 (defn ^String pformat
   "Returns the data as a pprint-ed string."
   [object]
-  (pprint/write object :stream nil))
+  (cpp/write object :stream nil))
 
 
 (defn **

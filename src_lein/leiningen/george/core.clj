@@ -6,24 +6,32 @@
 (ns leiningen.george.core
   "Contains all task implementations as well as common task functionality."
   (:require
-    [clojure.string :as cs]
-    [clojure.java.io :as cio]
-    [clojure.java.shell :refer [sh]]
-    [clojure.pprint :refer [pprint]]
+    [clojure
+     [string :as cs]
+     [pprint :refer [pprint]]]
+    [clojure.java
+     [io :as cio]
+     [shell :refer [sh]]]
     [environ.core :refer [env]]
     [selmer.parser :refer [render]]
     ;; Leiningen
-    [leiningen.clean :as lc]
-    [leiningen.run :as lr]
-    [leiningen.classpath :as lcp]
-    [leiningen.uberjar :as lu]
+    [leiningen
+     [clean :as lc]
+     [run :as lr]
+     [classpath :as lcp]
+     [uberjar :as lu]]
     [leiningen.core.eval :as le]
-    ;; src_common
+    ;; src_lein
     [leiningen.george.load-common]
-    [common.george.launch.config :as c]
-    [common.george.files :as f]
-    [common.george.util.text :as t]
-    [common.george.launch.properties :as p])
+    ;; src_common
+    [common.george.config :as c]
+    [common.george.util
+     [text :as t]
+     [time :refer [now-iso]]
+     [cli :refer [debug info warn error]]
+     [platform :as pl]
+     [files :as f]
+     [props :as up]])
   (:import
     [java.io File]))
 
@@ -35,45 +43,9 @@
 
 ;;;; flags
 
-;; allow debug print?
-(def ^:dynamic *debug*  (System/getenv "DEBUG"))
-;; allow info print?
-(def ^:dynamic *info*   (not (or (System/getenv "LEIN_SILENT") (System/getenv "GEORGE_SILENT"))))
 ;; allow JPMS tasks?
 (def ^:dynamic *jpms*   (System/getenv "JPMS"))
 
-
-;; TODO: move to common-namespace
-(defn errln [& args]
-  (binding [*out* *err*]
-    (apply println args)))
-
-
-(defn exit [& [code]]
-  (System/exit (or code 0)))
-
-
-(defn debug [& args]
-  (when *debug*
-    (apply println args)))
-
-
-(defn info [& args]
-  (when *info* (apply println args)))
-
-
-(defn warn
-  "Prints to stderr if not LEIN_SILENT or GEORGE_SILENT"
-  [& args]
-  (when *info*
-    (apply errln args)))
-
-
-(defn error
-  "Prints to stderr, THEN EXITS! with -1."
-  [& args]
-  (apply errln args)
-  (exit -1))
 
 ;;;
 
@@ -96,17 +68,17 @@
 
 (defn- warn-java11 []
   (when-not (java11?)
-    (warn (str "Warning: " (java11-message)))))
+    (warn (java11-message))))
 
 
 (defn- assert-java11 []
   (when-not (java11?)
-    (error (str "Error: " (java11-message)))))
+    (error (java11-message))))
 
 
 (defn assert-jpms-active []
   (when-not *jpms*
-    (error (str "Error: JPMS functionality is not active.
+    (error (str "JPMS functionality is not active.
   See docs/java11.md for more details."))))
 
 
@@ -120,13 +92,13 @@
 
 
 (defn- assert-not-windows []
-  (when (c/windows?)
-    (error "Error: This task will only run on *nix systems.")))
+  (when (pl/windows?)
+    (error "This task will only run on *nix systems.")))
 
 
 (defn- assert-aws []
   (when (-> (sh "which" "aws") :out empty?)
-    (error "Error: No command 'aws' found.  You need Amazon's aws tool installed to run this subtask.")))
+    (error "No command 'aws' found.  You need Amazon's aws tool installed to run this subtask.")))
 
 
 (defn- asserted-file [f error-fstr]
@@ -137,13 +109,13 @@
 
 
 (defn- rsc-dir []        (cio/file "src" "rsc"))
-(defn- embed-file []     (cio/file (rsc-dir) p/PROP_N))
+(defn- embed-file []     (cio/file (rsc-dir) c/PROP_NAME))
 
-(defn- George []         (p/get-app (embed-file)))
+(defn- George []         (c/get-app (embed-file)))
 (defn- George-version [] (str (George) "-" (:version *project*)))
 
 (defn- uberjar-dir []    (cio/file "target" "uberjar"))
-(defn- native-dir []     (cio/file "target" (c/platform)))
+(defn- native-dir []     (cio/file "target" (pl/platform)))
 (defn- site-dir []       (cio/file "target" "Site"))
 (defn- site-platforms-dir []  (cio/file (site-dir) "apps" (George) "platforms"))
 
@@ -151,51 +123,51 @@
 (defn- jpms-dir []       (cio/file (native-dir) "jpms"))
 (defn- jre-dir []        (cio/file (native-dir) "jre"))
 
-(defn- jar-name []       (format "%s-%s.jar" (George-version) (c/platform)))
+(defn- jar-name []       (format "%s-%s.jar" (George-version) (pl/platform)))
 (defn- jar-file []       (cio/file (jar-dir) (jar-name)))
 (defn- jpms-file []      (cio/file (jpms-dir) (jar-name)))
 
-(defn- installer-name [] (if (c/windows?)
+(defn- installer-name [] (if (pl/windows?)
                            (str (George-version) ".msi")
                            (str (George-version) ".pkg")))
 
 (defn- installer-dir []  (cio/file (native-dir) "installer"))
 (defn- installer-file [] (cio/file (installer-dir) (installer-name)))
 
-(defn- local-dir []      (c/install-dir (George)))
+(defn- installed-dir []      (c/installed-dir (George)))
 
 
 (defn- asserted-jre-dir []
-  (asserted-file (jre-dir) "Error: Directory '%s' does not exist.\n  To build the JRE, do:  lein build jre"))
+  (asserted-file (jre-dir) "Directory '%s' does not exist.\n  To build the JRE, do:  lein build jre"))
 
 
 (defn asserted-site-dir []
-  (asserted-file (site-dir) "Error: Directory '%s' does not exist.\n  To build the Site, do:  lein build site"))
+  (asserted-file (site-dir) "Directory '%s' does not exist.\n  To build the Site, do:  lein build site"))
 
 
 (defn- asserted-jar-dir []
-  (asserted-file (jar-dir) "Error: Directory '%s' does not exist.\n  To build the JAR, do:  lein build jar"))
+  (asserted-file (jar-dir) "Directory '%s' does not exist.\n  To build the JAR, do:  lein build jar"))
 
 
 (defn- asserted-jar-file []
-  (asserted-file (jar-file) "Error: File '%s' does not exist.\n  To build the JAR, do:  lein build jar"))
+  (asserted-file (jar-file) "File '%s' does not exist.\n  To build the JAR, do:  lein build jar"))
 
 
 (defn- asserted-jpms-file []
-  (asserted-file (jpms-file) "Error: File '%s' does not exist.\n  To build the JPMS, do:  lein build jpms"))
+  (asserted-file (jpms-file) "File '%s' does not exist.\n  To build the JPMS, do:  lein build jpms"))
 
 
 (defn- asserted-installer-file []
-  (asserted-file (installer-file) (format "Error: File '%s' does not exist.\n  To build the installer, do:  lein build installer")))
+  (asserted-file (installer-file) (format "File '%s' does not exist.\n  To build the installer, do:  lein build installer")))
 
 
-(defn- asserted-local-dir []
-  (asserted-file (local-dir) "Error: Dir '%s' does not exist.
+(defn- asserted-installed-dir []
+  (asserted-file (installed-dir) "Dir '%s' does not exist.
   It is automatically create when George downloads a newer version from online, or if you do:  lein local install"))
 
 
 (defn- ensured-site-platforms-dir []
-  (f/ensure-dir (site-platforms-dir)))
+  (f/ensured-dir (site-platforms-dir)))
 
 
 (defn- copy-file-to-dir [dir file & [verbose?]]
@@ -232,23 +204,11 @@
     (apply le/sh (cons exe args))))
 
 
-(defn- now
-  "Prints ISO-timestamp"
-  []
-  (p/print-now))
-
-
 (defn- clean [& [clean-target]]
   (lc/clean
     (if-let [t clean-target]
       (assoc *project* :clean-targets [(str t)])
       *project*)))
-
-
-(defn- ^File ensured-dir [dir]
-  (let [d (cio/file dir)]
-    (when-not (.exists d) (.mkdirs d))
-    d))
 
 
 (defn- modules [& [jpms?]]
@@ -261,30 +221,28 @@
 
 
 (defn- build-embed-props [version & {:strs [:app :uri :ts]}]
-  (let [props (assoc (p/default app uri ts) :version version)]
-    (p/dump  (embed-file) props)
+  (let [props (assoc (c/default-props app uri ts) :version version)]
+    (c/dump  (embed-file) props)
     (info (t/pformat props))))
 
 
 (defn- build-jar-props [jar-f]
-  (let [p (assoc (p/load (embed-file))
-               :file     (p/get-file jar-f)
-               :size     (p/get-size jar-f)
-               :checksum (p/get-checksum jar-f))]
+  (let [p (assoc (up/load (embed-file))
+               :file     (c/get-file jar-f)
+               :size     (c/get-size jar-f)
+               :checksum (c/get-checksum jar-f))]
      (info (t/pformat p))
-     (p/dump (cio/file (.getParentFile jar-f) p/PROP_N) p)))
+     (c/dump (cio/file (.getParentFile jar-f) c/PROP_NAME) p)))
 
 
 (defn- build-installer-props [installer-file]
-  (spit
-    (cio/file (.getParent installer-file) p/PROP_N)
+  (up/dump
+    (cio/file (.getParent installer-file) c/PROP_NAME)
     (->
       {:version (:version *project*)
-       :file    (.getName installer-file)
-       :size    (p/get-size installer-file)
-       :ts      (p/now-ts)}
-      p/map->properties
-      p/properties->str)))
+       :file    (f/filename installer-file)
+       :size    (f/size installer-file)
+       :ts      (now-iso)})))
 
 
 ;;; JAR
@@ -300,7 +258,7 @@
 
 
 (defn- build-jar- [jpms?]
-  (-> (if jpms? (jpms-dir) (jar-dir)) (f/ensure-dir) (f/clean-dir))
+  (-> (if jpms? (jpms-dir) (jar-dir)) (f/ensured-dir) (f/cleaned-dir))
   (let [jar-f (if jpms? (jpms-file) (jar-file))]
     (cio/copy (uberjar-file) jar-f)
     (build-jar-props jar-f)))
@@ -325,10 +283,9 @@
   []
   (if-let [d (->> env  :user-dir  cio/file  .listFiles  seq  (filter #(re-matches #".*signtool" (str %)))  first)]
     d
-    (binding [*out* *err*]
-      (println "Warning: Could not find directory 'signtool' in project dir.
-  Download Microsoft's 'signtool' from  http://cdn1.ksoftware.net/signtool_8.1.zip
-  and unpack in project dir."))))
+    (warn "Could not find directory 'signtool' in project dir.
+Download Microsoft's 'signtool' from  http://cdn1.ksoftware.net/signtool_8.1.zip
+and unpack in project dir.")))
 
 
 (defn- ^File  pfx-file
@@ -337,8 +294,7 @@
   (let [f (cio/file "codesign-key.pfx")]
     (if (.exists f)
       f
-      (binding [*out* *err*]
-        (println (format "Error: Could not find file '%s' in project dir." f))))))
+      (error (format "Could not find file '%s' in project dir." f)))))
 
 
 (defn- ^File  password-file
@@ -347,8 +303,7 @@
   (let [f (cio/file "codesign-password.txt")]
     (if (.exists f)
       f
-      (binding [*out* *err*]
-        (println (format "Error: Could not find file '%s' in project dir." f))))))
+      (error (format "Could not find file '%s' in project dir." f)))))
 
 
 (defn- sign-msi [msi-file]
@@ -373,7 +328,7 @@
   []
   (if-let [d (->> env  :user-dir  cio/file  .listFiles  seq  (filter #(re-matches #".*wix311-binaries" (str %)))  first)]
     d
-    (error "Error: Could not find directory 'wix311-binaries' in project dir.
+    (error "Could not find directory 'wix311-binaries' in project dir.
   Download latest 'wix311-binaries.zip' from  https://github.com/wixtoolset/wix3/releases
   and unpack in project dir.")))
 
@@ -390,7 +345,7 @@
 (defn- exe-heat [binaries-dir wix-dir Dir]
   (apply le/sh
          [(str binaries-dir "heat.exe")
-          "dir" (str (cio/file "target" (c/platform) (.toLowerCase Dir)))
+          "dir" (str (cio/file "target" (pl/platform) (.toLowerCase Dir)))
           "-nologo" "-ag" "-srd" "-sreg"
           "-cg" (str Dir "Group")
           "-dr" (str Dir "Dir")
@@ -416,7 +371,7 @@
             "-ext" (str binaries-dir "WixUIExtension.dll")
             "-ext" (str binaries-dir "WixUtilExtension.dll")
             "-out" (str msi-f)]
-           (map #(format "-d%sDirSource=target\\%s\\%s" % (c/platform) (.toLowerCase %)) wix-Args)
+           (map #(format "-d%sDirSource=target\\%s\\%s" % (pl/platform) (.toLowerCase %)) wix-Args)
            (map #(format "%s\\%s.wixobj" wix-dir %) obj-names))))
 
 
@@ -495,7 +450,7 @@
 
         tmpl-data    {:jar-name        (jar-name)
                       :app             (George)
-                      :ts              (p/now-ts)
+                      :ts              (now-iso)
                       :identifier (str "no.andante." (George))
                       :strict-version  (strict (:version *project*))}
 
@@ -515,22 +470,22 @@
 
     (clean pkg-dir)
 
-    (ensured-dir (.getParentFile sh-file))
+    (f/ensured-dir (.getParentFile sh-file))
     (spit sh-file sh-rendered)
     (le/sh "chmod" "755" (str sh-file))
 
     (spit info-file info-rendered)
 
     (cio/copy (cio/file "src_macos" "rsc" "George.icns")
-              (cio/file (ensured-dir (cio/file contents-dir "Resources")) "George.icns"))
+              (cio/file (f/ensured-dir (cio/file contents-dir "Resources")) "George.icns"))
 
     (cio/copy jar-file
-              (cio/file (ensured-dir (cio/file contents-dir "jar")) (.getName jar-file)))
+              (cio/file (f/ensured-dir (cio/file contents-dir "jar")) (.getName jar-file)))
     (le/sh "cp" "-a" (str jre-dir) (str (cio/file contents-dir "jre")))  ;; ensures correct "chmod"
 
     (if-let [ cert-id (env :apple-developer-application-cert-id)]
       (le/sh "codesign" "--verbose" "--sign" cert-id (str the-app))
-      (warn "Warning: Environment variable 'apple-developer-application-cert-id' not found."))
+      (warn "Environment variable 'apple-developer-application-cert-id' not found."))
 
     pkg-dir))
 
@@ -566,12 +521,12 @@
         xml-file  (cio/file  pkg-dir "Distribution.xml")]
 
     (clean (installer-dir))
-    (ensured-dir (installer-dir))
+    (f/ensured-dir (installer-dir))
 
     (spit plist-file plist-rendered)
     (spit xml-file xml-rendered)
 
-    (ensured-dir scripts-dir)
+    (f/ensured-dir scripts-dir)
     (spit launch-file launch-rendered)
     (le/sh "chmod" "755" (str launch-file))
 
@@ -596,7 +551,7 @@
       (let [signed-file-s (str product-file ".signed")]
         (le/sh "productsign" "--sign" cert-id (str product-file) signed-file-s)
         (le/sh "mv" signed-file-s (str product-file)))
-      (warn "Warning: Environment  variable 'apple-developer-installer-cert-id' not found."))
+      (warn "Environment  variable 'apple-developer-installer-cert-id' not found."))
 
     (le/sh "chmod" "755" (str product-file))
     (build-installer-props product-file)
@@ -739,14 +694,14 @@
 
 
 (defn build-installer []
-  (if (c/windows?)
+  (if (pl/windows?)
     (build-msi)
     (build-pkg)))
 
 
 (defn build-site []
   (let [site-d (ensured-site-platforms-dir)]
-    (loop [platforms (c/platforms) cnt 0]
+    (loop [platforms (pl/platforms) cnt 0]
       (if-let [platform (first platforms)]
         (let [platform-dir (cio/file "target" platform)]
           (if-not (.exists platform-dir)
@@ -759,7 +714,7 @@
                     (f/copy-dir d (cio/file site-d platform d-name)))))
               (recur (next platforms) (inc cnt)))))
         (when (zero? cnt)
-          (error "Error: No platform dirs copied to Site."))))))
+          (error "No platform dirs copied to Site."))))))
 
 
 (defn aws-invalidate []
@@ -782,31 +737,23 @@
     (Thread/sleep 5000)
 
     (info "Verifying 'app.properties' ...\n")
-    (doseq [p (c/platforms)]
+    (doseq [p (pl/platforms)]
       (doseq [t ["jar" "installer"]]
         (try
-          (info (slurp (format "https://download.george.andante.no/apps/%s/platforms/%s/%s/app.properties" app p t)))
-          (catch Exception _ (warn (format "Warning: Not found: /apps/%s/platforms/%s/%s/app.properties" app p t))))))))
+          (println (slurp (format "https://download.george.andante.no/apps/%s/platforms/%s/%s/app.properties" app p t)))
+          (catch Exception _ (warn (format "Not found: /apps/%s/platforms/%s/%s/app.properties" app p t))))))))
 
 
-(defn do-local-install []
-  (f/copy-dir (asserted-jar-dir) (local-dir)))
+(defn installed-install []
+  (f/copy-dir (asserted-jar-dir) (installed-dir)))
 
 
-(defn do-local-list []
-  (let [local-d (asserted-local-dir)]
+(defn installed-list []
+  (let [local-d (asserted-installed-dir)]
     (println " " (str local-d) "")
     (doseq [name (.list local-d)]
       (println "   " (str name)))))
 
 
-(defn do-local-clean []
-  (f/clean-dir (local-dir)))
-
-
-;(defn push-scp [user-AT-host-COL-dir]
-;  (assert-not-windows)
-;  (let [site (asserted-site-dir)]
-;    (info "Copying ...")
-;    (le/sh "scp" "-r" "-v" (str site) user-AT-host-COL-dir)
-;    (info "... done")))
+(defn installed-clean []
+  (f/cleaned-dir (installed-dir)))

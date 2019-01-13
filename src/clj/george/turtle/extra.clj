@@ -5,8 +5,7 @@
 
 (ns george.turtle.extra
   (:require
-    [george.javafx :as fx]
-    [george.javafx.java :as fxj])
+    [george.javafx :as fx])
   (:import
     [javafx.scene.text Font]
     [javafx.scene.paint Color Paint]
@@ -251,7 +250,7 @@
                     fill     Color/TRANSPARENT}}]
   ;; TODO: assert 'points'
 
-  (doto (Polygon. (fxj/vargs-t* Double/TYPE (flatten (map flip-Y points))))
+  (doto (Polygon. (into-array Double/TYPE (flatten (map flip-Y points))))
         (.setFill (to-color fill))
         (fx/set-stroke (to-color color) width)
         (.setRotate (- ^double heading))

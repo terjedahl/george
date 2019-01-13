@@ -5,21 +5,26 @@
 
 (ns george.files.filetree
   (:require
-    [clojure.string :as cs]
-    [clojure.pprint :refer [pprint]]
+    [clojure
+     [string :as cs]
+     [pprint :refer [pprint]]]
     [environ.core :refer [env]]
-    [george.javafx :as fx]
-    [george.javafx.java :as fxj]
     [clj-diff.core :as diff]
-    [george.util :refer [->Labeled labeled? timeout] :as gu] ;; This also loads defmethod diff/patch
-    [common.george.util.text :refer [**]]
-    [george.application.ui.styled :as styled]
     [hara.io.watch]
     [hara.common.watch :as watch]
-    [george.application.config :as conf]
-    [george.util.file :as guf
-     :refer [filename ->path ->file ->string hidden? exists? same? parent dir? ensure-dir ensure-file move delete]]
-    [george.application.ui.layout :as layout])
+    [george.javafx :as fx]
+    [george.application.ui
+     [styled :as styled]
+     [layout :as layout]]
+    [george.util :refer [->Labeled labeled? timeout]]
+    [george.util.colls :as uc]                              ;; This loads defmethod diff/patch
+    [common.george.config :as c]
+    [common.george.launch.props :as p]
+    [common.george.util
+     [text :refer [**]]
+     [files :as f :refer [filename ->path ->file ->string hidden? exists? same? parent dir? ensured-dir ensured-file move delete]]
+     [cli :refer [warn]]
+     [platform :as pl]])
   (:import
     [java.io IOException File]
     [java.nio.file Files Path LinkOption]
@@ -29,8 +34,7 @@
     [javafx.scene.input TransferMode ClipboardContent KeyEvent MouseButton MouseEvent DragEvent]
     [javafx.scene.paint Color]
     [javafx.util Callback]
-    [javafx.beans.value ChangeListener]
-    [java.util List]))
+    [javafx.beans.value ChangeListener]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -39,9 +43,9 @@
   (set "<>*?:`'\"/|\\"))
 
 
-(def open-or-reveal_ (atom (fn [_] (println "Warning! g.a.filetree/open-or-reveal_ not set!"))))
-(def rename-file_    (atom (fn [_ _] (println "Warning! g.a.filetree/rename-file_ not set!"))))
-(def close-file_     (atom (fn [_ _] (println "Warning! g.a.filetree/close-file_ not set!"))))
+(def open-or-reveal_ (atom (fn [_] (warn "g.a.filetree/open-or-reveal_ not set!"))))
+(def rename-file_    (atom (fn [_ _] (warn "g.a.filetree/rename-file_ not set!"))))
+(def close-file_     (atom (fn [_ _] (warn "g.a.filetree/close-file_ not set!"))))
 
 
 (declare
@@ -249,7 +253,7 @@
             ;that-path (get-that-path event)
             those-paths (get-those-paths event)]
         (when (will-receive-all? this-path those-paths)
-          (.acceptTransferModes event (fxj/vargs TransferMode/MOVE))))))
+          (.acceptTransferModes event (into-array TransferMode/MOVE))))))
           ;(.consume event)))))
   
   (.setOnDragEntered treecell
@@ -294,13 +298,13 @@
         (fx/new-eventhandler (reset! press-XY (fx/XY event))))
 
       ;(.setOnMouseDragged
-      ;  (fx/event-handler-2 [_ me] (.consume me)))
+      ;  (fx/new-eventhandler (.consume event)))
 
       (.setOnDragDetected
         (fx/new-eventhandler
            ;(println "starting drag: " treecell)
            (let [db
-                 (.startDragAndDrop treecell (fxj/vargs TransferMode/MOVE))
+                 (.startDragAndDrop treecell (into-array (list TransferMode/MOVE)))
                  cc
                  (doto (ClipboardContent.) 
                        ;(.putString (->string path))
@@ -412,8 +416,8 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
                                                  (when dir?# [:item "Refresh"  #(.refresh item#)])                 
                                                  [:item "Info"  #(fx/alert :content (fx/new-label (info-str path#) :font (fx/new-font "Source Code Pro" 14)))]
                                                  [:separator]
-                                                 [:item (format "Reveal in %s" (cond (conf/macos?) "Finder" (conf/windows?) "Explorer" :else "File manager"))
-                                                        #(future (guf/open (if dir?# path# (parent path#))))]]])
+                                                 [:item (format "Reveal in %s" (cond (pl/macos?) "Finder" (pl/windows?) "Explorer" :else "File manager"))
+                                                        #(future (f/open (if dir?# path# (parent path#))))]]])
                          (.addEventFilter MouseEvent/MOUSE_CLICKED  (fx/new-eventhandler (select-item state_# item#)))
                          (fx/add-class "g-no-button"))
  
@@ -454,7 +458,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
                          (mapv (fn [[i s]] [i (lazy-filetreeitem (->path s))])
                                v)))]
         ;; The "del-object" needs to be compatible with TreeView, as it will be temporarily inserted before being removed.
-        (binding [gu/*DEL_OBJ* (lazy-filetreeitem (->path "DEL_OBJ"))]
+        (binding [uc/*DEL_OBJ* (lazy-filetreeitem (->path "DEL_OBJ"))]
           (diff/patch (.getChildren filetreeitem) edit-script1))
         ;; Call refresh on all children. They will sort out if they need to do the same on theirs.
         (doseq [c (.getChildren filetreeitem)]
@@ -462,10 +466,9 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 
 
 (defn- set-children [treeitem path]
-  (let [children (.getChildren treeitem)
-        paths (get-child-paths path)]
-    ;(.setAll  children (fxj/vargs* (map #(lazy-filetreeitem %) paths)))
-    (.setAll children ^List (map #(lazy-filetreeitem %) paths))))
+  (fx/children-set-all treeitem
+                       (map #(lazy-filetreeitem %)
+                            (get-child-paths path))))
 
 
 (defn- lazy-filetreeitem [path]
@@ -639,9 +642,8 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
             
     (when (= res 1)
       (@close-file_ path false)
-      (delete-path path)
-      ;; TODO: In Java 9+, we would prefer to use: moveToTrash(File f)
-      ;; https://docs.oracle.com/javase/9/docs/api/java/awt/Desktop.html#moveToTrash-java.io.File-
+      (when-not (f/trash path)
+        (delete-path path))
       (-> item .getParent .refresh)
       (clear-selection state_))))
 
@@ -662,7 +664,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
           (parent path))
  
         parent-str
-        (str (->string parent-path) (conf/file-sep))
+        (str (->string parent-path) (pl/file-sep))
         
         newnamef  
         (when new? (if file? "file%s.clj" "folder%s"))
@@ -749,8 +751,8 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
       (let [p (->path parent-str (.trim (.getText name-field)))]
         (if new?
           (if file?
-            (@open-or-reveal_ (ensure-file p))
-            (ensure-dir p))
+            (@open-or-reveal_ (ensured-file p))
+            (ensured-dir p))
           ;; else
           (move-file path p))
         ;; finally
@@ -774,7 +776,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
   (let [
         state_ (atom default-state)
 
-        initial-path (or inital-path (->path (conf/documents-dir)))
+        initial-path (or inital-path (->path (c/documents-dir)))
 
         to-parent-button (styled/small-button "Up"
                                     :tooltip "Open parent folder"
@@ -841,35 +843,34 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
       ;(prn 'set-dir common-path)
       (set-dir state_ common-path))
     ;; On a future-later to allow tree to render before traversing and opening as we go
-    (future 
-      (fx/later
-        ;; Search for item matching path
-        (let [common-cnt (.getNameCount common-path)
-              path-cnt (.getNameCount path)
-              root-item (<-root state_)]
-          ;(prn 'root-item root-item)
-          (when-let [found-item
-                     (loop [cnt common-cnt item root-item]
-                       ;(prn 'loop cnt item)
-                       (if (< cnt path-cnt)
-                         (do
-                           (.setExpanded item true)
-                           (let [child-path (subpath path (inc cnt))
-                                 child-item (->> item .getChildren 
-                                                 (filter #(same? child-path (item->path %)))
-                                                 first)]
-                             ;(prn 'child-path child-path)
-                             ;(prn 'child-item child-item)
-                             (recur (inc cnt) child-item)))
-                         item))]
-            ;(prn 'found-item found-item)
+    (fx/future-later
+      ;; Search for item matching path
+      (let [common-cnt (.getNameCount common-path)
+            path-cnt (.getNameCount path)
+            root-item (<-root state_)]
+        ;(prn 'root-item root-item)
+        (when-let [found-item
+                   (loop [cnt common-cnt item root-item]
+                     ;(prn 'loop cnt item)
+                     (if (< cnt path-cnt)
+                       (do
+                         (.setExpanded item true)
+                         (let [child-path (subpath path (inc cnt))
+                               child-item (->> item .getChildren
+                                               (filter #(same? child-path (item->path %)))
+                                               first)]
+                           ;(prn 'child-path child-path)
+                           ;(prn 'child-item child-item)
+                           (recur (inc cnt) child-item)))
+                       item))]
+          ;(prn 'found-item found-item)
 
-            ;; Set tree to display item
-            (select-item state_ found-item)
-            (let [tv ^TreeView (-> state_ <-treeview)
-                  i (.getRow tv found-item)]
-              (.requestFocus tv)
-              (.scrollTo tv (- i 2)))))))))
+          ;; Set tree to display item
+          (select-item state_ found-item)
+          (let [tv ^TreeView (-> state_ <-treeview)
+                i (.getRow tv found-item)]
+            (.requestFocus tv)
+            (.scrollTo tv (- i 2))))))))
 
 
 (defn stage [root]
@@ -921,7 +922,5 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 ;; TODO: Refresh-button should only appear if adding watch fails.
 
 ;; TODO: Make drag be able to drop in top-level (hidden root) Complicated?!  Re-organize to allow TreeView itself to handle all DnD ...?
-
-;; TODO: In Java 9+, we would prefer to use: moveToTrash(File f).  See guf/trash
 
 ;; TODO: See:  https://www.youtube.com/watch?v=VW--oMA62Ok

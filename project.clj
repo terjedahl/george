@@ -30,8 +30,6 @@
                         ;; https://github.com/ztellman/potemkin
                         ;; TODO: remove user.clj ... maybe
                         [potemkin "0.4.5"]
-                        ;; https://github.com/clj-time/clj-time
-                        [clj-time "0.15.0"]
                         ;; https://github.com/yogthos/markdown-clj
                         [markdown-clj "1.0.5"]
                         ;; https://github.com/alexander-yakushev/defprecated

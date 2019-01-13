@@ -19,7 +19,7 @@
         ;; Therefore we use platformClassLoader as parent. (Otherwise it defaults to using the calling classes classloader, 
         ;; which will be the DynamicClassLoader with already loaded code from current version.)
         ;; That will give us everything from the JRE/standard libraries, but nothing more.
-        loader (URLClassLoader. (into-array URL [jar-url]) (ClassLoader/getPlatformClassLoader))
+        loader (URLClassLoader. (into-array URL (list jar-url)) (ClassLoader/getPlatformClassLoader))
         ;; Now we set a nice "clean" DynamicClassLoader as the contextClassLoader.
         ;; Clojure will not work without DynamicClassLoader as its ContextClassLoader.
         dynamic-loader (DynamicClassLoader. loader)]
@@ -30,5 +30,5 @@
     (fx/init :classloader dynamic-loader)
 
     (let [cl (Class/forName class-str true loader)
-          main (-> cl (.getDeclaredMethod "main" (into-array [(class (make-array String 0))])))]
-      (.invoke main nil (into-array Object [(into-array String args)])))))
+          main (-> cl (.getDeclaredMethod "main" (into-array (list (class (make-array String 0))))))]
+      (.invoke main nil (into-array Object (list (into-array String args)))))))

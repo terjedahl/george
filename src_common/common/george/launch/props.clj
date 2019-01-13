@@ -3,20 +3,20 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns george.util.system)
-
-
-(defn windows? []
-  ;(println "defn windows? os.name:" (System/getProperty "os.name"))
-  (-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"windows"))  boolean))
-
-(def WINDOWS? (windows?))
-
-
-(defn mac? []
-  (-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"mac"))  boolean))
-
-(def MAC? (mac?))
-
+(ns common.george.launch.props
+  (:refer-clojure :exclude [load])
+  (:require
+    [clojure.java.io :as cio]
+    [common.george.config :as c]
+    [common.george.util
+     [cli :refer [warn]]
+     [time :as t]
+     [text :refer [pprint]]
+     [platform :as pl]
+     [files :as f]
+     [props :as p]])
+  (:import
+    [java.io File IOException FileNotFoundException]
+    [java.net UnknownHostException]))
 
 

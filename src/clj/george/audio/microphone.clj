@@ -322,7 +322,7 @@
             (.setTitle "Microphone Monitor")
 
             (.setOnHidden
-              (fx/event-handler
+              (fx/new-eventhandler
                  (println "monitor window closed")
                  (reset! do-monitoring-atom false)))
 
@@ -386,7 +386,7 @@
           ;  (.setTitle "Microphone Monitor")
           ;
           ;  (.setOnHidden
-          ;    (fx/event-handler
+          ;    (fx/new-eventhandler
           ;       (println "monitor window closed")
           ;       (reset! do-monitoring-atom false)))
           ;
@@ -399,7 +399,7 @@
             :resizable false
             :alwaysontop true
             :onhidden
-            (fx/event-handler
+            (fx/new-eventhandler
                (println "monitor window closed")
                (reset! do-monitoring-atom false)))]
           
@@ -718,9 +718,7 @@ View stacktrace bellow:" (.getMessage lue))
                              added-mixers))))]
     
     (fx/later
-      (.addAll 
-        (.getChildren monitors-vbox)
-        (map #(@mim-monitor-map-atom %) added-mixers))
+      (fx/children-add-all monitors-vbox (map #(@mim-monitor-map-atom %) added-mixers))
 
       ;(doto (.getChildren monitors-vbox) (.add (monitor-pane "another monitor still ")))
 
@@ -977,7 +975,7 @@ View stacktrace bellow:" (.getMessage lue))
     (println "  entries-to-add:")(pprint entries-to-add)
     (when mims-to-add
       (swap! monitors-meters-atom conj entries-to-add)
-      (fx/later (.addAll (.getChildren monitors-vbox) (vals entries-to-add))))
+      (fx/later (fx/children-add-all monitors-vbox (vals entries-to-add))))
 
     nil))
 
@@ -1008,7 +1006,7 @@ View stacktrace bellow:" (.getMessage lue))
             (.setTitle "George :: Microphones")
 
             (.setOnHidden
-              (fx/event-handler
+              (fx/new-eventhandler
                  (println "monitors stage closed")
                  (reset! monitors-stage-atom nil))))]
           

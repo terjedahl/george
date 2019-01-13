@@ -4,17 +4,11 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns george.javafx
-  (:refer-clojure :exclude [remove])
   (:require
+    [clojure.string :as cs]
     [clojure.java.io :as cio]
-    [clojure
-     [string :as cs]
-     [pprint :refer [pprint]]]
-    [george.javafx
-     [java :as fxj]
-     [util :as fxu]]
-    [george.util.javafx :as ufx]
-    [clojure.string :as s])
+    [george.util.colls :as uc]
+    [common.george.util.cli :refer [warn]])
   (:import
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Application Platform]
@@ -178,7 +172,7 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 
 
 (defn ^Background color-background [^Paint color & [rad insets]]
-    (Background. (fxj/vargs (BackgroundFill. color (corner-radii rad) insets))))
+    (Background. (into-array (list (BackgroundFill. color (corner-radii rad) insets)))))
 
 
 (defn set-background [^Region r paint-or-background]
@@ -236,36 +230,6 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
     `(now* (fn [] ~@body)))
 
 
-(defmacro ^EventHandler event-handler
-    "Returns an instance of javafx.event.EventHander,
-where input is ignored,
-and the the body is called on 'handle' "
-
-    [& body]
-    `(reify EventHandler (~'handle [~'_ ~'_] ~@body)))
-
-
-(defmacro ^EventHandler event-handler-2
- "Returns an instance of javafx.event.EventHander,
-where args-vec is a vector of 2 elements  - naming the bindings for 'this' and 'event',
-and the body is called on 'handle'"
-    [args-vec & body]
-    (assert (vector? args-vec) "First argument must be a vector representing 2 args")
-    (assert (= 2 (count args-vec)) "args-vector must contain 2 elements - for binding 'this' and 'event'")
-    `(reify EventHandler (~'handle ~args-vec ~@body)))
-
-
-;; LEGACY. Preserved only for Språklab!  Use 'new-eventhandler' in stead.
-;; TODO: Remove from Språklab
-(defmacro ^EventHandler eventhandler
-  "Returns an instance of javafx.event.EventHander.
-   The the body is called on 'handle'.
-    'this' and 'event' are implicitly available in the body (similar to 'this' in clojure.core/proxy."
-
-  [& body]
-  `(reify EventHandler (~'handle [~'this ~'event] ~@body)))
-
-
 (defmacro ^EventHandler new-eventhandler
           "Returns an instance of javafx.event.EventHander.
         Evaluates body in handle-method.  'this' and 'event' are implicitly."
@@ -273,25 +237,8 @@ and the body is called on 'handle'"
           `(reify EventHandler (~'handle [~'this ~'event] ~@body)))
 
 
-(defn ^EventHandler ensure-handler [f]
+(defn ^EventHandler ensured-handler [f]
   (if (instance? EventHandler f) f (new-eventhandler (f))))
-
-
-(defn ensure-handler2 [f]
-      (if (instance? EventHandler f) f (event-handler-2 [this event] (f this event))))
-
-
-; (event-handler (println 1) (println 2)) ->
-; (reify EventHandler (handle [_ _] (println 1) (println 2)))
-;(comment macroexpand-1 '(event-handler
-;                         (println 1)
-;                         (println 2)))
-
-; (event-handler-2 [t e] (println 1) (println 2)) ->
-; (reify EventHandler (handle [t e] (println 1) (println 2)))
-;(comment macroexpand-1 '(event-handler-2 [t e]
-;                         (println 1)
-;                         (println 2)))
 
 
 (defmacro ^ChangeListener changelistener
@@ -313,17 +260,52 @@ and the body is called on 'changed'"
   `(.addListener ~observable (reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body))))
 
 
-(defmacro ^ChangeListener new-listchangelistener
+(defmacro ^ListChangeListener new-listchangelistener
   [& body]
   `(reify ListChangeListener (~'onChanged [~'this ~'change] ~@body)))
 
 
-(defn children [parent]
+(defn ^ObservableList children [parent]
   (.getChildren parent))
 
 
-(defn children-set-all [parent children]
-  (.setAll ^ObservableList (.getChildren parent) ^List children))
+(defn children-set [parent index kid]
+  (.set ^ObservableList (.getChildren parent) index kid)
+  parent)
+
+
+(defn children-set-all [parent ^List kids]
+  (.setAll ^ObservableList (.getChildren parent) ^List kids)
+  parent)
+
+
+(defn children-add
+ ([parent kid]
+  (.add ^ObservableList (.getChildren parent) kid)
+  parent)
+ ([parent index kid]
+  (.add ^ObservableList (.getChildren parent) index kid)
+  parent))
+
+
+(defn children-add-all [parent ^List kids]
+  (.addAll ^ObservableList (.getChildren parent) ^List kids)
+  parent)
+
+
+(defn children-clear [parent]
+  (.clear ^ObservableList (.getChildren parent))
+  parent)
+
+
+(defn children-remove [parent kid-or-int]
+  (.remove ^ObservableList (.getChildren parent) kid-or-int)
+  parent)
+
+
+(defn children-remove-all [parent kids]
+  (.removeAll ^ObservableList (.getChildren parent) ^List kids)
+  parent)
 
 
 (defn XY [item]
@@ -343,7 +325,7 @@ and the body is called on 'changed'"
     (.setTranslateY y)))
 
 
-(defn translate-XY [^Node n]
+(defn get-translate-XY [^Node n]
     [(.getTranslateX n) (.getTranslateY n)])
 
 
@@ -353,13 +335,13 @@ and the body is called on 'changed'"
     (.setHeight h)))
 
 
-(defn set-pref-WH [^Node n [w h]]
+(defn set-pref-WH [n [w h]]
   (doto n
-    (.setPrefWidth (double w))
+    (.setPrefWidth  (double w))
     (.setPrefHeight (double h))))
 
 
-(defn set-all-WH [^Node n [w h :as size]]
+(defn set-all-WH [n [w h :as size]]
   (doto n 
     (set-pref-WH size)
     (.setMinWidth (double w))
@@ -374,13 +356,15 @@ and the body is called on 'changed'"
     ([color width]
      (new-border color width 0.))
     ([color width rad]
-     (Border. (fxj/vargs
-                  (BorderStroke. color
-                                 BorderStrokeStyle/SOLID
-                                 (corner-radii rad)
-                                 (if (vector? width)
-                                     (let [[t r b l] width] (BorderWidths. t r b l))
-                                     (BorderWidths. width)))))))
+     (Border.
+       (into-array
+         (list
+           (BorderStroke. color
+                          BorderStrokeStyle/SOLID
+                          (corner-radii rad)
+                          (if (vector? width)
+                              (let [[t r b l] width] (BorderWidths. t r b l))
+                              (BorderWidths. width))))))))
 
 
 (defn get-userdata
@@ -417,7 +401,7 @@ and the body is called on 'changed'"
          (.getId node)
 
          [a b]
-         (s/split id #"#")
+         (cs/split id #"#")
          [a b]
          [(if (empty? a) nil a) (if (empty? b) nil b)]]
         ;			_ (println "[a b]:" [a b])
@@ -479,18 +463,21 @@ and the body is called on 'changed'"
 
 
 (defn remove-class
-  ([node ^String css-class]
-   (-> node .getStyleClass (.remove css-class))))
+  [node ^String css-class]
+  (-> node .getStyleClass (.remove css-class))
+  node)
 
 
 (defn add-class [node ^String css-class]
-   (-> node .getStyleClass  (.add css-class)))
+   (-> node .getStyleClass  (.add css-class))
+   node)
 
 
 (defn re-add-class [node ^String css-class]
   (doto (.getStyleClass node)
     (.remove css-class)
-    (.add css-class)))
+    (.add css-class))
+  node)
 
 
 (defn ^KeyFrame keyframe*
@@ -498,19 +485,18 @@ and the body is called on 'changed'"
     [duration keyvalues]
     (KeyFrame.
         (Duration. duration)
-        (fxj/vargs-t* KeyValue
-            (map (fn [[p v]](KeyValue. p v))
-                 (filter some? keyvalues)))))
+        (into-array KeyValue (map (fn [[p v]](KeyValue. p v))
+                                  (filter some? keyvalues)))))
 
 
 (defn ^KeyFrame new-keyframe*
   [duration onfinished keyvalues]
   (let [d (Duration. duration)
-        ah (when onfinished (event-handler (onfinished)))
+        ah (when onfinished (new-eventhandler (onfinished)))
         kvs (mapv (fn [[p v]] (KeyValue. p v)) (filter some? keyvalues))]
     (if ah
       (KeyFrame. d "NN" ^EventHandler ah ^Collection kvs)
-      (KeyFrame. d (fxj/vargs-t* KeyValue kvs)))))
+      (KeyFrame. d (into-array KeyValue kvs)))))
 
 
 ;(defn keyframe
@@ -528,9 +514,9 @@ and the body is called on 'changed'"
 (defn ^Timeline timeline
     "creates a timeline of instances of KeyFrame"
     [onfinished-fn & KeyFrames]
-    (let [t (Timeline. (fxj/vargs* KeyFrames))]
+    (let [t (Timeline. (into-array KeyFrames))]
       (when onfinished-fn
-            (.setOnFinished t  (event-handler (onfinished-fn))))
+            (.setOnFinished t  (new-eventhandler (onfinished-fn))))
       t))
 
 
@@ -660,46 +646,6 @@ and the body is called on 'changed'"
 ;   (multiline-listview str)))
 
 
-(defn add [parent node]
-  (-> parent .getChildren (.add node))
-  parent)
-
-
-(defn add-all [parent & nodes]
-  (-> parent .getChildren (.addAll (into-array Node nodes)))
-  parent)
-
-
-(defn add-at [parent index node]
-  (-> parent .getChildren (.add index node))
-  parent)
-
-
-(defn set-all* [parent nodes]
-  (-> parent .getChildren (.setAll (into-array Node nodes)))
-  parent)
-
-
-(defn set-all [parent & nodes]
-  (-> parent .getChildren (.setAll (into-array Node nodes)))
-  parent)
-
-
-(defn set-at [parent index node]
-  (-> parent .getChildren (.set index node))
-  parent)
-
-
-(defn remove [parent node]
-  (-> parent .getChildren (.remove node))
-  parent)
-
-
-(defn remove-all [parent & nodes]
-  (-> parent .getChildren (.removeAll (into-array Node nodes)))
-  parent)
-
-
 (defn priority [kw]
   ({:always Priority/ALWAYS
     :never Priority/NEVER
@@ -719,7 +665,7 @@ and the body is called on 'changed'"
 
 
 (defn ^StackPane stackpane* [nodes]
-    (StackPane. (fxj/vargs-t* Node nodes)))
+    (StackPane. (into-array Node nodes)))
 
 
 (defn ^StackPane stackpane
@@ -728,7 +674,7 @@ and the body is called on 'changed'"
 
 
 (defn ^Group group* [nodes]
-    (Group. (fxj/vargs-t* Node nodes)))
+    (Group. (into-array Node nodes)))
 
 
 (defn ^Group group
@@ -737,7 +683,7 @@ and the body is called on 'changed'"
 
 
 (defn pane* [nodes]
-  (Pane. (fxj/vargs-t* Node nodes)))
+  (Pane. (into-array Node nodes)))
 
 
 (defn pane
@@ -745,13 +691,13 @@ and the body is called on 'changed'"
    (pane* nodes)))
 
 
-(defn line [& {:keys [x1 y1 x2 y2 color width smooth round]
-               :or   {x1 0 y1 0
-                      x2 x1 y2 y1
-                      color Color/BLACK
-                      width 1
-                      smooth true
-                      round false}}]
+(defn ^Line line [& {:keys [x1 y1 x2 y2 color width smooth round]
+                     :or   {x1 0 y1 0
+                            x2 x1 y2 y1
+                            color Color/BLACK
+                            width 1
+                            smooth true
+                            round false}}]
 
     (doto (Line. x1 y1 x2 y2)
       (.setStroke color)
@@ -770,19 +716,14 @@ and the body is called on 'changed'"
      (set-stroke stroke))))
 
 
-(defn ^Polygon polygon
-    [& args]
-
-    (let [
-          [points kwargs]
-          (fxu/partition-args
+(defn ^Polygon polygon [& args]
+    (let [[points kwargs]
+          (uc/partition-args
               args
               {:fill Color/TRANSPARENT
                :stroke Color/BLACK
                :strokewidth 1.})]
-
-
-         (doto (Polygon. (fxj/vargs-t* Double/TYPE points))
+         (doto (Polygon. (into-array Double/TYPE points))
              (.setFill (:fill kwargs))
              (set-stroke (:stroke kwargs) (:strokewidth kwargs)))))
 
@@ -799,7 +740,7 @@ and the body is called on 'changed'"
            :fill Color/BLACK
            :arc 0}
 
-          [_ kwargs] (fxu/partition-args args default-kwargs)
+          [_ kwargs] (uc/partition-args args default-kwargs)
 
           location (:location kwargs)
           size (:size kwargs)
@@ -817,23 +758,15 @@ and the body is called on 'changed'"
 
 
 (defn set-tooltip [control s]
-  (.setTooltip control (Tooltip. s))
-  control)
+  (doto control (.setTooltip (Tooltip. s))))
 
 
 (defn set-onaction [buttonbase fn-or-handler]
-  (.setOnAction buttonbase (ensure-handler fn-or-handler))
-  buttonbase)
-
-
-(defn set-onaction2 [buttonbase fn-or-handler]
-  (.setOnAction buttonbase (ensure-handler2 fn-or-handler))
-  buttonbase)
+  (doto buttonbase (.setOnAction (ensured-handler fn-or-handler))))
 
 
 (defn set-onmouseclicked [clickable fn-or-handler]
-  (.setOnMouseClicked clickable (ensure-handler fn-or-handler))
-  clickable)
+  (doto clickable (.setOnMouseClicked (ensured-handler fn-or-handler))))
 
 
 ; ^RadioButton  ;; DON'T TYPE. It touches JavaFX!
@@ -842,29 +775,27 @@ and the body is called on 'changed'"
 
 
 ; ^Button  ;; DON'T TYPE. It touches JavaFX!
-(defn button [label & {:keys [onaction onaction2 width minwidth tooltip style]}]
+(defn button [label & {:keys [onaction width minwidth tooltip style]}]
     (let [b (Button. label)]
-      (when width (.setPrefWidth  b (double width)))
+      (when width    (.setPrefWidth  b (double width)))
       (when minwidth (.setMinWidth b  (double minwidth)))
       (when onaction (set-onaction b onaction))
-      (when onaction2 (set-onaction2 b onaction2))
-      (when tooltip (set-tooltip b tooltip))
-      (when style (.setStyle b style))
+      (when tooltip  (set-tooltip b tooltip))
+      (when style    (.setStyle b style))
       b))
 
 
 (defn set-enable
       "A simple tool that is easier to reason about."
       [^Button button enable?]
-      (.setDisable button (not enable?)))
+      (doto button (.setDisable (not enable?))))
 
 
 ; ^CheckBox  ;; DON'T TYPE. It touches JavaFX!
-(defn  checkbox [label & {:keys [onaction onaction2 tooltip]}]
+(defn  checkbox [label & {:keys [onaction tooltip]}]
   (let [cb (CheckBox. label)]
     (when onaction (set-onaction cb onaction))
-    (when onaction2 (set-onaction2 cb onaction2))
-    (when tooltip (.setTooltip cb (Tooltip. tooltip)))
+    (when tooltip (set-tooltip cb tooltip))
     cb))
 
 
@@ -907,9 +838,7 @@ and the body is called on 'changed'"
       :or {text ""
            prompt ""
            font nil}}]
-  (let [tf
-        (doto (TextField. text)
-          (.setPromptText prompt))]
+  (let [tf (doto (TextField. text) (.setPromptText prompt))]
     ;(when font (.setFont ta font))
     tf))
 
@@ -919,9 +848,7 @@ and the body is called on 'changed'"
          :or {text ""
               prompt ""
               font nil}}]
-    (let [ta
-          (doto (TextArea. text)
-            (.setPromptText prompt))]
+    (let [ta (doto (TextArea. text) (.setPromptText prompt))]
       (when font (set-font ta font))
       ta))
 
@@ -938,8 +865,7 @@ and the body is called on 'changed'"
 (defn  new-label
   [s & {:keys [graphic font size color mouseclicked tooltip style]  
           :or {size 12}}]
-  (let [label (doto  (Label. s graphic)
-                (set-font (or font (new-font size))))]
+  (let [label (doto  (Label. s graphic) (set-font (or font (new-font size))))]
     (when color (.setTextFill label color))
     (when style (.setStyle label style))
     (when mouseclicked (set-onmouseclicked label mouseclicked))
@@ -975,7 +901,7 @@ and the body is called on 'changed'"
 
 
 (defn box [vertical? & args]
-    (let [[nodes kwargs] (fxu/partition-args
+    (let [[nodes kwargs] (uc/partition-args
                              (filter some? args) 
                              {:spacing 0
                               :insets 0
@@ -1019,7 +945,7 @@ and the body is called on 'changed'"
           default-kwargs
           {:center nil :top nil :right nil :bottom nil :left nil
            :insets 0}
-          [_ kwargs] (fxu/partition-args args default-kwargs)]
+          [_ kwargs] (uc/partition-args args default-kwargs)]
 
       (doto
           (BorderPane. (:center kwargs)
@@ -1036,7 +962,7 @@ and the body is called on 'changed'"
                    ;:antialiasing SceneAntialiasing/BALANCED  ;; set to nil if not required
                    :antialiasing nil}  ;; set to nil due to "upside-down" bug on Mac/Linux
 
-                  [_ kwargs] (fxu/partition-args args default-kwargs)
+                  [_ kwargs] (uc/partition-args args default-kwargs)
                   size (:size kwargs)]
 
                 (doto (if size
@@ -1067,8 +993,8 @@ and the body is called on 'changed'"
          :error        Alert$AlertType/ERROR}]
     (if-let [typ (types type-kw)]
       typ
-      (binding [*out* *err*]
-        (println (format "Warning. Unkown type '%s'.  Using ':information'." type-kw))
+      (do
+        (warn (format "Unkown type '%s'.  Using ':information'." type-kw))
         (types :information)))))
 
 
@@ -1109,7 +1035,7 @@ and the body is called on 'changed'"
                         :mode :show-and-wait ;; :show-and-wait or :show or nil
                         :type :information}
 
-        [_ {:keys [options type] :as kwargs}] (fxu/partition-args args default-kwargs)
+        [_ {:keys [options type] :as kwargs}] (uc/partition-args args default-kwargs)
 
         buttons
         (mapv #(ButtonType. %) options)
@@ -1124,7 +1050,7 @@ and the body is called on 'changed'"
           (.setTitle (:title kwargs))
           (.initOwner (:owner kwargs))
           (.setHeaderText (:header kwargs))
-          (-> .getButtonTypes (.setAll (fxj/vargs* buttons))))]
+          (-> .getButtonTypes (.setAll (into-array buttons))))]
 
     (when-let [t (:text kwargs)]
       (.setContentText alert t))
@@ -1158,12 +1084,9 @@ and the body is called on 'changed'"
                             height nil
                             preserveratio true
                             smooth true}}]
-  (let [iv
-        (doto
-          (ImageView.  image-or-rsc-str)
-          (.setSmooth smooth)
-          (.setPreserveRatio preserveratio))]
-
+  (let [iv (doto (ImageView.  image-or-rsc-str)
+             (.setSmooth smooth)
+             (.setPreserveRatio preserveratio))]
     (when width (.setFitWidth iv (double width)))
     (when height (.setFitHeight iv (double height)))
     iv))
@@ -1186,8 +1109,8 @@ and the body is called on 'changed'"
                 :utility     StageStyle/UTILITY}]
     (if-let [style (styles style-kw)]
       style
-      (binding [*out* *err*]
-        (println (format "Warning. Unkown stagestyle '%s'.  Using ':decorated'." style-kw))
+      (do
+        (warn (format "Unknown stagestyle '%s'.  Using ':decorated'." style-kw))
         (styles :decorated)))))
 
 
@@ -1198,8 +1121,8 @@ and the body is called on 'changed'"
                :right  Side/RIGHT}]
     (if-let [side (sides side-kw)]
       side
-      (binding [*out* *err*]
-        (println (format "Warning. Unkown side '%s'.  Using ':bottom'." side-kw))
+      (do
+        (warn (format "Unknown side '%s'.  Using ':bottom'." side-kw))
         (sides :bottom)))))
 
 
@@ -1209,23 +1132,23 @@ and the body is called on 'changed'"
               :none        Modality/NONE}]
     (if-let [mod (mods mod-kw)] 
       mod
-      (binding [*out* *err*]
-        (println (format "Warning. Unkown modality '%s'.  Using ':none'." mod-kw))
+      (do
+        (warn (format "Warning. Unknown modality '%s'.  Using ':none'." mod-kw))
         (mods :none)))))
 
 
 (defn ^Stage setoncloserequest [stage fn-or-handler]
-    (.setOnCloseRequest stage (ensure-handler fn-or-handler))
+    (.setOnCloseRequest stage (ensured-handler fn-or-handler))
     stage)
 
 
 (defn ^Stage setonhiding [stage fn-or-handler]
-    (.setOnHiding stage (ensure-handler fn-or-handler))
+    (.setOnHiding stage (ensured-handler fn-or-handler))
     stage)
 
 
 (defn ^Stage setonhidden [stage fn-or-handler]
-    (.setOnHidden stage (ensure-handler fn-or-handler))
+    (.setOnHidden stage (ensured-handler fn-or-handler))
     stage)
 
 
@@ -1257,7 +1180,7 @@ and the body is called on 'changed'"
            :onhiding #()  ;; good for saving content
            :onhidden #()}  ;; good for removing references to self
 
-          [_ kwargs] (fxu/partition-args args default-kwargs)]
+          [_ kwargs] (uc/partition-args args default-kwargs)]
 
       (let [stg (doto (Stage. (stagestyle (:style kwargs)))
                     (.setTitle (:title kwargs))
@@ -1293,7 +1216,7 @@ and the body is called on 'changed'"
 
 
 (defn filechooserfilter [description & extensions]
-    (FileChooser$ExtensionFilter. description (fxj/vargs* extensions)))
+    (FileChooser$ExtensionFilter. description (into-array extensions)))
 
 
 (defn filechooser-filters-clj [] 
@@ -1309,8 +1232,51 @@ and the body is called on 'changed'"
 
 
 (defn ^FileChooser filechooser [& filters]
-    (doto (FileChooser.)
-        (-> .getExtensionFilters (.addAll (fxj/vargs* filters)))))
+    (doto (FileChooser.) (-> .getExtensionFilters (.addAll ^Collection filters))))
+
+
+(defn char-ensured
+  "Returns the char that was typed,
+  else empty-flag or nil if no char was found in event,
+  else undefined-flag or nil if the found char was not Character/isDefined"
+  ([^KeyEvent event]
+   (char-ensured event nil nil))
+  ([^KeyEvent event empty-flag undefined-flag]
+   (let [ch-str (.getCharacter event)]
+     (if (empty? ch-str)
+       empty-flag
+       (let [ch (.charAt ch-str 0)]
+         (if-not (Character/isDefined ch)
+           undefined-flag
+           ch))))))
+
+
+(defn code-modifier-set
+  "Returns a set of keywords (all caps) for key-code and active modifier-keys extracted form event. Useful for handling KEY_PRESSED / KEY_RELEASED events.
+  Ex: #{:UP :SHORTCUT} or #{:BACKSPACE}  or #{:SHIFT :ENTER}"
+  [^KeyEvent event]
+  (let [code (str (.getCode event))
+        shift (when (.isShiftDown event) "SHIFT")
+        shortcut (when (.isShortcutDown event) "SHORTCUT")  ;; CTRL / CMD / "C-"
+        alt (when (.isAltDown event) "ALT")] ;;  "M-"
+    (set (map keyword (filter some? [code shift shortcut alt])))))
+
+
+(defn char-modifier-set
+  "Similar to code-modifier-set, but in stead of code, returns char+modifier-keywrods. Useful for handling KEY_TYPED events. Returns an empty set with :CHARACTER_UNDEFINED or :CHARACTER_EMPTY if that is the case.
+  Ex: #{:SHORTCUT \\a} or #{\\A}"
+  [^KeyEvent event]
+  (let [ch-str (.getCharacter event)]
+    (if (empty? ch-str)
+      #{:CHARACTER_EMPTY}
+      (let [ch (.charAt ch-str 0)]
+        (if-not (Character/isDefined ch)
+          #{:CHARACTER_UNDEFINED}
+          (let [
+                shift (when (.isShiftDown event) "SHIFT")
+                shortcut (when (.isShortcutDown event) "SHORTCUT")
+                alt (when (.isAltDown event) "ALT")]
+            (set (conj (map keyword (filter some? [shift shortcut alt])) ch))))))))
 
 
 ;(def sample-codes-map {
@@ -1318,21 +1284,14 @@ and the body is called on 'changed'"
 ;                       #{:S :SHIFT} #(println "SHIFT-S")
 ;                       #{:S :SHORTCUT} #(println "CTRL-S")
 ;                       #{:S :ALT} #(println "ALT-S")
-;                       #{:S :SHIFT :SHORTCUT} (event-handler (println "SHIFT-CTRL/CMD-S"))
-;                       #{:SHORTCUT :ENTER} (event-handler-2 [_ event] (println "CTRL/CMD-ENTER") (.consume event))})
+;                       #{:S :SHIFT :SHORTCUT} (new-eventhandler (println "SHIFT-CTRL/CMD-S"))
+;                       #{:SHORTCUT :ENTER} (new-eventhandler (println "CTRL/CMD-ENTER") (.consume event))})
 
 
 ;(def sample-chars-map {
 ;                       "a" #(println "a")
 ;                       "A" #(println "A")
-;                       " " (event-handler-2 [_ e] (println "SPACE (consumed)") (.consume e))})
-
-
-;; TODO make macro that does this:
-;; (condmemcall true (toUpperCase))
-;;  => (fn [inst] (if true (.inst  (toUpperCase)) inst)
-;; test:
-;; (doto "A" .toLowerCase (fn [inst] (if (= 1 2) (.inst  (toUpperCase)) inst)))
+;                       " " (new-eventhandler (println "SPACE (consumed)") (.consume event))})
 
 
 (defn key-pressed-handler
@@ -1348,15 +1307,15 @@ See:  https://docs.oracle.com/javase/8/javafx/api/javafx/scene/input/KeyCode.htm
 Example of codes-map:
 {   #{:S}              #(println \"S\")  ;; event consumed
     #{:S :SHIFT}       #(println \"SHIFT-S\")
-    #{:S :SHIFT :SHORTCUT} (fx/event-handler (println \"SHIFT-CTRL/CMD-S\"))  ;; event not consumed
-    #{:SHORTCUT :ENTER}    (fx/event-handler-2 [_ event] (println \"CTRL/CMD-ENTER\") (.consume event ))
+    #{:S :SHIFT :SHORTCUT} (fx/new-eventhandler (println \"SHIFT-CTRL/CMD-S\"))  ;; event not consumed
+    #{:SHORTCUT :ENTER}    (fx/new-eventhandler (println \"CTRL/CMD-ENTER\") (.consume event))
     }"
     [codes-map & {:keys [handle-type consume-types]}]
     (new-eventhandler
         ;(println "  ## this:" this "  source:" (.getSource event ))
         (let [
               ev-typ (.getEventType event)
-              combo (ufx/code-modifier-set event)
+              combo (code-modifier-set event)
               ;_ (println "combo:" (str combo))
               
               do-handle
@@ -1390,8 +1349,8 @@ Example of codes-map:
     Example of chars-map:
     {   \"s\"    #(println \"s\")  ;; event not consumed
         \"S\"    #(println \"S\")
-        \"{\"    (fx/event-handler (println \"{\"))  ;; event not consumed
-        \" \"    (fx/event-handler-2 [_ event] (println \"SPACE (consumed)\") (. event consume))
+        \"{\"    (fx/new-eventhandler (println \"{\"))  ;; event not consumed
+        \" \"    (fx/new-eventhandler (println \"SPACE (consumed)\") (.consume event))
         }"
     [chars-map]
 

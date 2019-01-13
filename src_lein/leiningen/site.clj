@@ -10,7 +10,9 @@
     [leiningen.help :as lh]
     ;; src_lein
     [leiningen.serve :as lgs]
-    [leiningen.george.core :as g])
+    [leiningen.george.core :as g]
+    ;; src_common
+    [common.george.util.cli :refer [error]])
   (:import
     [java.net ConnectException]))
 
@@ -23,7 +25,7 @@
   (try
     (slurp (format "http://localhost:%s/_cmd/%s" (port) cmd))
     (catch ConnectException _
-      (g/error  "Server not running. \n  To start serving Site dir, do:  lein site start "))))
+      (error  "Server not running. \n  To start serving Site dir, do:  lein site start "))))
         
 
 (defn info

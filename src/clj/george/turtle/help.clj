@@ -15,15 +15,14 @@
     [george.util.singleton :as singleton]
     [george.application.ui.styled :as styled]
     [george.javafx :as fx]
-    [george.javafx.java :as fxj]
     [george.util :refer [->Labeled labeled?]]
     [george.application.ui.layout :as layout])
   (:import
     [javafx.stage Stage]
-    [javafx.scene Node]
     [javafx.scene.paint Color]
     [javafx.scene.layout VBox]
-    [javafx.scene.control ScrollPane]))
+    [javafx.scene.control ScrollPane]
+    [javafx.scene Node]))
 
 ;(set! *warn-on-reflection* true)
 ;(set! *unchecked-math* :warn-on-boxed)
@@ -462,7 +461,7 @@ You can get a list containing all registered turtles with the command [``]
       (doto
         ^ScrollPane
         (fx/scrollpane
-          (doto ^VBox (apply fx/vbox (concat (fxj/vargs-t* Node labels) [:padding 10 :spacing 2]))
+          (doto ^VBox (apply fx/vbox (concat (into-array Node labels) [:padding 10 :spacing 2]))
             (.setFocusTraversable false)))
         (.setFocusTraversable false)
         (.setMinWidth 180)))

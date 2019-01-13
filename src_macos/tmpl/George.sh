@@ -3,7 +3,7 @@
 logdir="$HOME/Library/Logs/{{ app }}"
 [ ! -d $logdir ] && mkdir -p $logdir
 
-logfile="$logdir/{{ app }}_`date '+%Y-%m-%d-%H%M%S'`.log"
+logfile="$logdir/{{ app }}_`date '+%Y%m%dT%H%M%S'`.log"
 exec &> >(tee -i $logfile)
 
 echo "START: [$(date '+%Y-%m-%d %H:%M:%S')]"

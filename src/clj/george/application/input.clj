@@ -8,14 +8,14 @@
     [clojure.string :as cs]
     [environ.core :refer [env]]
     [george.javafx :as fx]
-    [george.core.history :as hist]
+    [george.application.history :as hist]
     [george.application.repl :as repl]
     [george.util :as gu]
     [george.application.output :refer [oprintln]]
-    [george.util :as u]
     [george.application.eval :as eval]
     [george.editor.core :as ed]
-    [george.application.ui.layout :as layout])
+    [george.application.ui.layout :as layout]
+    [common.george.util.platform :as pl])
   (:import
     [javafx.scene.input KeyEvent MouseEvent]
     [java.net SocketException]
@@ -32,7 +32,7 @@
   (try
     (fx/future-sleep-later 300 (.requestFocus focusable))
     ;; The focusable may be gone as the interrupt being a result of closing it.
-    (catch NullPointerException e nil)))
+    (catch NullPointerException _ nil)))
 
 
 (defn do-eval [code-str ^Button run-button ^Button interrupt-button ns-fn update-ns-fn file-name focusable post-success-fn & [load?]]
@@ -84,8 +84,8 @@
   (if clearable?
     (format
       "Run code, then clear if checkbox ckecked.                  %s-ENTER
-Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" u/SHORTCUT_KEY u/SHORTCUT_KEY)
-    (format "Run code.  %s-ENTER."  u/SHORTCUT_KEY)))
+Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" (pl/shortcut-key) (pl/shortcut-key))
+    (format "Run code.  %s-ENTER."  (pl/shortcut-key))))
 
 
 (defn run-button [& [clearable?]]
@@ -133,11 +133,7 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" u/SHORTCUT_
         (.getFlow editor)
 
         focus-on-editor
-        #(future
-           (Thread/sleep 500)
-           ;(println "focus on Input editor")
-           (fx/later
-             (.requestFocus ^Node focusable)))
+        #(fx/future-sleep-later 500 (.requestFocus ^Node focusable))
 
         do-history-fn
         (fn [direction global?]
@@ -193,9 +189,9 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" u/SHORTCUT_
                 "Previous local history.         CLICK
 Previous global history.  SHIFT-CLICK")
           (.setOnMouseClicked
-              (fx/event-handler-2 [_  e]
-                (do-history-fn hist/PREV (.isShiftDown ^MouseEvent e))
-                (.consume e))))
+              (fx/new-eventhandler
+                (do-history-fn hist/PREV (.isShiftDown ^MouseEvent event))
+                (.consume event))))
 
         next-button
         (doto (fx/button
@@ -204,9 +200,9 @@ Previous global history.  SHIFT-CLICK")
                 "Next local history.         CLICK
 Next global history.  SHIFT-CLICK")
          (.setOnMouseClicked
-             (fx/event-handler-2 [_ e]
-                (do-history-fn hist/NEXT (.isShiftDown ^MouseEvent e))
-                (.consume e))))
+             (fx/new-eventhandler
+                (do-history-fn hist/NEXT (.isShiftDown ^MouseEvent event))
+                (.consume event))))
         
         top
         (layout/menubar true
@@ -273,7 +269,7 @@ Next global history.  SHIFT-CLICK")
 
     (doto tab
       (.setContent root)
-      (.setOnClosed (fx/event-handler (on-closed-fn))))))
+      (.setOnClosed (fx/new-eventhandler (on-closed-fn))))))
 
 
 
@@ -285,10 +281,7 @@ Next global history.  SHIFT-CLICK")
                                                 true)]
     (layout/set-listeners tabpane selected_ focused_)
 
-    (future
-      (Thread/sleep 500)
-      ;(println "focus on Inputs"
-      (fx/later (.requestFocus tabpane)))
+    (fx/future-sleep-later 500 (fx/later (.requestFocus tabpane)))
 
     root))
 
