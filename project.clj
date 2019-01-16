@@ -27,8 +27,8 @@
                         [org.clojure/data.json "0.2.6"]
                         ;; https://github.com/weavejester/environ
                         [environ "1.1.0" :exclusions [org.clojure/clojure]]
+                        ;; TODO: Perhaps not use potemkin anywehre?
                         ;; https://github.com/ztellman/potemkin
-                        ;; TODO: remove user.clj ... maybe
                         [potemkin "0.4.5"]
                         ;; https://github.com/yogthos/markdown-clj
                         [markdown-clj "1.0.5"]
@@ -41,49 +41,32 @@
                         [zcaudate/hara.common.watch "2.8.7"]
                         [zcaudate/hara.io.watch "2.8.7"]
                         ;; https://github.com/terjedahl/junique
-                        [it.sauronsoftware/junique "1.0.4"]
-
-                        ;; https://github.com/Raynes/conch
-                        [me.raynes/conch "0.8.0" :exclusions [org.clojure/clojure]]
-
-                        ;; https://openjfx.io
-                        ;; https://search.maven.org/search?q=g:org.openjfx%20AND%20v:11.0.1
-                        [org.openjfx/javafx-controls "11.0.1"]
-                        [org.openjfx/javafx-fxml     "11.0.1"]
-                        [org.openjfx/javafx-swing    "11.0.1"] ;; required for Språklab
-                        [org.openjfx/javafx-web      "11.0.1"]
-                        [org.openjfx/javafx-media    "11.0.1"]
-
-                        ;; included here also for IDE usability
-                        [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]]
+                        [it.sauronsoftware/junique "1.0.4"]]
 
   :jar-exclusions      [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
 
-
-  :uberjar-exclusions  [;; Used for Leiningen tasks
-                        #"conch.*\.jar"
-                        #"org.eclipse.jetty.*"
-                        ;; Java9+ modules does not allow unnamed packages (class-file in top-level).
+  :uberjar-exclusions  [;; Java9+ modules does not allow unnamed packages (class-file in top-level).
                         #"^g[$|__init].*class" #"^user.*class" #"^clj.tuple.*class" #"^potemkin.*class"]
 
-  :plugins             [;; https://github.com/weavejester/environ
+  :plugins             [;; Required as plugins
+                        ;; https://github.com/weavejester/environ
                         [lein-environ "1.1.0"]
                         ;; https://github.com/weavejester/codox
                         [lein-codox "0.10.5"]
                         ;; https://github.com/technomancy/leiningen/tree/stable/lein-pprint
                         [lein-pprint "1.2.0"]
 
-                        ;; Used by different tasks
+                        ;; Required by custom tasks
                         [environ "1.1.0" :exclusions [org.clojure/clojure]]
                         ;; https://github.com/yogthos/Selmer
                         [selmer "1.12.5"]
                         ;; https://www.eclipse.org/jetty
                         [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
-
                         ;; https://github.com/cemerick/pomegranate
                         [com.cemerick/pomegranate "1.1.0"]
 
-                        ;; Used in user.clj which also gets loaded for Leiningen tasks
+                        ;; Required by user.clj which is also loaded for Leiningen tasks
+                        ;; TODO: Remove any 3rd party requirements from user.clj
                         [potemkin "0.4.5"]]
 
   :repositories        [;; junique
@@ -99,9 +82,15 @@
   :resource-paths      ["src/rsc"      "src_spraklab/rsc"
                         "src/include"  "src_spraklab/include"]
 
+                       ;; --module-path and --add-modules= ar appended via middleware
   :javac-options       ["-source" "11"  "-target" "11"]
                         ;"-Xlint:unchecked"
                         ;"-Xlint:deprecation"]
+
+  ;; --module-path, --add-modules=, -add-opens, and --add-exports ar appended via middleware
+  :jvm-opts            [;; should give crisper text on Mac
+                        "-Dapple.awt.graphics.UseQuartz=true"
+                        "-Xdiag"]
 
   :prep-task           ["javac" "compile"]
 
@@ -109,9 +98,6 @@
                         no.andante.george.Launch]
 
   :main                no.andante.george.Launch
-
-  :jvm-opts            [;; should give crisper text on Mac
-                        "-Dapple.awt.graphics.UseQuartz=true"]
 
   ;; Is used by 'lein jar' and others
   :target-path         "target/default/%s/"
@@ -123,6 +109,10 @@
   ;; Of course we then need to clean it ourselves when necessary.
   :auto-clean          false
 
+  ;; Custom middleware
+  :middleware         [leiningen.george.middleware/inject-javafx-modules]
+  ;:implicit-middleware false
+
   ;; Default config for 'lein server'
   :server              {:port 9998
                         :dir "."}
@@ -132,32 +122,47 @@
                                             :default      "92DB4AE3-F596-4FCA-8CB1-5E7B45A95340"}
                         :site {:port 9999}}
 
+  :modules             {;; Download SKSs and jmods from: https://gluonhq.com/products/javafx/
+                        ;; Required for javac, compile, java (building JAR and running lein and/or repl)
+                        :libs {"MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.1/lib"
+                               "Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.1\\lib"}
 
-  :modules             {;; Used when building JRE
-                        :jre  [;; Currently needed
-                               :java.sql
-                               :java.scripting
-                               :jdk.scripting.nashorn
-                               ;; Needed for Marlin rendering engine and Clojure
-                               ;; (JavaFX modules themselves are dependencies as per Java 11)
-                               :jdk.unsupported
-                               ;; May be may needed later
-                               :java.desktop
-                               :java.logging
-                               ;; Needed to get javac
-                               :jdk.compiler
-                               ;; Needed to get jdeps, jlink, jmod, et al
-                               :jdk.jlink]
-                               ;; https://docs.oracle.com/en/java/javase/11/docs/api/index.html
+                        ;; Required for jlink (building JRE)
+                        :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.1"
+                               "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.1"}
 
-                        ;; Used when building George as JPMS module.  (Doesn't work. See docs/java11.md)
-                        :jpms [:javafx.controls
-                               :javafx.fxml
-                               :javafx.swing
-                               :javafx.web
-                               :javafx.media]}
 
-  :aliases             {"george" ^{:doc "            Print a list of custom tasks for this project"}
+                        ;; https://docs.oracle.com/en/java/javase/11/docs/api/index.html
+                        :java  [;; Currently required
+                                :java.sql
+                                :java.scripting
+                                :jdk.scripting.nashorn
+                                :java.desktop
+
+                                ;; Required for Marlin rendering engine and Clojure
+                                ;; (JavaFX modules themselves are dependencies as per Java 11)
+                                :jdk.unsupported
+
+                                ;; Required for Swing JavaFX interop.  Will not be needed for JavaFX 12
+                                ;; https://bugs.openjdk.java.net/browse/JDK-8210759
+                                :jdk.unsupported.desktop
+
+                                ;; Currently not required
+                                :java.logging
+
+                                ;; Required to get javac
+                                :jdk.compiler
+                                ;; Required to get jdeps, jlink, jmod, et al
+                                :jdk.jlink]
+
+                        ;; https://openjfx.io
+                        :javafx [:javafx.controls
+                                 :javafx.fxml
+                                 :javafx.swing  ;; required for george.javafx and Språklab
+                                 :javafx.web
+                                 :javafx.media]}
+
+  :aliases             {"george" ^{:doc "            Print a list of custom tasks for the George project"}
                         ["george"]}
 
   ;; to get PID for this port in unix shell, do:   sudo lsof -n -i :55055
@@ -175,13 +180,28 @@
 
                         :dev {;; Is used by 'lein javac', 'lein compile', 'lein run'
                               :target-path       "target/classes/%s/"
-                              :java-source-paths ["src_dev/java"]
-                              :source-paths      ["src_dev/clj" "src_lein"]
-                              :resource-paths    ["src_dev/rsc"]
-                              :dependencies      [;; https://repo.clojars.org/leiningen/leiningen/
-                                                  [leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]]}
 
-                        :uberjar {;; Is applied by 'uberjar'
+                              :java-source-paths ["src_dev/java"]
+
+                              :source-paths      ["src_dev/clj" "src_lein"]
+
+                              :resource-paths    ["src_dev/rsc"]
+
+                              :dependencies      [;; Not required, but included here (also) for IDE support
+
+                                                  [selmer "1.12.5"]
+                                                  ;; https://repo.clojars.org/leiningen/leiningen/
+                                                  [leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
+
+                                                  [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
+
+                                                  [org.openjfx/javafx-controls "11.0.1"]
+                                                  [org.openjfx/javafx-fxml     "11.0.1"]
+                                                  [org.openjfx/javafx-swing    "11.0.1"]
+                                                  [org.openjfx/javafx-web      "11.0.1"]
+                                                  [org.openjfx/javafx-media    "11.0.1"]]}
+
+                        :uberjar {;; Is applied by 'uberjar' TODO: Investigate: Doesn't seem to have any effect.
                                   :target-path "target/uberjar/"
                                   :prep-task   ^:replace ["clean" "javac" "compile"]
                                   :aot :all}})

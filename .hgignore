@@ -5,8 +5,7 @@ checkouts/
 src_spraklab/*
 wix311-binaries/*
 signtool/*
-javafx-jmods-*/*
-javafx-sdk-*/*
+javafx-libs/*
 
 # Files
 .*.DS_Store

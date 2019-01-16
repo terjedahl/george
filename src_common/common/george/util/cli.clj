@@ -3,16 +3,18 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns common.george.util.cli)
+(ns common.george.util.cli
+  (:require
+    [environ.core :refer [env]]))
 
 
 ;;;; flags
 
 ;; allow debug print?
-(def ^:dynamic *debug*  (System/getenv "DEBUG"))
+(def ^:dynamic *debug* (env :debug))
 
 ;; allow info print?
-(def ^:dynamic *info*   (not (or (System/getenv "LEIN_SILENT") (System/getenv "GEORGE_SILENT"))))
+(def ^:dynamic *info* (not (or (env :lein-silent) (env :george-silent))))
 
 
 (defn err [& args]

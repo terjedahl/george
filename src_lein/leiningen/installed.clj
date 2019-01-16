@@ -36,6 +36,6 @@
   (binding [g/*project* project]
     (case subtask
       "install" (install)
-      "list"  (list)
-      "clean" (clean)
-      (lh/help project "local"))))
+      "list"    (list)
+      "clean"   (clean)
+      (lh/help project "installed"))))
