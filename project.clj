@@ -89,8 +89,7 @@
 
   ;; --module-path, --add-modules=, -add-opens, and --add-exports ar appended via middleware
   :jvm-opts            [;; should give crisper text on Mac
-                        "-Dapple.awt.graphics.UseQuartz=true"
-                        "-Xdiag"]
+                        "-Dapple.awt.graphics.UseQuartz=true"]
 
   :prep-task           ["javac" "compile"]
 

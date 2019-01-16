@@ -41,12 +41,6 @@
 (def ^:dynamic *project* nil)
 
 
-;;;; flags
-
-;; allow JPMS tasks?
-(def ^:dynamic *jpms* (env :jpms))
-
-
 ;;;
 
 (defn- java-home []
@@ -76,12 +70,6 @@
     (error (java11-message))))
 
 
-(defn assert-jpms-active []
-  (when-not *jpms*
-    (error (str "JPMS functionality is not active.
-  See docs/java11.md for more details."))))
-
-
 (defn- asserted-project []
   (or *project* (error "'leiningen.george.core/*project*' is not bound!")))
 
@@ -108,33 +96,31 @@
 ;;;;
 
 
-(defn- rsc-dir []        (cio/file "src" "rsc"))
-(defn- embed-file []     (cio/file (rsc-dir) c/PROP_NAME))
+(defn- rsc-dir []          (cio/file "src" "rsc"))
+(defn- embed-file []       (cio/file (rsc-dir) c/PROP_NAME))
 
-(defn- George []         (c/get-app (embed-file)))
-(defn- George-version [] (str (George) "-" (:version *project*)))
+(defn- George []             (c/get-app (embed-file)))
+(defn- George-version []     (str (George) "-" (:version *project*)))
 
-(defn- uberjar-dir []    (cio/file "target" "uberjar"))
-(defn- native-dir []     (cio/file "target" (pl/platform)))
-(defn- site-dir []       (cio/file "target" "Site"))
-(defn- site-platforms-dir []  (cio/file (site-dir) "apps" (George) "platforms"))
+(defn- uberjar-dir []        (cio/file "target" "uberjar"))
+(defn- native-dir []         (cio/file "target" (pl/platform)))
+(defn- site-dir []           (cio/file "target" "Site"))
+(defn- site-platforms-dir [] (cio/file (site-dir) "apps" (George) "platforms"))
 
-(defn- jar-dir []        (cio/file (native-dir) "jar"))
-(defn- jpms-dir []       (cio/file (native-dir) "jpms"))
-(defn- jre-dir []        (cio/file (native-dir) "jre"))
+(defn- jar-dir []            (cio/file (native-dir) "jar"))
+(defn- jre-dir []            (cio/file (native-dir) "jre"))
 
-(defn- jar-name []       (format "%s-%s.jar" (George-version) (pl/platform)))
-(defn- jar-file []       (cio/file (jar-dir) (jar-name)))
-(defn- jpms-file []      (cio/file (jpms-dir) (jar-name)))
+(defn- jar-name []           (format "%s-%s.jar" (George-version) (pl/platform)))
+(defn- jar-file []           (cio/file (jar-dir) (jar-name)))
 
-(defn- installer-name [] (if (pl/windows?)
-                           (str (George-version) ".msi")
-                           (str (George-version) ".pkg")))
+(defn- installer-name []     (if (pl/windows?)
+                               (str (George-version) ".msi")
+                               (str (George-version) ".pkg")))
 
-(defn- installer-dir []  (cio/file (native-dir) "installer"))
-(defn- installer-file [] (cio/file (installer-dir) (installer-name)))
+(defn- installer-dir []      (cio/file (native-dir) "installer"))
+(defn- installer-file []     (cio/file (installer-dir) (installer-name)))
 
-(defn- installed-dir []  (c/installed-dir (George)))
+(defn- installed-dir []      (c/installed-dir (George)))
 
 
 (defn- asserted-jre-dir []
@@ -151,10 +137,6 @@
 
 (defn- asserted-jar-file []
   (asserted-file (jar-file) "File '%s' does not exist.\n  To build the JAR, do:  lein build jar"))
-
-
-(defn- asserted-jpms-file []
-  (asserted-file (jpms-file) "File '%s' does not exist.\n  To build the JPMS, do:  lein build jpms"))
 
 
 (defn- asserted-installed-dir []
@@ -226,15 +208,6 @@
 
 (defn- replace-with-jar-path [args]
   (map #(if (= ":jar" %) (str (asserted-jar-file)) %) args))
-
-(defn- replace-with-jpms-path [args]
-  (map
-    #(if (= ":jpms" %)
-       (do
-         (assert-jpms-active)
-         (str (asserted-jpms-file)))
-       %)
-    args))
 
 
 ;; https://blog.codefx.org/java/five-command-line-options-hack-java-module-system
@@ -313,24 +286,6 @@
                    (filter #(.contains % "standalone"))
                    first)]
     (cio/file (uberjar-dir) name)))
-
-
-(defn- build-jar- [jpms?]
-  (-> (if jpms? (jpms-dir) (jar-dir)) (f/ensured-dir) (f/cleaned-dir))
-  (let [jar-f (if jpms? (jpms-file) (jar-file))]
-    (cio/copy (uberjar-file) jar-f)
-    (build-jar-props jar-f)))
-
-
-(defn- write-module-info []
-  (let [reqs (apply str  (map #(str "    requires " (name %) ";\n")  (jre-modules)))
-        java (format "module george {\n    exports no.andante.george;\n%s}" reqs)]
-    (println java)
-    (spit "src/java/module-info.java" java)))
-
-
-(defn- delete-module-info []
-  (cio/delete-file (cio/file "src" "java" "module-info.java") true))
 
 
 ;;;; SIGN
@@ -641,41 +596,25 @@ and unpack in project dir.")))
 
 (defn run-jdeps [args]
   (assert-java11)
-  (run-java-home-bin 'jdeps (-> args replace-with-jar-path replace-with-jpms-path)))
+  (run-java-home-bin 'jdeps (-> args replace-with-jar-path)))
 
 
 (defn build-embed [args]
   (apply build-embed-props (cons (:version (asserted-project)) args)))
 
 
-(defn build-jar
-  [args & [jpms?]]
+(defn build-jar [args]
   (assert-java11)
   (assert-project)
-  (delete-module-info)  ;; Ensure no 'module-info.java' from failed build-jpms
   (clean (uberjar-dir))
   (clean (jar-dir))
   (build-embed args)
   (debug ":javac-options" (:javac-options *project*))
   (lu/uberjar *project*)
-  (build-jar- jpms?))
-
-
-(defn build-jpms [args]
-  (assert-jpms-active)
-  (write-module-info)
-  (binding [*project*
-            (update-in *project* [:javac-options] conj
-                       "-verbose"
-                       "--module-path")]
-                       ;"javafx-jmods-11.0.1"
-                       ;(str (cio/file "javafx-sdk-11.0.1" "lib"))
-                       ;(lcp/get-classpath-string *project*)
-                       ;"--add-modules=javafx.base,javafx.graphics,javafx.controls,javafx.fxml,javafx.swing,javafx.web,javafx.media")]
-                       ;"--add-exports" "george/no.andante.george=A‌​LL-UNNAMED")]
-
-    (build-jar args true)
-    (delete-module-info)))
+  (-> (jar-dir) (f/ensured-dir) (f/cleaned-dir))
+  (let [jar-f (jar-file)]
+    (cio/copy (uberjar-file) jar-f)
+    (build-jar-props jar-f)))
 
 
 (defn build-jre []

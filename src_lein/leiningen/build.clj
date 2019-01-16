@@ -53,14 +53,6 @@ For details information on the args, do:
   (g/build-jar args))
 
 
-(defn jpms
-  "Build the complete jar-file as a JPMS module.   ...
-This is an experimental feature.
-See docs/java11.md for more."
-  [& args]
-  (g/build-jpms args))
-
-
 (defn jre
   "Build the custom Java runtime.                  ...
 
@@ -96,13 +88,12 @@ For details information on the args, do:
 
 (defn build
   "Build the various George artifacts.     ..."
-  {:subtasks [#'embed #'jar (if g/*jpms* #'jpms #'jar) #'jre #'installer #'site #'all]}
+  {:subtasks [#'embed #'jar #'jre #'installer #'site #'all]}
   [project & [subtask & args]]
   (binding [g/*project* project]
     (case subtask
       "embed"     (apply embed args)
       "jar"       (apply jar args)
-      "jpms"      (apply jpms args)
       "jre"       (jre)
       "installer" (installer)
       "site"      (site)

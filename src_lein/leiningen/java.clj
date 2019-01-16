@@ -11,14 +11,13 @@
 (defn ^:pass-through-help java
   "Call 'java' (in JAVA_HOME) with args.   ...
 
-If the first arg is ':jar' ':jpms', the built jar or jpms is run with the remaining args.
+If any of the args are ':jar', then that arg will be replaced with necessary args to run the built jar.
 
 Examples:
  lein java -version
  lein java --list-modules
  lein java :jar
- lein java :jar help
- lein java :jpms"
+ lein java :jar help"
 
   [project & args]
   (binding [g/*project* project]

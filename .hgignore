@@ -12,7 +12,6 @@ javafx-libs/*
 .lein-*
 .nrepl-port
 pom.xml
-src/java/module-info.java
 src/rsc/app.properties
 codesign-*
 
