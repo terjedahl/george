@@ -20,15 +20,15 @@
      [run :as lr]
      [classpath :as lcp]
      [uberjar :as lu]]
-    [leiningen.core.eval :as le]
+    [leiningen.core
+     [eval :as le]]
     ;; src_lein
     [leiningen.george.load-common]
     ;; src_common
     [common.george.config :as c]
     [common.george.util
-     [text :as t]
      [time :refer [now-iso]]
-     [cli :refer [debug info warn error]]
+     [cli :refer [*debug* debug info warn error]]
      [platform :as pl]
      [files :as f]
      [props :as up]])
@@ -41,20 +41,14 @@
 (def ^:dynamic *project* nil)
 
 
-;;;; flags
-
-;; allow JPMS tasks?
-(def ^:dynamic *jpms*   (System/getenv "JPMS"))
-
-
 ;;;
 
 (defn- java-home []
-  (System/getenv "JAVA_HOME"))
+  (env :java-home))
 
 
 (defn- java-version []
-  (System/getProperty "java.version"))
+  (env :java-version))
 
 
 (defn- java11? []
@@ -74,12 +68,6 @@
 (defn- assert-java11 []
   (when-not (java11?)
     (error (java11-message))))
-
-
-(defn assert-jpms-active []
-  (when-not *jpms*
-    (error (str "JPMS functionality is not active.
-  See docs/java11.md for more details."))))
 
 
 (defn- asserted-project []
@@ -108,31 +96,29 @@
 ;;;;
 
 
-(defn- rsc-dir []        (cio/file "src" "rsc"))
-(defn- embed-file []     (cio/file (rsc-dir) c/PROP_NAME))
+(defn- rsc-dir []          (cio/file "src" "rsc"))
+(defn- embed-file []       (cio/file (rsc-dir) c/PROP_NAME))
 
-(defn- George []         (c/get-app (embed-file)))
-(defn- George-version [] (str (George) "-" (:version *project*)))
+(defn- George []             (c/get-app (embed-file)))
+(defn- George-version []     (str (George) "-" (:version *project*)))
 
-(defn- uberjar-dir []    (cio/file "target" "uberjar"))
-(defn- native-dir []     (cio/file "target" (pl/platform)))
-(defn- site-dir []       (cio/file "target" "Site"))
-(defn- site-platforms-dir []  (cio/file (site-dir) "apps" (George) "platforms"))
+(defn- uberjar-dir []        (cio/file "target" "uberjar"))
+(defn- native-dir []         (cio/file "target" (pl/platform)))
+(defn- site-dir []           (cio/file "target" "Site"))
+(defn- site-platforms-dir [] (cio/file (site-dir) "apps" (George) "platforms"))
 
-(defn- jar-dir []        (cio/file (native-dir) "jar"))
-(defn- jpms-dir []       (cio/file (native-dir) "jpms"))
-(defn- jre-dir []        (cio/file (native-dir) "jre"))
+(defn- jar-dir []            (cio/file (native-dir) "jar"))
+(defn- jre-dir []            (cio/file (native-dir) "jre"))
 
-(defn- jar-name []       (format "%s-%s.jar" (George-version) (pl/platform)))
-(defn- jar-file []       (cio/file (jar-dir) (jar-name)))
-(defn- jpms-file []      (cio/file (jpms-dir) (jar-name)))
+(defn- jar-name []           (format "%s-%s.jar" (George-version) (pl/platform)))
+(defn- jar-file []           (cio/file (jar-dir) (jar-name)))
 
-(defn- installer-name [] (if (pl/windows?)
-                           (str (George-version) ".msi")
-                           (str (George-version) ".pkg")))
+(defn- installer-name []     (if (pl/windows?)
+                               (str (George-version) ".msi")
+                               (str (George-version) ".pkg")))
 
-(defn- installer-dir []  (cio/file (native-dir) "installer"))
-(defn- installer-file [] (cio/file (installer-dir) (installer-name)))
+(defn- installer-dir []      (cio/file (native-dir) "installer"))
+(defn- installer-file []     (cio/file (installer-dir) (installer-name)))
 
 (defn- installed-dir []      (c/installed-dir (George)))
 
@@ -153,14 +139,6 @@
   (asserted-file (jar-file) "File '%s' does not exist.\n  To build the JAR, do:  lein build jar"))
 
 
-(defn- asserted-jpms-file []
-  (asserted-file (jpms-file) "File '%s' does not exist.\n  To build the JPMS, do:  lein build jpms"))
-
-
-(defn- asserted-installer-file []
-  (asserted-file (installer-file) (format "File '%s' does not exist.\n  To build the installer, do:  lein build installer")))
-
-
 (defn- asserted-installed-dir []
   (asserted-file (installed-dir) "Dir '%s' does not exist.
   It is automatically create when George downloads a newer version from online, or if you do:  lein local install"))
@@ -168,19 +146,6 @@
 
 (defn- ensured-site-platforms-dir []
   (f/ensured-dir (site-platforms-dir)))
-
-
-(defn- copy-file-to-dir [dir file & [verbose?]]
-  (let [f0 (.getAbsoluteFile (cio/file file))
-        f1 (cio/file dir (.getName f0))]
-    (when verbose?
-      (println (format "Copying file: %s\n          to: %s" (str f0) (str f1))))
-    (cio/copy f0 f1)
-    f1))
-
-
-(defn- copy-files-to-dir [dir files & [verbose?]]
-  (mapv #(copy-file-to-dir dir % verbose?) files))
 
 
 (defn- run
@@ -211,41 +176,107 @@
       *project*)))
 
 
-(defn- modules [& [jpms?]]
+(defn javafx-modules []
+  (->> *project* :modules :javafx (map name)))
+
+
+(defn- jre-modules []
   (concat
-    (-> *project* :modules :jre)
-    (if jpms? (-> *project* :modules :jpms) [])))
+    (->> *project* :modules :java (map name))
+    (javafx-modules)))
+
+
+(defn- asserted-fx-lib-dir []
+  (let [p (pl/platform)
+        path (get-in *project* [:modules :libs p])]
+    (debug "JavaFX lib:" path)
+    (asserted-file
+      (cio/file path)
+      (format "Directory '%%s' does not exist.
+  Ensure you have a lib dir in place matching project.clj's [:modules :libs \"%s\"]" p))))
+
+
+(defn- asserted-fx-mods-dir []
+  (let [p (pl/platform)
+        path (get-in *project* [:modules :mods p])]
+    (debug "JavaFX mods:" path)
+    (asserted-file
+      (cio/file path)
+      (format "Directory '%%s' does not exist.
+  Ensure you have a jmod lib in place matching project.clj's [:modules :mods \"%s\"]" p))))
+
+
+(defn- replace-with-jar-path [args]
+  (map #(if (= ":jar" %) (str (asserted-jar-file)) %) args))
+
+
+;; https://blog.codefx.org/java/five-command-line-options-hack-java-module-system
+(defn- exports-opens []
+  ["--add-opens" "javafx.graphics/javafx.scene.text=ALL-UNNAMED"
+   "--add-exports" "javafx.graphics/com.sun.javafx.text=ALL-UNNAMED"])
+
+
+;; https://jaxenter.com/jdk-9-replace-permit-illegal-access-134180.html
+(defn- access []
+  (if *debug* "--illegal-access=debug" "--illegal-access=warn"))
+;"--illegal-access=permit"
+
+
+(defn- replace-with-jar-params [args & [with-opens?]]
+  (flatten
+    (map #(if (= ":jar" %)
+            (concat
+              [(access)]
+              (if with-opens? (exports-opens) [])
+              ["-jar" (str (asserted-jar-file))])
+            %)
+         args)))
+
+
+(defn- module-args [& [with-opens?]]
+  (let [lib-dir (asserted-fx-lib-dir)
+        mods-str (->> (javafx-modules) (interpose ",") (apply str))]
+    (debug "JavaFX mods:" mods-str)
+    (concat
+      [;"-verbose"
+       "--module-path" (str lib-dir)
+       (str "--add-modules=" mods-str)]
+      (if with-opens? (exports-opens) []))))
 
 
 ;;;; EMBED / PROPS
 
 
 (defn- build-embed-props [version & {:strs [:app :uri :ts]}]
-  (let [props (assoc (c/default-props app uri ts) :version version)]
-    (c/dump  (embed-file) props)
-    (info (t/pformat props))))
+  (let [p (assoc (c/default-props app uri ts) :version version)
+        f (embed-file)]
+    (c/dump f p)
+    (pprint p)))
 
 
 (defn- build-jar-props [jar-f]
   (let [p (assoc (up/load (embed-file))
-               :file     (c/get-file jar-f)
-               :size     (c/get-size jar-f)
-               :checksum (c/get-checksum jar-f))]
-     (info (t/pformat p))
-     (c/dump (cio/file (.getParentFile jar-f) c/PROP_NAME) p)))
+            :file     (c/get-file jar-f)
+            :size     (c/get-size jar-f)
+            :checksum (c/get-checksum jar-f))
+        f  (cio/file (.getParentFile jar-f) c/PROP_NAME)]
+    (c/dump f p)
+    (pprint p)))
+
 
 
 (defn- build-installer-props [installer-file]
-  (up/dump
-    (cio/file (.getParent installer-file) c/PROP_NAME)
-    (->
-      {:version (:version *project*)
-       :file    (f/filename installer-file)
-       :size    (f/size installer-file)
-       :ts      (now-iso)})))
+  (let [p {:version (:version *project*)
+           :file    (f/filename installer-file)
+           :size    (f/size installer-file)
+           :ts      (now-iso)}
+        f (cio/file (.getParent installer-file) c/PROP_NAME)]
+    (up/dump f p)
+    (pprint p)))
 
 
 ;;; JAR
+
 
 (defn- ^File uberjar-file
   "Returns the file representing the built uberjar, else nil"
@@ -257,47 +288,29 @@
     (cio/file (uberjar-dir) name)))
 
 
-(defn- build-jar- [jpms?]
-  (-> (if jpms? (jpms-dir) (jar-dir)) (f/ensured-dir) (f/cleaned-dir))
-  (let [jar-f (if jpms? (jpms-file) (jar-file))]
-    (cio/copy (uberjar-file) jar-f)
-    (build-jar-props jar-f)))
-
-
-(defn- write-module-info []
-  (let [reqs (apply str  (map #(str "    requires " (name %) ";\n")  (modules true)))
-        java (format "module george {\n    exports no.andante.george;\n%s}" reqs)]
-    (println java)
-    (spit "src/java/module-info.java" java)))
-
-
-(defn- delete-module-info []
-  (cio/delete-file (cio/file "src" "java" "module-info.java") true))
-
-
 ;;;; SIGN
 
 
-(defn- ^File signtool-dir
+(defn- ^File warned-signtool-dir
   "Returns the signtool dir, else nil"
   []
   (if-let [d (->> env  :user-dir  cio/file  .listFiles  seq  (filter #(re-matches #".*signtool" (str %)))  first)]
     d
     (warn "Could not find directory 'signtool' in project dir.
-Download Microsoft's 'signtool' from  http://cdn1.ksoftware.net/signtool_8.1.zip
+To sign, download Microsoft's 'signtool' from  http://cdn1.ksoftware.net/signtool_8.1.zip
 and unpack in project dir.")))
 
 
-(defn- ^File  pfx-file
+(defn- ^File warned-pfx-file
   "Returns the pfx-file, else nil"
   []
   (let [f (cio/file "codesign-key.pfx")]
     (if (.exists f)
       f
-      (error (format "Could not find file '%s' in project dir." f)))))
+      (warn (format "Could not find file '%s' in project dir." f)))))
 
 
-(defn- ^File  password-file
+(defn- ^File  asserted-password-file
   "Returns the password-file - containing a plaintext password for the pfx-file, else nil"
   []
   (let [f (cio/file "codesign-password.txt")]
@@ -307,9 +320,9 @@ and unpack in project dir.")))
 
 
 (defn- sign-msi [msi-file]
-  (when-let [st-d (signtool-dir)]
-    (when-let [pfx-f (pfx-file)]
-      (when-let [pw-f (password-file)]
+  (when-let [st-d (warned-signtool-dir)]
+    (when-let [pfx-f (warned-pfx-file)]
+      (let [pw-f (asserted-password-file)]
         (le/sh (str (cio/file st-d "signtool.exe"))
             "sign"
             "/d" (-> (.getName msi-file) (cs/split #".") first (#(format "%s Installer" %)))
@@ -319,6 +332,7 @@ and unpack in project dir.")))
             "/fd" "sha256"
             ;"/v"
             (str msi-file))))))
+
 
 ;;;; MSI
 
@@ -444,29 +458,28 @@ and unpack in project dir.")))
 
 
 (defn- build-macos-app []
+  (let [jre-dir       (asserted-jre-dir)
+        jar-file      (asserted-jar-file)
 
-  (let [jre-dir  (asserted-jre-dir)
-        jar-file (asserted-jar-file)
+        tmpl-data     {:jar-name        (jar-name)
+                       :app             (George)
+                       :ts              (now-iso)
+                       :identifier (str "no.andante." (George))
+                       :strict-version  (strict (:version *project*))}
 
-        tmpl-data    {:jar-name        (jar-name)
-                      :app             (George)
-                      :ts              (now-iso)
-                      :identifier (str "no.andante." (George))
-                      :strict-version  (strict (:version *project*))}
+        pkg-dir       (cio/file "target" "pkg")
+        appl-dir      (cio/file pkg-dir "root" "Applications")
+        the-app       (cio/file appl-dir (str (George) ".app"))
 
-        pkg-dir    (cio/file "target" "pkg")
-        appl-dir    (cio/file pkg-dir "root" "Applications")
-        the-app    (cio/file appl-dir (str (George) ".app"))
-
-        contents-dir (cio/file the-app "Contents")
+        contents-dir  (cio/file the-app "Contents")
 
         info-tmpl     (slurp (cio/file "src_macos" "tmpl" "Info.plist"))
         info-rendered (render info-tmpl tmpl-data)
-        info-file  (cio/file  contents-dir "Info.plist")
+        info-file     (cio/file  contents-dir "Info.plist")
 
-        sh-tmpl     (slurp (cio/file "src_macos" "tmpl" "George.sh"))
-        sh-rendered (render sh-tmpl tmpl-data)
-        sh-file  (cio/file  contents-dir "MacOS" (George))]
+        sh-tmpl       (slurp (cio/file "src_macos" "tmpl" "George.sh"))
+        sh-rendered   (render sh-tmpl tmpl-data)
+        sh-file       (cio/file  contents-dir "MacOS" (George))]
 
     (clean pkg-dir)
 
@@ -492,33 +505,33 @@ and unpack in project dir.")))
 
 (defn- build-pkg []
   ;; https://stackoverflow.com/questions/11487596/making-os-x-installer-packages-like-a-pro-xcode-developer-id-ready-pkg
-  (let [pkg-dir (build-macos-app)
-        scripts-dir (cio/file pkg-dir "scripts")
+  (let [pkg-dir         (build-macos-app)
+        scripts-dir     (cio/file pkg-dir "scripts")
 
-        pkg-file  (cio/file pkg-dir (installer-name))
-        product-file  (installer-file)
+        pkg-file        (cio/file pkg-dir (installer-name))
+        product-file    (installer-file)
 
-        version        (:version *project*)
-        strict-version (strict version)
-        identifier (str "no.andante." (George))
+        version         (:version *project*)
+        strict-version  (strict version)
+        identifier      (str "no.andante." (George))
 
-        tmpl-data {:app           (George)
-                   :version       version
-                   :stict-version strict-version
-                   :pkg-name      (installer-name)
-                   :identifier    identifier}
+        tmpl-data       {:app           (George)
+                         :version       version
+                         :stict-version strict-version
+                         :pkg-name      (installer-name)
+                         :identifier    identifier}
 
-        plist-tmpl     (slurp (cio/file "src_macos" "tmpl" "Pkg.plist"))
-        plist-rendered (render plist-tmpl tmpl-data)
-        plist-file     (cio/file  pkg-dir "Pkg.plist")
+        plist-tmpl      (slurp (cio/file "src_macos" "tmpl" "Pkg.plist"))
+        plist-rendered  (render plist-tmpl tmpl-data)
+        plist-file      (cio/file  pkg-dir "Pkg.plist")
 
         launch-tmpl     (slurp (cio/file "src_macos" "tmpl" "launch.sh"))
         launch-rendered (render launch-tmpl tmpl-data)
         launch-file     (cio/file  scripts-dir "launch.sh")
 
-        xml-tmpl     (slurp (cio/file "src_macos" "tmpl" "Distribution.xml"))
-        xml-rendered (render xml-tmpl tmpl-data)
-        xml-file  (cio/file  pkg-dir "Distribution.xml")]
+        xml-tmpl        (slurp (cio/file "src_macos" "tmpl" "Distribution.xml"))
+        xml-rendered    (render xml-tmpl tmpl-data)
+        xml-file        (cio/file  pkg-dir "Distribution.xml")]
 
     (clean (installer-dir))
     (f/ensured-dir (installer-dir))
@@ -551,7 +564,7 @@ and unpack in project dir.")))
       (let [signed-file-s (str product-file ".signed")]
         (le/sh "productsign" "--sign" cert-id (str product-file) signed-file-s)
         (le/sh "mv" signed-file-s (str product-file)))
-      (warn "Environment  variable 'apple-developer-installer-cert-id' not found."))
+      (warn "Environment variable 'apple-developer-installer-cert-id' not found."))
 
     (le/sh "chmod" "755" (str product-file))
     (build-installer-props product-file)
@@ -563,55 +576,12 @@ and unpack in project dir.")))
 
 
 (defn run-java  [args]
-  (let [arg1 (first args)]
-    (if (#{":jar" ":jpms"} arg1) (assert-java11) (warn-java11))
-    (case arg1
-      ":jar"
-      (run-java-home-bin
-        'java
-        (concat [;; https://jaxenter.com/jdk-9-replace-permit-illegal-access-134180.html
-                 ;"--illegal-access=debug"
-                 "--illegal-access=warn"
-                 ;"--illegal-access=permit"
-                 "-jar" (str (asserted-jar-file))]
-                (rest args)))
-      ":jpms"
-      (do
-        (assert-jpms-active)
-        (run-java-home-bin
-          'java
-          (concat [;"--module-path" "javafx-jmods-11.0.1"
-                   ;"-jar" (str (asserted-jpms-file))]
-                   "--module-path" (str (asserted-jpms-file))
-                   "--module"  "george/no.andante.george.Launch"]
-                  (rest args))))
-      ;; default
-      (run-java-home-bin 'java args))))
+  (if ((set args) ":jar") (assert-java11) (warn-java11))
+  (run-java-home-bin 'java (concat (module-args) (replace-with-jar-params args true))))
 
 
 (defn run-jre  [args]
-  (case (first args)
-    ":jar"
-    (run-jre-bin
-      'java
-      (concat [;; https://jaxenter.com/jdk-9-replace-permit-illegal-access-134180.html
-               ;"--illegal-access=debug"
-               "--illegal-access=warn"
-               ;"--illegal-access=permit"
-               "-jar" (str (asserted-jar-file))]
-              (rest args)))
-    ":jpms"
-    (do
-      (assert-jpms-active)
-      (run-jre-bin
-        'java
-        (concat [;"--module-path" "javafx-jmods-11.0.1"
-                 ;"-jar" (str (asserted-jpms-file))
-                 "--module-path" (str (asserted-jpms-file))
-                 "--module"  "george/no.andante.george.Launch"]
-                (rest args))))
-    ;; default
-    (run-jre-bin 'java args)))
+    (run-jre-bin 'java (replace-with-jar-params args)))
 
 
 (defn run-jmod [args]
@@ -624,71 +594,41 @@ and unpack in project dir.")))
   (run-java-home-bin 'jlink args))
 
 
-(defn- replace-jar [args]
-  (map #(if (= ":jar" %) (str (asserted-jar-file)) %) args))
-
-
-(defn- replace-jpms [args]
-  (map
-    #(if (= ":jpms" %)
-       (do
-         (assert-jpms-active)
-         (str (asserted-jpms-file)))
-       %)
-    args))
-
-
 (defn run-jdeps [args]
   (assert-java11)
-  (run-java-home-bin 'jdeps (-> args replace-jar replace-jpms)))
+  (run-java-home-bin 'jdeps (-> args replace-with-jar-path)))
 
 
 (defn build-embed [args]
   (apply build-embed-props (cons (:version (asserted-project)) args)))
 
 
-(defn build-jar
-  [args & [jpms?]]
+(defn build-jar [args]
   (assert-java11)
   (assert-project)
-  (delete-module-info)  ;; Ensure no 'module-info.java' from failed build-jpms
   (clean (uberjar-dir))
   (clean (jar-dir))
   (build-embed args)
-  (println ":javac-options" (:javac-options *project*))
+  (debug ":javac-options" (:javac-options *project*))
   (lu/uberjar *project*)
-  (build-jar- jpms?))
-
-
-(defn build-jpms [args]
-  (assert-jpms-active)
-  (write-module-info)
-  (binding [*project*
-            (update-in *project* [:javac-options] conj
-                       "-verbose"
-                       "--module-path"
-                       "javafx-jmods-11.0.1"
-                       ;(str (cio/file "javafx-sdk-11.0.1" "lib"))
-                       ;(lcp/get-classpath-string *project*)
-                       "--add-modules=javafx.base,javafx.graphics,javafx.controls,javafx.fxml,javafx.swing,javafx.web,javafx.media")]
-                       ;"--add-exports" "george/no.andante.george=A‌​LL-UNNAMED")]
-
-    (build-jar args true)
-    (delete-module-info)))
+  (-> (jar-dir) (f/ensured-dir) (f/cleaned-dir))
+  (let [jar-f (jar-file)]
+    (cio/copy (uberjar-file) jar-f)
+    (build-jar-props jar-f)))
 
 
 (defn build-jre []
   (assert-java11)
   (assert-project)
   (let [jre-d (jre-dir)
-        modules-str (apply str (interpose "," (map name (modules))))]
-    ;(prn modules-str)
+        mods-str (->> (jre-modules) (interpose ",") (apply str))]
+    (debug "JRE mods:" mods-str)
     (clean jre-d)
-    (run-jlink [;"--module-path" "javafx-jmods-11.0.1" ;(str (cio/file "javafx-sdk-11.0.1" "lib"))
+    (run-jlink ["--module-path" (str (asserted-fx-mods-dir))
                 "--output" (str jre-d)
                 "--compress=2"
                 "--no-header-files"
-                "--add-modules" modules-str])
+                "--add-modules" mods-str])
     (clean (cio/file jre-d "legal"))
     (run-jre ["--list-modules"])))
 
@@ -737,7 +677,7 @@ and unpack in project dir.")))
     (Thread/sleep 5000)
 
     (info "Verifying 'app.properties' ...\n")
-    (doseq [p (pl/platforms)]
+    (doseq [p (butlast (pl/platforms))]
       (doseq [t ["jar" "installer"]]
         (try
           (println (slurp (format "https://download.george.andante.no/apps/%s/platforms/%s/%s/app.properties" app p t)))
@@ -757,3 +697,9 @@ and unpack in project dir.")))
 
 (defn installed-clean []
   (f/cleaned-dir (installed-dir)))
+
+
+(defn inject-javafx-modules []
+  (-> *project*
+      (update-in [:javac-options] concat (module-args))
+      (update-in [:jvm-opts] concat (module-args true))))

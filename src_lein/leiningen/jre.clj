@@ -11,14 +11,13 @@
 (defn ^:pass-through-help jre
   "Call 'java' (in custom JRE) with args.  ...
 
-If the first arg is ':jar' ':jpms', the built jar or jpms is run with the remaining args.
+If any of the args are ':jar', then that arg will be replaced with necessary args to run the built jar.
 
 Examples:
 lein jre -version
 lein jre --list-modules
 lein jre :jar
-lein jre :jar help
-lein jre :jpms"
+lein jre :jar help"
 
   [project & args]
   (binding [g/*project* project]

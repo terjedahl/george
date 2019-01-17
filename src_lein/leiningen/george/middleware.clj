@@ -3,22 +3,13 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns leiningen.java
+(ns leiningen.george.middleware
   (:require
-    [leiningen.george.core :as g]))
+    [leiningen.george.core :as g]
+    [common.george.util.cli :refer [debug]]))
 
 
-(defn ^:pass-through-help java
-  "Call 'java' (in JAVA_HOME) with args.   ...
-
-If any of the args are ':jar', then that arg will be replaced with necessary args to run the built jar.
-
-Examples:
- lein java -version
- lein java --list-modules
- lein java :jar
- lein java :jar help"
-
-  [project & args]
+(defn inject-javafx-modules [project]
+  (debug "leiningen.george.middleware/inject-javafx-modules")
   (binding [g/*project* project]
-      (g/run-java args)))
+    (g/inject-javafx-modules)))

@@ -12,7 +12,7 @@
 (defn ^:pass-through-help jdeps
   "Call 'jdeps' (in JAVA_HOME) with args.  ...
 
-If any of the args are ':jar' or ':jpms', the arg will be replaced with the path to the build jar or jpms.
+If any of the args are ':jar', the arg will be replaced with the path to the build jar.
 
 Learn more about jdeps at: https://blog.codefx.org/tools/jdeps-tutorial-analyze-java-project-dependencies/"
 

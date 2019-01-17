@@ -45,10 +45,7 @@ JPMS a.k.a. Jigsaw was introduced with Java 9.
 [Article on Wikipedia](https://en.wikipedia.org/wiki/Java_Platform_Module_System)
 
 
-As of Java 11, JavaFX modules are dependencies rather than included in the JDK.  
-Currently, I have not figured out how to build a JPMS from this.  
-
-Therefore, George is only built and runs in "legacy" mode.  There is currently no good reason to strive for "jpms" mode.
+However, we currently built and run George in "legacy" mode.  There is currently no good reason to strive for "jpms" mode.
 
 
 ## Build

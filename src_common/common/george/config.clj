@@ -31,11 +31,11 @@
 
 
 (defn get-size [^File f]
-  (if f (str (f/size f))) "NA")
+  (if f (str (f/size f)) "NA"))
 
 
 (defn get-checksum [^File f]
-  (if f (str (f/checksum f))) "NA")
+  (if f (str (f/checksum f)) "NA"))
 
 
 (defn print-now []
@@ -43,7 +43,7 @@
 
 
 (defn default-uri [& [app]]
-  (format "https://dowload.george.andante.no/apps/%s/platforms/%s/jar/" (or app DEFAULT_APP) (pl/platform)))
+  (format "https://download.george.andante.no/apps/%s/platforms/%s/jar/" (or app DEFAULT_APP) (pl/platform)))
 
 
 (defn default-props [& [app uri ts]]
