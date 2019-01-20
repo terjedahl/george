@@ -8,7 +8,7 @@
     [clojure.string :as cs]
     [clojure.java.io :as cio]
     [george.util.colls :as uc]
-    [common.george.util.cli :refer [warn]])
+    [common.george.util.cli :refer [debug warn info except]])
   (:import
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Application Platform]
@@ -71,7 +71,7 @@ The includes (but is not limited to):
 
 
 (defn set-implicit-exit [& [b]]
-  (println (str "george.javafx/set-implicit-exit " b))
+  (debug (str "george.javafx/set-implicit-exit " b))
   (Platform/setImplicitExit (boolean b)))
 
 
@@ -83,7 +83,7 @@ The includes (but is not limited to):
 
 ;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
 (defn preload-fonts [& [verbose?]]
-  (println "george.javafx/preload-fonts")
+  (debug "george.javafx/preload-fonts")
   (let [dir-path (str (cio/resource "fonts/"))
         list-path "fonts/fonts.txt"
         names (cs/split-lines (slurp (cio/resource list-path)))]
@@ -105,14 +105,11 @@ Memoize-ing it makes it effectively lazy and run only once (unless new/different
 Add any additional random key+value to trigger a new load (as this triggers a new run of the memoize fn)."
   (memoize
     (fn [& {:keys [fonts? classloader] :or {fonts? true}}]
-      (println "george.javafx/init")
+      (debug "george.javafx/init")
 
-      ; ensure synchronicity by de-referencing promises
-      (let [st-promise (promise)]
-        (try
-          (Platform/startup #(deliver st-promise true))
-          (catch Throwable t (println (.getMessage t))))
-        @st-promise)
+      (try
+        (javafx.embed.swing.JFXPanel.)
+        (catch Throwable t (except (.getMessage t))))
 
       (set-implicit-exit false)
     
@@ -121,7 +118,7 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
     
       (when fonts?
         (preload-fonts (= fonts? :verbose)))
-        
+
       true)))
 
 
@@ -454,8 +451,8 @@ and the body is called on 'changed'"
   (mapv #(add-stylesheet scene-or-parent %) paths))
 
 
-(defn clear-stylesheets [scene]
-  (-> scene .getStylesheets .clear)) 
+(defn clear-stylesheets [^Scene scene]
+  (-> scene .getStylesheets .clear))
 
 
 (defn set-Modena []
@@ -583,12 +580,8 @@ and the body is called on 'changed'"
 ;(set! *unchecked-math* false)
 
 
-(defn observablearraylist-t [t & lst]
-    (FXCollections/observableArrayList (into-array t lst)))
-
-
-(defn observablearraylist [& lst]
-    (FXCollections/observableArrayList (into-array lst)))
+(defn observablearraylist [& elements]
+    (FXCollections/observableArrayList ^List elements))
 
 
 (defn names-list []

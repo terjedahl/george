@@ -9,15 +9,16 @@
     [clojure.string :as cs]
     [clojure.java 
      [io :as cio]
-     [browse :refer [browse-url]]])
+     [browse :refer [browse-url]]]
+    [common.george.util.cli :refer [debug]])
   (:import
-    [javafx.scene.paint Color]
-    [javafx.scene Scene]
-    [javafx.stage Stage]
-    [javafx.scene.image Image]
-    [javafx.scene.control Hyperlink ProgressIndicator]
-    [javafx.scene.web WebView WebEvent]
-    [java.util Collection]))
+   [javafx.scene.paint Color]
+   [javafx.scene Scene]
+   [javafx.stage Stage]
+   [javafx.scene.image Image]
+   [javafx.scene.control Hyperlink ProgressIndicator]
+   [javafx.scene.web WebView WebEvent]
+   [java.util Collection]))
 
 
 (defn ns-label []
@@ -36,8 +37,8 @@
   (fx/new-label s :size size :color fx/GREY :font (fx/new-font "Roboto" size)))
 
 
-(defn scrolling-widget [& [txt]]
-  (fx/hbox
+(defn scrolling-widget [& [txt vertical?]]
+  (fx/box vertical?
     (doto (ProgressIndicator.) (.setMaxHeight 28.))
     (new-label (or txt "Refreshing ..."))
     :padding 10

@@ -3,13 +3,10 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns
-  ^{:doc "A deliberately short namespace. Loaded at startup. Making it easy to make calls (to George) from anywhere."}
-  g
+(ns g
+  "A deliberately short namespace. Loaded at startup. Making it easy to make calls (to George) from anywhere."
   (:require
     [clojure.java.io :as cio]
-    ;[george.application.input :as input]
-    [george.javafx :as fx]
     [common.george.util.cli :refer [warn except]]))
 
 

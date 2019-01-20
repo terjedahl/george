@@ -77,7 +77,7 @@
   :deploy-repositories [["snapshots" :clojars]
                         ["releases" :clojars]]
 
-  :source-paths        ["src/clj"      "src_spraklab/clj"  "src_common"]
+  :source-paths        ["src/clj"      "src_spraklab/clj"      "src_common"]
   :java-source-paths   ["src/java"     "src_spraklab/java"]
   :resource-paths      ["src/rsc"      "src_spraklab/rsc"
                         "src/include"  "src_spraklab/include"]
@@ -93,8 +93,7 @@
 
   :prep-task           ["javac" "compile"]
 
-  :aot                 [no.andante.george.Run
-                        no.andante.george.Launch]
+  :aot                 [no.andante.george.Launch]
 
   :main                no.andante.george.Launch
 
@@ -123,12 +122,12 @@
 
   :modules             {;; Download SKSs and jmods from: https://gluonhq.com/products/javafx/
                         ;; Required for javac, compile, java (building JAR and running lein and/or repl)
-                        :libs {"MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.1/lib"
-                               "Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.1\\lib"}
+                        :libs {"MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.2/lib"
+                               "Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.2\\lib"}
 
                         ;; Required for jlink (building JRE)
-                        :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.1"
-                               "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.1"}
+                        :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
+                               "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"}
 
 
                         ;; https://docs.oracle.com/en/java/javase/11/docs/api/index.html

@@ -8,7 +8,7 @@
   (:require
     [clojure.java.io :as cio]
     [common.george.util
-     [cli :refer [warn]]
+     [cli :refer [debug info warn]]
      [time :as t]
      [text :refer [pprint]]
      [props :as p]
@@ -69,11 +69,11 @@
   (try
     (p/load props-url)
     (catch UnknownHostException e
-      (warn (format "UnknownHostException (%s). No online access?"  (.getMessage e))))
+      (info (format "UnknownHostException (%s). No online access?"  (.getMessage e))))
     (catch IOException e
-      (warn (format "IOException: \"%s\"" (.getMessage e))))
+      (debug (format "IOException: \"%s\"" (.getMessage e))))
     (catch FileNotFoundException _
-      (warn "File not found:" (str props-url)))))
+      (debug "File not found:" (str props-url)))))
 
 
 ;(defn uri->props [uri]

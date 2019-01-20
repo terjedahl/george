@@ -8,7 +8,8 @@
   (:require
     [clojure.pprint :refer [pprint]])
   (:import
-    [java.util UUID]))
+    [java.util UUID]
+    [java.util.concurrent CountDownLatch]))
 
 
 (defn uuid
@@ -28,14 +29,23 @@
 (defn timeout*
   "Same as 'timeout', but evaluates the passed-in function 'f'."
   [timeout-ms timeout-val f]
-  (let [fut (future  (f))
-        ret (deref fut timeout-ms timeout-val)]
-    (when (= ret timeout-val)
-      (future-cancel fut))
-    ret))
+  (let [fut# (future  (f))
+        ret# (deref fut# timeout-ms timeout-val)]
+    (when (= ret# timeout-val)
+      (future-cancel fut#))
+    ret#))
 
 
 (defmacro timeout
   "Returns the result of evaluating body, else returns timeout-val if timeout-ms passed."
   [timeout-ms timeout-val & body]
   `(timeout* ~timeout-ms ~timeout-val (fn [] ~@body)))
+
+
+(defmacro with-latch
+  "Prevents application from exiting when done -
+  e.g. when running a JavaFX application without extending javafx.application.Application"
+  [& body]
+  `(let [latch# (CountDownLatch. 1)]
+     ~@body
+     (.await latch#)))

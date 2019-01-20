@@ -700,6 +700,7 @@ and unpack in project dir.")))
 
 
 (defn inject-javafx-modules []
+  (warn-java11)
   (-> *project*
       (update-in [:javac-options] concat (module-args))
       (update-in [:jvm-opts] concat (module-args true))))

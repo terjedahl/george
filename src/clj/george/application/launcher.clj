@@ -20,7 +20,8 @@
      [layout :as layout]
      [styled :as styled :refer [hr padding]]]
     [george.util.singleton :as singleton]
-    [common.george.config :as c])
+    [common.george.config :as c]
+    [common.george.util.cli :refer [debug]])
   (:import
     [javafx.geometry Rectangle2D]
     [javafx.stage Stage]
@@ -40,9 +41,9 @@
 
 (def versionf "
    George: %s
+    build: %s
   Clojure: %s
-     Java: %s
-    built: %s")
+     Java: %s")
 
 (def copyright "
 Copyright 2015-2019 Terje Dahl.
@@ -64,10 +65,10 @@ Powered by open source software.")
         (doto
           (fx/new-label
             (format versionf
-               version
-               (clojure-version)
-               (env :java-version)
-               ts)
+                    version
+                    ts
+                    (clojure-version)
+                    (env :java-version))
             :font (fx/new-font "Roboto Mono" 12)))
 
         copyright-info
@@ -297,14 +298,15 @@ Powered by open source software.")
         h-prop (double-property (.getHeight stage) #(.setHeight stage %))
         [root-node dispose-fn] application-root]
     ;; Transition stage.
-    (fx/synced-keyframe
-      300
-      [x-prop x]
-      [y-prop y]
-      [w-prop w]
-      [h-prop h])
-    ;; Fade in Launcher root
-    (ui-stage/swap-with-fades stage root-node true 400)
+    (future
+      (fx/synced-keyframe
+        300
+        [x-prop x]
+        [y-prop y]
+        [w-prop w]
+        [h-prop h])
+      ;; Fade in Launcher root
+      (ui-stage/swap-with-fades stage root-node true 400))
 
     (fx/later
       ;; TODO: prevent fullscreen.  Where does the window go after fullscreen?!?
@@ -315,20 +317,18 @@ Powered by open source software.")
         (fx/setoncloserequest (stage-close-handler stage dispose-fn))))))
 
 
+;; TODO: This should be replaced by call to gui/...
 (defn starting-stage
   "Called form Main/-start or launcher/main.
   Returns a small, centered stage, which will morph into the main application window."
   [& [^Stage stage]]
   (fx/now
-    (if stage
-        (doto stage
-          (.setTitle "Loading ...")
-          (.setScene (fx/scene (ui-stage/scene-root-with-child) :size [240 80]))
-          (.centerOnScreen)
-          (.show)
-          (.toFront))
-
-        (starting-stage (fx/stage)))))
+    (doto (or stage (fx/stage))
+      (.setTitle "Loading ...")
+      (.setScene (fx/scene (ui-stage/scene-root-with-child) :size [240 80]))
+      (.centerOnScreen)
+      (.show)
+      (.toFront))))
 
 
 (defn application-root
@@ -345,7 +345,9 @@ Powered by open source software.")
   ([]
    (start (starting-stage)))
   ([stage]
-   (start stage (application-root)))
+   (if-not stage
+     (start)
+     (start stage (application-root))))
   ([stage root]
    (morphe-launcher-stage
      (styled/style-stage stage)

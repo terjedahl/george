@@ -207,7 +207,7 @@
                         (.setStyle "-fx-font-size: 14; -fx-fill: gray;"))
         nam-txt   (doto (Text. nam)
                         (.setStyle "-fx-font-size: 14; -fx-fill: black;"))]
-    (-> textflow .getChildren (.setAll ^List [dir-txt nam-txt]))))
+    (fx/children-set-all textflow (list dir-txt nam-txt))))
 
 
 (defn- new-editor-bar [editor file-info_ reveal-fn]

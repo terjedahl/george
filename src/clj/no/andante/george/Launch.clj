@@ -6,204 +6,170 @@
 (ns no.andante.george.Launch
   (:require
     [clojure.java.io :as cio]
-    [george.javafx :as fx]
+    [clojure.pprint :refer [pprint]]
     [george.launch
-     [load :refer [run-jar]]
-     [core :as core]]
+     [gui :as gui]
+     [load :refer [make-and-set-classloader-for-jar invoke-loadOrRun]]]
     [common.george.config :as c]
-    [common.george.launch.props :as p]
     [common.george.util
      [files :as f]
-     [cli :refer [debug info exit]]])
-  (:import
-    [javafx.scene Node Scene]
-    [javafx.scene.control ProgressIndicator ProgressBar Label]
-    [javafx.scene.layout VBox StackPane]
-    [no.andante.george Run]
-    [javafx.application Platform]
-    [javafx.geometry Insets]
-    [javafx.stage Stage])
+     [cli :refer [debug info exit]]]
+    [george.application.launcher :as launcher]
+    [george.javafx :as fx]
+    [george.util :as u])
+
   (:gen-class
     :name no.andante.george.Launch
+    :extends javafx.application.Application
+    :methods [^:static [loadOrRun [javafx.stage.Stage "[Ljava.lang.String;"] void]]
     :main true))
 
 
-(defn- loader-root []
-  (doto
-    (StackPane. (into-array (list (ProgressIndicator.))))
-    ;(.setPrefSize 200 80)
-    (.setPrefSize 240 120)
-    (.setPadding (Insets. 10))))
+(defn- gt
+  "Returns true if 'a' is greater than 'b'. Similar to '>', but also works for other types,
+  including strings and keywords (compare alphabetically).
+  if 'silent?' is truthy, then 'nil' will be returned if 'a' or 'b' are nil, else NullPointerException is thrown."
+  [a b & [silent?]]
+  (if (or (nil? a) (nil? b))
+    (when-not silent?
+      (throw (NullPointerException. (format "(gt %s %s)" (pr-str a) (pr-str b)))))
+    (< 0 (compare a b))))
+;(println (gt "a" "b"))
+;(println (gt "b" "a"))
+;(println (gt "a" nil true)) ;; returns nil
+;(println (gt  nil "a" true)) ;; returns nil
+;(println (gt "a" nil)) ;; throws exception
 
 
-(defn- updater []
-  (let [bar (doto (ProgressBar. -1)
-                  (.setStyle "-fx-pref-width: 200;"))
-        label (doto (Label. "Updating ...")
-                    (.setStyle "-fx-font-weight: bold;"))
-        box (doto (VBox. (into-array Node (list label bar)))
-                  (.setStyle "-fx-spacing: 10; -fx-padding: 25;"))]
-    
-    [box label bar]))
+;;;;
 
 
-(defonce screen_ (atom nil))
+(def ^:dynamic *args* nil)
+(def ^:dynamic *args-set* nil)
 
 
-(defn- set-updater []
-  (when @screen_
-    (let [[box label bar] (updater)
-          root (-> @screen_ :stage .getScene .getRoot)]
-      (Platform/runLater
-        #(-> root fx/children-clear (fx/children-add box)))
-      
-      (swap! screen_ assoc :text label :bar bar)
-      [label bar])))
+(defmacro with-args
+  "Binds args to *args* and as a set to *args-set*, allowing for easier and faster access for those functions that are aware."
+  [args & body]
+  `(binding [*args* ~args *args-set* (set ~args)]
+     ~@body))
+;(pprint (macroexpand-1 '(with-args ["-a"])))
 
 
-(defn- ensure-updater []
-  (when-let [screen @screen_]
-    (if (:text screen)
-        [(:text screen) (:bar screen)]
-        (set-updater))))
-      
-
-(defn- update-progress [^double progress]
-  (when-let [[_ bar] (ensure-updater)]
-    (Platform/runLater
-      #(.setProgress bar progress))))              
+(defn- no-installed-check? []
+  (when-let [res (or (*args-set* "--no-installed-check") (*args-set* ":no-installed-check"))]
+    (debug res)
+    true))
 
 
-(defn- update-text [s]
-  (info "[UPDATER]" s)
-  (when-let [[label _] (ensure-updater)]
-    (Platform/runLater
-      #(.setText label s))))
+(defn- no-online-check? []
+  (when-let [res (or (*args-set* "--no-online-check") (*args-set* ":no-online-check"))]
+    (debug res)
+    true))
 
 
-(defn- init-launch-screen []
-  (fx/init)
-  ;(fx/preload-fonts))
-  (Platform/runLater
-    #(let [stage 
-             (doto (Stage.)
-                   (.setTitle "Launch")
-                   (.setScene (Scene. (StackPane. (into-array (list (loader-root))))))
-                   (.show))]
-       (reset! screen_ {:stage stage}))))
-;(init-launch-screen)
+(defn- no-check? []
+  (if-let [res (or (*args-set* "--no-check") (*args-set* ":no-check"))]
+    (do (debug res)
+        true)
+    (and (no-installed-check?) (no-online-check?))))
 
 
-(defn- destroy-launcher-screen []
-  (when-let [stage (:stage @screen_)]
-    (Platform/runLater #(.hide stage))
-    (reset! screen_ nil)))
+(defn- no-gui? []
+  (when-let [res (or (*args-set* "--no-gui") (*args-set* ":no-gui"))]
+    (debug res)
+    true))
 
 
-;;;;;;;;;;;;;
+(defn- help? []
+  (when-let [res (#{"-h" "--help" "help" ":help"} (first *args*))]
+    (debug res)
+    true))
 
 
-(defn- no-gui? [args]
-  (let [args- (set args)]
-    (or (args- "--no-gui") (args- ":no-gui"))))
+(defn- use-online? [this-ts installed-ts online-ts]
+  (and
+    ;; true if online-ts and online-ts GT this-ts
+    (gt online-ts this-ts true)
+    ;; true if installed-ts and online-ts and online-ts GT installed-ts
+    (if installed-ts
+      (gt online-ts installed-ts true)
+      true)))
 
 
-(defn- no-check? [args]
-  (let [args- (set args)]
-    (or (args- "--no-check") (args- ":no-check"))))
+(defn- use-installed? [this-ts installed-ts]
+  ;; true if installed-ts and installed-ts GT this-ts
+  (gt installed-ts this-ts true))
 
 
-(defn- no-installed-check? [args]
-  (let [args- (set args)]
-    (or (args- "--no-check") (args- ":no-check")
-        (args- "--no-installed-check") (args- ":no-installed-check"))))
+;; TODO: Pass the args on to the main application!
+(defn- this-run [stage args]
+  (debug "this-run" stage)
+  (gui/set-text "Loading application ...")
+  (if (no-gui?)
+    ;; TODO: main application should decide what to do if :no-gui not here!
+    (do (info "No GUI. Exiting.") (exit))
+    (future (launcher/start stage))))
 
 
-(defn- no-online-check? [args]
-  (let [args- (set args)]
-    (or (args- "--no-check") (args- ":no-check")
-        (args- "--no-online-check") (args- ":no-online-check"))))
-
-
-(defn- help? [args]
-  (#{"-h" "--help" "help" ":help"} (first args)))
-
-
-;;;;;;;;;;;;;
-
-
-(defn- use-installed? 
-  "Returns true if there is an installed version and it's timestamp is newer than this."
-  []
-  (let [{:keys [app ts]} (c/this-props)
-        installed-props (c/installed-props app)]
-    (when installed-props
-      (core/gt (:ts installed-props) ts))))
-
-
-(defn- use-online?
-  "Returns true if there is an online version avaiable and it's timestamp is newer than this."
-  []
-  ;(println "## LAUNCHER - Inform that we are checking online.")
-  (update-text "Checking online version ...")
-  (let [{:keys [app uri ts]} (c/this-props)
-        online-props (c/online-props app uri)]
-    (when online-props
-      (core/gt (:ts online-props) ts))))
-
-
-;;;;;;;;;;;;;
-
-
-(defn- this-run [args]
-  (prn 'Launch/this-run args)
-  ;(println "## LAUNCHER - inform that (this) application is loading.")
-  (update-text "Loading application ...")
-  (future (Thread/sleep 2000) (destroy-launcher-screen))
-  (Run/main (into-array String args)))
-  ;(println "## LAUNCHER - close. (application will open it's own stage - for now!)"))
-  ;; TODO: Can we pass stage to main, or alternative  function (main1)
-  ;; TODO: We perhaps need to split up 'run-jar so we can have more fine-grained control over which functions etc.
-
-
-;; TODO: is it possible to pass this stage to new jar?
-(defn- installed-load [args]
-  (prn 'Launch/installed-load args)
-  ;(println "## LAUNCHER - inform that (installed) application is loading.")
-  (update-text "Loading installed application ...")
+(defn- installed-load [stage args]
+  (gui/set-text "Loading installed application ...")
   (let [app (c/this-app)
-        installed-props (c/installed-props app)
-        jar-url (f/to-url (f/->path (c/installed-dir app) (:file installed-props)))]
-    (future (Thread/sleep 2000) (destroy-launcher-screen))
-    (run-jar jar-url "no.andante.george.Launch" args)))
-    ;(println "## LAUNCHER - close. (New version will be used - for now!)")
-    ;; TODO: is it possible to pass this stage to new jar?
+        dir (c/installed-dir app)
+        file (:file (c/installed-props app))
+        jar-url (f/to-url (f/->path dir file))]
+    (-> (make-and-set-classloader-for-jar jar-url)
+        (invoke-loadOrRun stage args))))
 
 
-(defn- online-download-load [args]
-  (prn 'Launch/online-download-load args)
-  ;(println "## LAUNCHER - inform that (online) application is downloading.")
-  (update-text "Downloading ...")
-  (update-progress -1)
-  (let [{:keys [app uri]} (c/this-props)
+(defn- online-download-load [stage args]
+  (gui/set-text "Downloading newer version ...")
+  (gui/set-progress -1)
+  (let [{:keys [app uri]}   (c/this-props)
         {:keys [file size]} (c/online-props app uri)
         install-d           (c/installed-dir app)
         bytes-total-d       (Double/parseDouble size)]
-        
-    ;; install JAR and app-file
-    ;(println "## LAUNCHER - update download progress.")
-    ;(download  (f/url (str uri file))   (cio/file install-d file)  #(println "bytes:" % "/" size))
-    (f/download  (f/to-url (str uri file))   (cio/file install-d file)  #(update-progress (/ % bytes-total-d)))
-
-    (update-text "Installing ...")
-    (update-progress -1)
-    (f/download  (f/to-url (str uri c/PROP_NAME))  (cio/file install-d c/PROP_NAME))
-
-    ;; start the downloaded version
-    (installed-load args)))
+    ;; Download jar
+    (f/download (f/to-url (str uri file)) (cio/file install-d file) #(gui/set-progress (/ % bytes-total-d)))
+    ;; Download props
+    (gui/set-text "Installing ...")
+    (gui/set-progress -1)
+    (f/download (f/to-url (str uri c/PROP_NAME)) (cio/file install-d c/PROP_NAME))
+    ;; Run the downloaded version
+    (installed-load stage args)))
 
 
-;;;;;;;;;;;;;
+;; Will recur until this-run is reached
+(defn- load-or-run [stage]
+  (debug "Launch/load-or-run" stage)
+
+  (if (no-check?)
+    (this-run stage *args*)
+
+    (let [{:keys [app uri ts]}
+          (c/this-props)
+
+          installed-ts
+          (when-not (no-installed-check?)
+               (:ts (c/installed-props app)))
+
+          online-ts
+          (when-not (no-online-check?)
+               (:ts (c/online-props app uri)))]
+
+      (debug (format "this-ts: %s  installed-ts: %s  online-ts: %s" ts installed-ts online-ts))
+
+      (cond
+        (use-online? ts installed-ts online-ts) (online-download-load stage *args*)
+        (use-installed? ts installed-ts)        (installed-load stage *args*)
+        :else                                   (this-run stage *args*)))))
+
+
+(defn- main1 [& args]
+  (debug "Launch/main1" args)
+  (with-args args
+    (load-or-run (when-not (no-gui?) (gui/init-updater)))))
+
 
 (defn- print-help []
   (println "George CLI help:
@@ -222,33 +188,20 @@ Optional arguments are:
 "))
 
 
-(defn main1 [args]
-  (prn 'Launch/main1 args)
-
-  (when (help? args)
-    (print-help)
-    (exit))
-
-  (println "  I am ts:" (:ts (c/this-props)))
-
-  (when-not (no-gui? args)
-    (init-launch-screen))
-  
-  ;(println "## LAUNCHER - an initial scroller should show (replacing splashimage).")
-  (cond
-    (or (no-check? args)
-        (and (no-online-check? args) (no-installed-check? args)))
-    (this-run args)
-  
-    (and (not (no-installed-check? args)) (use-installed?))
-    (installed-load args)
-  
-    (and (not (no-online-check? args)) (use-online?))
-    (online-download-load args)
-  
-    :else
-    (this-run args)))
+;;;; GEN-CLASS
 
 
+(defn -loadOrRun [stage args-array]
+  (debug "Launch/-loadOrRun" stage (seq args-array))
+  (with-args (seq args-array) (load-or-run stage)))
+
+
+;; Don't run this from repl, as it will not return in the last case.
+;; Run instead 'main'.
 (defn -main [& args]
-  (main1 args))
+  (with-args
+    args
+    (cond
+      (help?)   (do (print-help) (exit))
+      (no-gui?) (apply main1 args)
+      :else     (u/with-latch (apply main1 args)))))
