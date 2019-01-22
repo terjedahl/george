@@ -12,13 +12,13 @@
      [browse :refer [browse-url]]]
     [common.george.util.cli :refer [debug]])
   (:import
-   [javafx.scene.paint Color]
-   [javafx.scene Scene]
-   [javafx.stage Stage]
-   [javafx.scene.image Image]
-   [javafx.scene.control Hyperlink ProgressIndicator]
-   [javafx.scene.web WebView WebEvent]
-   [java.util Collection]))
+    [javafx.scene.paint Color]
+    [javafx.scene Scene]
+    [javafx.stage Stage]
+    [javafx.scene.image Image]
+    [javafx.scene.control Hyperlink ProgressIndicator]
+    [javafx.scene.web WebView WebEvent]
+    [java.util List]))
 
 
 (defn ns-label []
@@ -65,14 +65,11 @@
 
 
 (defn add-icon [^Stage stage]
-  (fx/later
-     (-> stage
-       .getIcons
-       (.setAll
-         ^Collection
-         (map #(Image. (format "graphics/George_icon_%s.png" %))
-               [16 32 64 128 256]))))
-  stage)
+  (let [images (map #(Image. (str "graphics/George_icon_" % ".png"))
+                    [16 32 64 128 256])]
+    ;(doseq [i images] (debug "URL:" (.getUrl i))
+    (fx/later (-> stage .getIcons (.setAll ^List images)))
+    stage))
 
 
 (defn style-stage [^Stage stage]

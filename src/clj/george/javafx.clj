@@ -39,7 +39,9 @@
     [java.util Collection Optional List]
     [clojure.lang Atom]
     [javafx.fxml FXMLLoader]
-    [javafx.beans Observable]))
+    [javafx.beans Observable]
+    [java.awt SplashScreen]
+    [javafx.embed.swing JFXPanel]))
 
 
 "
@@ -108,7 +110,7 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
       (debug "george.javafx/init")
 
       (try
-        (javafx.embed.swing.JFXPanel.)
+        (JFXPanel.)
         (catch Throwable t (except (.getMessage t))))
 
       (set-implicit-exit false)
@@ -326,10 +328,16 @@ and the body is called on 'changed'"
     [(.getTranslateX n) (.getTranslateY n)])
 
 
-(defn set-WH [x [w h]]
-  (doto x
+(defn set-WH [item [w h]]
+  (doto item
     (.setWidth w)
     (.setHeight h)))
+
+
+(defn set-XY [item [x y]]
+  (doto item
+    (.setX x)
+    (.setY y)))
 
 
 (defn set-pref-WH [n [w h]]
@@ -1063,12 +1071,32 @@ and the body is called on 'changed'"
       alert)))
 
 
-(defn centering-point-on-primary
-    "returns [x y] for centering (stage) no primary screen"
-    [scene-or-stage]
-    (let [prim-bounds (.getVisualBounds (Screen/getPrimary))]
-        [ (-> prim-bounds .getWidth (/ 2) (- (/ (.getWidth scene-or-stage ) 2)))
-          (-> prim-bounds .getHeight (/ 2) (- (/ (.getHeight scene-or-stage ) 2)))]))
+(defn close-splash []
+  (when-let [splash (SplashScreen/getSplashScreen)]
+    (.close splash)))
+
+
+; ^Screen  ;; DON'T TYPE. It touches JavaFX!
+(defn screens []
+  (Screen/getScreens))
+
+
+; ^Screen  ;; DON'T TYPE. It touches JavaFX!
+(defn  primary-screen []
+  (Screen/getPrimary))
+
+
+(defn primary-WH
+  "returns [x y] for center of primary screen"
+  []
+  (-> (Screen/getPrimary) .getVisualBounds WH))
+
+
+(defn primary-center
+  "returns [x y] for center of primary screen"
+  []
+  (let [[w h] (primary-WH)]
+    [(/ w 2) (/ h 2)]))
 
 
 (defn ^ImageView imageview 
@@ -1083,15 +1111,6 @@ and the body is called on 'changed'"
     (when width (.setFitWidth iv (double width)))
     (when height (.setFitHeight iv (double height)))
     iv))
-
-
-(defn screens []
-    (Screen/getScreens))
-
-
-; ^Screen  ;; DON'T TYPE. It touches JavaFX!
-(defn  primary-screen []
-    (Screen/getPrimary))
 
 
 (defn ^StageStyle stagestyle [style-kw]
@@ -1197,11 +1216,11 @@ and the body is called on 'changed'"
           
         (when-let [owner (:owner kwargs)]
           (.initOwner stg owner))
-        
-        (when (:show kwargs) (.show stg))
 
         (when-let [cos (:centeronscreen? kwargs)]
           (when cos (.centerOnScreen stg)))
+
+        (when (:show kwargs) (.show stg))
 
         (when (:tofront kwargs) (.toFront stg))
 

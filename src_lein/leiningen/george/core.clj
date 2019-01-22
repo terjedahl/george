@@ -93,6 +93,14 @@
     (if (.exists f) f (error (format error-fstr f))))
 
 
+(defn- splash-image []
+  (-> *project* :build :splash-image))
+
+
+(defn- splash-param []
+  (str "-splash:" (splash-image)))
+
+
 ;;;;
 
 
@@ -228,7 +236,7 @@
             (concat
               [(access)]
               (if with-opens? (exports-opens) [])
-              ["-jar" (str (asserted-jar-file))])
+              [(splash-param) "-jar" (str (asserted-jar-file))])
             %)
          args)))
 
@@ -403,7 +411,8 @@ and unpack in project dir.")))
 
         tmpl-data        {:app          (George)
                           :jar-name     (jar-name)
-                          :upgrade-code (msi-upgrade-code)}
+                          :upgrade-code (msi-upgrade-code)
+                          :splash-image (splash-image)}
 
         bat-tmpl         (slurp (cio/file "src_windows" "tmpl" "George.bat"))
         bat-rendered     (render bat-tmpl tmpl-data)
@@ -465,13 +474,15 @@ and unpack in project dir.")))
                        :app             (George)
                        :ts              (now-iso)
                        :identifier (str "no.andante." (George))
-                       :strict-version  (strict (:version *project*))}
+                       :strict-version  (strict (:version *project*))
+                       :splash-image (splash-image)}
 
         pkg-dir       (cio/file "target" "pkg")
         appl-dir      (cio/file pkg-dir "root" "Applications")
         the-app       (cio/file appl-dir (str (George) ".app"))
 
         contents-dir  (cio/file the-app "Contents")
+        resources-dir (cio/file contents-dir "Resources")
 
         info-tmpl     (slurp (cio/file "src_macos" "tmpl" "Info.plist"))
         info-rendered (render info-tmpl tmpl-data)
@@ -490,7 +501,10 @@ and unpack in project dir.")))
     (spit info-file info-rendered)
 
     (cio/copy (cio/file "src_macos" "rsc" "George.icns")
-              (cio/file (f/ensured-dir (cio/file contents-dir "Resources")) "George.icns"))
+              (cio/file (f/ensured-dir resources-dir) "George.icns"))
+
+    (cio/copy (cio/file (splash-image))
+              (cio/file resources-dir (splash-image)))
 
     (cio/copy jar-file
               (cio/file (f/ensured-dir (cio/file contents-dir "jar")) (.getName jar-file)))
@@ -703,4 +717,8 @@ and unpack in project dir.")))
   (warn-java11)
   (-> *project*
       (update-in [:javac-options] concat (module-args))
-      (update-in [:jvm-opts] concat (module-args true))))
+      (update-in [:jvm-opts] concat
+                 (let [args (module-args true)]
+                   ( if (:with-splash *project*)
+                     (cons (splash-param) args)
+                     args)))))

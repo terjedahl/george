@@ -343,32 +343,16 @@ Powered by open source software.")
 (defn start
   "Three versions of this method allow for different startup-strategies. The result is always that a created or given stage will be transformed (animated) into the launcher stage."
   ([]
-   (start (starting-stage)))
+   (start (styled/style-stage (starting-stage))))
   ([stage]
    (if-not stage
      (start)
      (start stage (application-root))))
   ([stage root]
-   (morphe-launcher-stage
-     (styled/style-stage stage)
-     root
-     [0 0 1280 720])))
-
- 
-(defn -main
-  "Launches George (launcher) as a standalone application."
-  [& args]
-  (fx/init)
-  (println "george.application.launcher/-main"
-           (if (empty? args)
-             ""
-             (str " args: " (apply str (interpose " " args)))))
-  (fx/later (start)))
+   (morphe-launcher-stage stage root [0 0 1280 720])))
 
 
 ;;; DEV ;;;
 
-;(when (env :repl?)  (fx/init) (-main))
 ;(when (env :repl?)  (fx/init) (start))
-;(when (env :repl?)  (fx/init) (start (starting-stage)))
 

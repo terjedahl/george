@@ -7,6 +7,7 @@
   (:require
     [clojure.java.io :as cio]
     [clojure.pprint :refer [pprint]]
+    [environ.core :refer [env]]
     [george.launch
      [gui :as gui]
      [load :refer [make-and-set-classloader-for-jar invoke-loadOrRun]]]
@@ -167,7 +168,9 @@
 
 (defn- main1 [& args]
   (debug "Launch/main1" args)
+  (debug "logfile:" (env :logfile))
   (with-args args
+    (fx/close-splash)
     (load-or-run (when-not (no-gui?) (gui/init-updater)))))
 
 
