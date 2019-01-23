@@ -14,11 +14,12 @@
     [common.george.config :as c]
     [common.george.util
      [files :as f]
-     [cli :refer [debug info exit]]]
+     [cli :refer [debug info except exit]]]
     [george.application.launcher :as launcher]
     [george.javafx :as fx]
     [george.util :as u])
-
+  (:import
+    [it.sauronsoftware.junique JUnique AlreadyLockedException])
   (:gen-class
     :name no.andante.george.Launch
     :extends javafx.application.Application
@@ -78,6 +79,12 @@
 
 (defn- no-gui? []
   (when-let [res (or (*args-set* "--no-gui") (*args-set* ":no-gui"))]
+    (debug res)
+    true))
+
+
+(defn- no-mutex? []
+  (when-let [res (or (*args-set* "--no-mutex") (*args-set* ":no-mutex"))]
     (debug res)
     true))
 
@@ -188,8 +195,18 @@ Optional arguments are:
     Does not check installed version, but may check online version, and if that is newer, will install and run it.
   :no-online-check
     Does not check online version, but may check installed version, and if that is newer, will run it.
+  :no-mutex
+    Allows starting George without setting or checking mutex lock.
 "))
 
+
+(defn- acquire-mutex-lock []
+  (try (JUnique/acquireLock (c/this-app))
+       (debug "Mutex lock acquired.")
+       true
+       (catch AlreadyLockedException _
+         (except "Mutex lock not acquired.")
+         false)))
 
 ;;;; GEN-CLASS
 
@@ -202,9 +219,15 @@ Optional arguments are:
 ;; Don't run this from repl, as it will not return in the last case.
 ;; Run instead 'main'.
 (defn -main [& args]
-  (with-args
-    args
-    (cond
-      (help?)   (do (print-help) (exit))
-      (no-gui?) (apply main1 args)
-      :else     (u/with-latch (apply main1 args)))))
+  (with-args args
+             (when (help?)
+               (print-help)
+               (exit))
+
+             (when-not (no-mutex?)
+               (when-not (acquire-mutex-lock)
+                 (exit -1)))
+
+             (if (no-gui?)
+               (apply main1 args)
+               (u/with-latch (apply main1 args)))))
