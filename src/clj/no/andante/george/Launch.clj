@@ -110,14 +110,32 @@
   (gt installed-ts this-ts true))
 
 
-;; TODO: Pass the args on to the main application!
+(defn- print-help []
+  (println "George CLI help:
+
+Optional arguments are:
+  :help | help
+    Prints this help text.
+  :no-gui
+    Runs without GUI, and then exits. Useful for quick testing of update-mechanism.
+  :no-check
+    Immediately runs this version, without checking installed or online version.
+  :no-installed-check
+    Does not check installed version, but may check online version, and if that is newer, will install and run it.
+  :no-online-check
+    Does not check online version, but may check installed version, and if that is newer, will run it.
+  :no-mutex
+    Allows starting George without setting or checking mutex lock.
+"))
+
+
 (defn- this-run [stage args]
   (debug "this-run" stage)
   (gui/set-text "Loading application ...")
-  (if (no-gui?)
-    ;; TODO: main application should decide what to do if :no-gui not here!
-    (do (info "No GUI. Exiting.") (exit))
-    (future (launcher/start stage))))
+  (cond
+    (help?)    (do (print-help) (exit))
+    (no-gui?)  (do (info "No GUI. Exiting.") (exit))  ;; TODO: main application should decide what to do if :no-gui not here!
+    :else      (future (launcher/start stage))))  ;; TODO: Pass the args on to the main application!
 
 
 (defn- installed-load [stage args]
@@ -126,7 +144,7 @@
         dir (c/installed-dir app)
         file (:file (c/installed-props app))
         jar-url (f/to-url (f/->path dir file))]
-    (-> (make-and-set-classloader-for-jar jar-url)
+    (-> (make-and-set-classloader-for-jar jar-url (not (or (no-gui?) (help?))))
         (invoke-loadOrRun stage args))))
 
 
@@ -178,26 +196,7 @@
   (debug "logfile:" (env :logfile))
   (with-args args
     (fx/close-splash)
-    (load-or-run (when-not (no-gui?) (gui/init-updater)))))
-
-
-(defn- print-help []
-  (println "George CLI help:
-
-Optional arguments are:
-  :help | help
-    Prints this help text.
-  :no-gui
-    Runs without GUI, and then exits. Useful for quick testing of update-mechanism.
-  :no-check
-    Immediately runs this version, without checking installed or online version.
-  :no-installed-check
-    Does not check installed version, but may check online version, and if that is newer, will install and run it.
-  :no-online-check
-    Does not check online version, but may check installed version, and if that is newer, will run it.
-  :no-mutex
-    Allows starting George without setting or checking mutex lock.
-"))
+    (load-or-run (when-not (or (help?) (no-gui?)) (gui/init-updater)))))
 
 
 (defn- acquire-mutex-lock []
@@ -207,6 +206,7 @@ Optional arguments are:
        (catch AlreadyLockedException _
          (except "Mutex lock not acquired.")
          false)))
+
 
 ;;;; GEN-CLASS
 
@@ -220,14 +220,11 @@ Optional arguments are:
 ;; Run instead 'main'.
 (defn -main [& args]
   (with-args args
-             (when (help?)
-               (print-help)
-               (exit))
 
-             (when-not (no-mutex?)
-               (when-not (acquire-mutex-lock)
-                 (exit -1)))
+    (when-not (or (help?) (no-mutex?))
+      (when-not (acquire-mutex-lock)
+        (exit -1)))
 
-             (if (no-gui?)
-               (apply main1 args)
-               (u/with-latch (apply main1 args)))))
+    (if (or (help?) (no-gui?))
+      (apply main1 args)
+      (u/with-latch (apply main1 args)))))

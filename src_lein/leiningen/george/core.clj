@@ -662,10 +662,13 @@ and unpack in project dir.")))
             (recur (next platforms) cnt)
             (do
               (doseq [d-name ["jar" "installer"]]
-                (let [d (cio/file platform-dir d-name)]
-                  (when (.exists d)
-                    (debug "  Copying to Site dir:" (str d))
-                    (f/copy-dir d (cio/file site-d platform d-name)))))
+                (let [source-d (cio/file platform-dir d-name)]
+                  (when (.exists source-d)
+                    (debug "  Copying to Site dir:" (str source-d))
+                    (let [target-d (cio/file site-d platform d-name)]
+                      (f/copy-dir source-d target-d)
+                      (when (-> target-d .list seq count (> 2))
+                           (warn "More than 2 files in:" (str target-d)))))))
               (recur (next platforms) (inc cnt)))))
         (when (zero? cnt)
           (error "No platform dirs copied to Site."))))))

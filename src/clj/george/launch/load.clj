@@ -4,7 +4,9 @@
 ;; You must not remove this notice, or any other, from this software.
 
 (ns george.launch.load
-  (:require [george.javafx :as fx])
+  (:require
+    [george.javafx :as fx]
+    [common.george.util.cli :refer [debug]])
   (:import
     [clojure.lang DynamicClassLoader]
     [java.net URLClassLoader URL]))
@@ -42,12 +44,12 @@
   "Creates a clean dynamic classloader for the jar,
   sets it as context-classloader and as classloader in fx-thread,
   and returns it."
-  [jar-url]
+  [jar-url with-javafx?]
   (-> jar-url
       new-url-classloader
       new-dynamic-classloader
       set-context-classloader
-      set-fx-classloader))
+      (#(if with-javafx? (set-fx-classloader %) %))))
 
 
 (defn invoke-static-main [loader class-str args]
