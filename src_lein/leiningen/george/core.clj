@@ -93,14 +93,6 @@
     (if (.exists f) f (error (format error-fstr f))))
 
 
-(defn- splash-image []
-  (-> *project* :build :splash-image))
-
-
-(defn- splash-param []
-  (str "-splash:" (splash-image)))
-
-
 ;;;;
 
 
@@ -130,6 +122,7 @@
 
 (defn- installed-dir []      (c/installed-dir (George)))
 
+(defn- icns-file []          (cio/file "src_macos" "rsc" "George.icns"))
 
 (defn- asserted-jre-dir []
   (asserted-file (jre-dir) "Directory '%s' does not exist.\n  To build the JRE, do:  lein build jre"))
@@ -154,6 +147,17 @@
 
 (defn- ensured-site-platforms-dir []
   (f/ensured-dir (site-platforms-dir)))
+
+
+(defn- splash-image []
+  (-> *project* :build :splash-image))
+
+
+(defn- splash-param []
+  (str "-splash:" (splash-image)))
+
+(defn- dock-params []
+  (list (str "-Xdock:icon=" (icns-file)) (str "-Xdock:name=" (George))))
 
 
 (defn- run
@@ -236,7 +240,7 @@
             (concat
               [(access)]
               (if with-opens? (exports-opens) [])
-              [(splash-param) "-jar" (str (asserted-jar-file))])
+              (concat (dock-params) [(splash-param) "-jar" (str (asserted-jar-file))]))
             %)
          args)))
 
@@ -500,7 +504,7 @@ and unpack in project dir.")))
 
     (spit info-file info-rendered)
 
-    (cio/copy (cio/file "src_macos" "rsc" "George.icns")
+    (cio/copy (icns-file)
               (cio/file (f/ensured-dir resources-dir) "George.icns"))
 
     (cio/copy (cio/file (splash-image))
@@ -723,5 +727,5 @@ and unpack in project dir.")))
       (update-in [:jvm-opts] concat
                  (let [args (module-args true)]
                    ( if (:with-splash *project*)
-                     (cons (splash-param) args)
+                     (concat [(splash-param)] (dock-params) args)
                      args)))))
