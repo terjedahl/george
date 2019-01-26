@@ -22,7 +22,6 @@
     [it.sauronsoftware.junique JUnique AlreadyLockedException])
   (:gen-class
     :name no.andante.george.Launch
-    :extends javafx.application.Application
     :methods [^:static [loadOrRun [javafx.stage.Stage "[Ljava.lang.String;"] void]]
     :main true))
 
