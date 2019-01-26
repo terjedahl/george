@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<!--
+    Copyright (c) 2016-2019 Terje Dahl. All rights reserved.
+    The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+    By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+    You must not remove this notice, or any other, from this software.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+    <Product Name="{{ app }} ({{ version }})" Manufacturer="Andante AS" Version="{{ strict-version }}"
+             Id="*"  UpgradeCode="{{ upgrade-code }}"
+             Language="1033" Codepage="1252">
+
+        <Package Id="*" Keywords="Installer" Description="Andante's George {{ version }} installer"
+                 Comments="George - Create. Learn. Think." Manufacturer="Andante AS"
+                 InstallerVersion="200" Languages="1033" Compressed="yes" SummaryCodepage="1252"
+                 Platform="x64" />
+
+        <MajorUpgrade AllowSameVersionUpgrades="yes"
+                      DowngradeErrorMessage="A newer version of [ProductName] is already installed. If you are sure you want to downgrade, remove the existing installation via &quot;Apps &amp; features&quot;." />
+
+        <Upgrade Id="{{ upgrade-code }}">
+            <UpgradeVersion OnlyDetect="no" Property="PREVIOUSFOUND"
+                            Minimum="1.0.0" IncludeMinimum="yes"
+                            Maximum="{{ strict-version }}" IncludeMaximum="no" />
+        </Upgrade>
+
+        <Media Id="1" Cabinet="{{ app|replace:-:_ }}.cab" EmbedCab="yes" DiskPrompt="CD-ROM #1" />
+        <Property Id="DiskPrompt" Value="Andante's {{ app }} {{ version }} Installation [1]" />
+
+        <Property Id="ApplicationFolderName" Value="{{ app }} {{ version }}" />
+        <Property Id="AppFolder" Value="PerUserFolder" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="Andante" Name="Andante">
+                    <Directory Id="APPLICATIONFOLDER" Name="{{ app }} {{ version }}" />
+                </Directory>
+            </Directory>
+        </Directory>
+
+        <DirectoryRef Id="APPLICATIONFOLDER">
+
+            <Component Id="GeorgeBatComp" Guid="*">
+                <File Id="GeorgeBatFile" Name="{{ app }}.bat" DiskId="1" Source="{{ bat-file }}" KeyPath="yes">
+                    <Shortcut Id="StartMenuGeorge" Name="{{ app }}"
+                              Directory="ProgramMenuDir" WorkingDirectory="APPLICATIONFOLDER" Icon="George.ico"
+                              IconIndex="0" Advertise="yes" />
+                    <Shortcut Id="DesktopGeorge" Name="{{ app }}"
+                              Directory="DesktopFolder" WorkingDirectory="APPLICATIONFOLDER" Icon="George.ico"
+                              IconIndex="0" Advertise="yes" />
+                </File>
+            </Component>
+
+            <Component Id="GeorgeCLIBatComp" Guid="*">
+                <File Id="GeorgeCLIBatFile" Name="GeorgeCLI.bat" DiskId="1" Source="{{ bat-cli-file }}" KeyPath="yes" />
+            </Component>
+
+            <Component Id="SplashImageComp" Guid="*">
+                <File Id="SplashImageFile" Name="{{ splash-image }}" DiskId="1" Source="{{ splash-image }}" KeyPath="yes" />
+            </Component>
+
+            <Directory Id="JarDir" Name="jar" />
+
+            <Directory Id="JreDir" Name="jre" />
+
+            <Directory Id="ProgramMenuFolder" Name="Programs">
+                <Directory Id="ProgramMenuDir" Name="Andante ({{ app }})">
+                    <Component Id="ProgramMenuDir" Guid="67A812DA-C48B-4558-8E17-9CBE58B37F2C">
+                        <RemoveFolder Id="ProgramMenuDir" On="uninstall" />
+                        <RegistryValue Root="HKCU" Key="Software\[Manufacturer]\[ProductName]" Type="string" Value="" KeyPath="yes" />
+                    </Component>
+                </Directory>
+            </Directory>
+
+            <Directory Id="DesktopFolder" Name="Desktop" />
+
+        </DirectoryRef>
+
+        <Feature Id="MainProgram" Title="{{ app }} {{ version }}" Description="The complete package."
+                 AllowAdvertise="no" Level="1" ConfigurableDirectory="APPLICATIONFOLDER">
+            <ComponentRef Id="GeorgeBatComp" />
+            <ComponentRef Id="GeorgeCLIBatComp" />
+            <ComponentRef Id="SplashImageComp" />
+            <ComponentGroupRef Id="JarGroup" />
+            <ComponentGroupRef Id="JreGroup" />
+            <ComponentRef Id="ProgramMenuDir" />
+        </Feature>
+
+        <!-- Define action for "Start George on exit" -->
+        <Property Id="WixShellExecTarget" Value="[#GeorgeBatFile]" />
+        <CustomAction Id="LaunchGeorgeOnFinish" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+
+        <CustomAction Id="SetDefaultPerUserFolder" Property="PerUserFolder" Value="[LocalAppDataFolder]Apps\Andante\[ApplicationFolderName]" Execute="immediate" />
+        <CustomAction Id="SetDefaultPerMachineFolder" Property="PerMachineFolder" Value="[ProgramFiles64Folder]Andante\[ApplicationFolderName]" Execute="immediate" />
+        <CustomAction Id="SetPerUserFolder" Property="APPLICATIONFOLDER" Value="[PerUserFolder]" Execute="immediate" />
+        <CustomAction Id="SetPerMachineFolder" Property="APPLICATIONFOLDER" Value="[PerMachineFolder]" Execute="immediate" />
+
+        <InstallExecuteSequence>
+            <Custom Action="SetDefaultPerUserFolder" Before="CostFinalize" />
+            <Custom Action="SetDefaultPerMachineFolder" After="SetDefaultPerUserFolder" />
+            <Custom Action="SetPerUserFolder" After="SetDefaultPerMachineFolder">ACTION="INSTALL" AND APPLICATIONFOLDER="" AND (ALLUSERS="" OR (ALLUSERS=2 AND (NOT Privileged)))</Custom>
+            <Custom Action="SetPerMachineFolder" After="SetPerUserFolder">ACTION="INSTALL" AND APPLICATIONFOLDER="" AND (ALLUSERS=1 OR (ALLUSERS=2 AND Privileged))</Custom>
+        </InstallExecuteSequence>
+
+        <InstallUISequence>
+            <Custom Action="SetDefaultPerUserFolder" Before="CostFinalize" />
+            <Custom Action="SetDefaultPerMachineFolder" After="SetDefaultPerUserFolder" />
+            <Custom Action="SetPerUserFolder" After="SetDefaultPerMachineFolder">ACTION="INSTALL" AND APPLICATIONFOLDER="" AND (ALLUSERS="" OR (ALLUSERS=2 AND (NOT Privileged)))</Custom>
+            <Custom Action="SetPerMachineFolder" After="SetPerUserFolder">ACTION="INSTALL" AND APPLICATIONFOLDER="" AND (ALLUSERS=1 OR (ALLUSERS=2 AND Privileged))</Custom>
+        </InstallUISequence>
+
+        <UI>
+            <UIRef Id="WixUI_InstallDir" />
+            <DialogRef Id="ScopeDlg" />
+
+            <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="ScopeDlg" Order="3">LicenseAccepted = "1"</Publish>
+
+            <Publish Dialog="ScopeDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+            <Publish Dialog="ScopeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
+
+            <!-- override default AppFolder of PerMachineFolder as standard user won't be shown the radio group to set AppFolder -->
+            <Publish Dialog="ScopeDlg" Control="Next" Property="AppFolder" Value="PerUserFolder" Order="1">!(wix.WixUISupportPerUser) AND NOT Privileged</Publish>
+            <Publish Dialog="ScopeDlg" Control="Next" Property="ALLUSERS" Value="{}" Order="2">AppFolder = "PerUserFolder"</Publish>
+            <Publish Dialog="ScopeDlg" Control="Next" Property="MSIINSTALLPERUSER" Value="1" Order="2">AppFolder = "PerUserFolder"</Publish>
+            <Publish Dialog="ScopeDlg" Control="Next" Property="ALLUSERS" Value="1" Order="3">AppFolder = "PerMachineFolder"</Publish>
+            <Publish Dialog="ScopeDlg" Control="Next" Property="APPLICATIONFOLDER" Value="[PerUserFolder]" Order="4">AppFolder = "PerUserFolder"</Publish>
+            <Publish Dialog="ScopeDlg" Control="Next" Property="APPLICATIONFOLDER" Value="[PerMachineFolder]" Order="5">AppFolder = "PerMachineFolder"</Publish>
+
+            <!-- Define a checkbox for "Start George on exit" only for per-user installation. -->
+            <Publish Dialog="ScopeDlg" Control="Next" Property="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Start {{ app }} on exit">AppFolder = "PerUserFolder"</Publish>
+            <Publish Dialog="ScopeDlg" Control="Next" Property="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1">AppFolder = "PerUserFolder"</Publish>
+
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ScopeDlg" Order="4">NOT Installed</Publish>
+
+            <!-- Never triggers. Simply to avoid Wix compile error -->
+            <Publish Dialog="FeaturesDlg" Control="Back" Event="NewDialog" Value="ScopeDlg">1</Publish>
+
+            <!-- Trigger "Start George on exit" -->
+            <Publish Dialog="ExitDialog"
+                     Control="Finish"
+                     Event="DoAction"
+                     Value="LaunchGeorgeOnFinish">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed</Publish>
+        </UI>
+
+        <WixVariable Id="WixUISupportPerUser" Value="1" Overridable="yes" />
+        <WixVariable Id="WixUISupportPerMachine" Value="1" Overridable="yes" />
+
+        <!-- Customizations for WixUI_InstallDir -->
+        <WixVariable Id="WixUILicenseRtf" Value="epl-v10.rtf" />
+        <WixVariable Id="WixUIBannerBmp" Value="src_windows\rsc\WixUIBannerBmp.bmp" />
+        <WixVariable Id="WixUIDialogBmp" Value="src_windows\rsc\WixUIDialogBmp.bmp" />
+
+        <!-- Required for ScopeDir -->
+        <Binary Id="Banner.bmp" SourceFile="src_windows\rsc\WixUIBannerBmp.bmp" />
+
+        <!-- Set icon in Add/Remove Programs -->
+        <Property Id="ARPPRODUCTICON" Value="George.ico" />
+
+        <!-- Default application icon -->
+        <Icon Id="George.ico" SourceFile="src_windows\rsc\George.ico" />
+
+    </Product>
+</Wix>
