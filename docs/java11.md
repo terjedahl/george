@@ -41,11 +41,11 @@ I get:
 
 ## Java Platform Module System
 
-JPMS a.k.a. Jigsaw was introduced with Java 9.  
+JMS a.k.a. Jigsaw was introduced with Java 9.  
 [Article on Wikipedia](https://en.wikipedia.org/wiki/Java_Platform_Module_System)
 
 
-However, we currently built and run George in "legacy" mode.  There is currently no good reason to strive for "jpms" mode.
+However, we currently built and run George in "legacy" mode.  There is currently no good reason to strive for "jms" mode.
 
 
 ## Build
