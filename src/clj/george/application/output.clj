@@ -6,16 +6,19 @@
 (ns george.application.output
   (:require
     [george.javafx :as fx]
-    [george.code.codearea :as ca]
-    [george.util
-     [singleton :as singleton]]
-    [common.george.util.text :as gt]
-    [george.code.highlight :as highlight]
     [george.application
      [repl :as client]
      [repl-server :as server]]
     [george.application.ui.layout :as layout]
-    [george.util.java :as j])
+    [george.code
+     [codearea :as ca]
+     [highlight :as highlight]]
+    [george.util
+     [singleton :as singleton]
+     [java :as j]]
+    [common.george.util
+     [text :as gt]
+     [cli :refer [debug]]])
   (:import
     [java.io StringWriter PrintStream OutputStreamWriter]
     [org.apache.commons.io.output WriterOutputStream]
@@ -56,7 +59,7 @@
 
 
 (defn wrap-outs []
-  (println "wrap-outs")
+  (debug "wrap-outs")
   (let [
         ow (output-string-writer :out)
         ew (output-string-writer :err)]
@@ -72,7 +75,7 @@
   (System/setErr standard-err)
   (alter-var-root #'*out* (constantly (OutputStreamWriter. System/out)))
   (alter-var-root #'*err* (constantly (OutputStreamWriter. System/err)))
-  (println "unwrap-outs"))
+  (debug "unwrap-outs"))
 
 
 (defn output-showing?

@@ -8,7 +8,7 @@
     [clojure.string :as cs]
     [clojure.java.io :as cio]
     [george.util.colls :as uc]
-    [common.george.util.cli :refer [warn]])
+    [common.george.util.cli :refer [debug warn info except]])
   (:import
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Application Platform]
@@ -39,7 +39,9 @@
     [java.util Collection Optional List]
     [clojure.lang Atom]
     [javafx.fxml FXMLLoader]
-    [javafx.beans Observable]))
+    [javafx.beans Observable]
+    [java.awt SplashScreen]
+    [javafx.embed.swing JFXPanel]))
 
 
 "
@@ -71,7 +73,7 @@ The includes (but is not limited to):
 
 
 (defn set-implicit-exit [& [b]]
-  (println (str "george.javafx/set-implicit-exit " b))
+  (debug (str "george.javafx/set-implicit-exit " b))
   (Platform/setImplicitExit (boolean b)))
 
 
@@ -83,7 +85,7 @@ The includes (but is not limited to):
 
 ;; Fonts need to be loaded early, for where fonts are called for in code, rather than in CSS.
 (defn preload-fonts [& [verbose?]]
-  (println "george.javafx/preload-fonts")
+  (debug "george.javafx/preload-fonts")
   (let [dir-path (str (cio/resource "fonts/"))
         list-path "fonts/fonts.txt"
         names (cs/split-lines (slurp (cio/resource list-path)))]
@@ -105,14 +107,11 @@ Memoize-ing it makes it effectively lazy and run only once (unless new/different
 Add any additional random key+value to trigger a new load (as this triggers a new run of the memoize fn)."
   (memoize
     (fn [& {:keys [fonts? classloader] :or {fonts? true}}]
-      (println "george.javafx/init")
+      (debug "george.javafx/init")
 
-      ; ensure synchronicity by de-referencing promises
-      (let [st-promise (promise)]
-        (try
-          (Platform/startup #(deliver st-promise true))
-          (catch Throwable t (println (.getMessage t))))
-        @st-promise)
+      (try
+        (JFXPanel.)
+        (catch Throwable t (except (.getMessage t))))
 
       (set-implicit-exit false)
     
@@ -121,7 +120,7 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
     
       (when fonts?
         (preload-fonts (= fonts? :verbose)))
-        
+
       true)))
 
 
@@ -329,10 +328,16 @@ and the body is called on 'changed'"
     [(.getTranslateX n) (.getTranslateY n)])
 
 
-(defn set-WH [x [w h]]
-  (doto x
+(defn set-WH [item [w h]]
+  (doto item
     (.setWidth w)
     (.setHeight h)))
+
+
+(defn set-XY [item [x y]]
+  (doto item
+    (.setX x)
+    (.setY y)))
 
 
 (defn set-pref-WH [n [w h]]
@@ -454,8 +459,8 @@ and the body is called on 'changed'"
   (mapv #(add-stylesheet scene-or-parent %) paths))
 
 
-(defn clear-stylesheets [scene]
-  (-> scene .getStylesheets .clear)) 
+(defn clear-stylesheets [^Scene scene]
+  (-> scene .getStylesheets .clear))
 
 
 (defn set-Modena []
@@ -583,12 +588,8 @@ and the body is called on 'changed'"
 ;(set! *unchecked-math* false)
 
 
-(defn observablearraylist-t [t & lst]
-    (FXCollections/observableArrayList (into-array t lst)))
-
-
-(defn observablearraylist [& lst]
-    (FXCollections/observableArrayList (into-array lst)))
+(defn observablearraylist [& elements]
+    (FXCollections/observableArrayList ^List elements))
 
 
 (defn names-list []
@@ -1070,12 +1071,32 @@ and the body is called on 'changed'"
       alert)))
 
 
-(defn centering-point-on-primary
-    "returns [x y] for centering (stage) no primary screen"
-    [scene-or-stage]
-    (let [prim-bounds (.getVisualBounds (Screen/getPrimary))]
-        [ (-> prim-bounds .getWidth (/ 2) (- (/ (.getWidth scene-or-stage ) 2)))
-          (-> prim-bounds .getHeight (/ 2) (- (/ (.getHeight scene-or-stage ) 2)))]))
+(defn close-splash []
+  (when-let [splash (SplashScreen/getSplashScreen)]
+    (.close splash)))
+
+
+; ^Screen  ;; DON'T TYPE. It touches JavaFX!
+(defn screens []
+  (Screen/getScreens))
+
+
+; ^Screen  ;; DON'T TYPE. It touches JavaFX!
+(defn  primary-screen []
+  (Screen/getPrimary))
+
+
+(defn primary-WH
+  "returns [x y] for center of primary screen"
+  []
+  (-> (Screen/getPrimary) .getVisualBounds WH))
+
+
+(defn primary-center
+  "returns [x y] for center of primary screen"
+  []
+  (let [[w h] (primary-WH)]
+    [(/ w 2) (/ h 2)]))
 
 
 (defn ^ImageView imageview 
@@ -1090,15 +1111,6 @@ and the body is called on 'changed'"
     (when width (.setFitWidth iv (double width)))
     (when height (.setFitHeight iv (double height)))
     iv))
-
-
-(defn screens []
-    (Screen/getScreens))
-
-
-; ^Screen  ;; DON'T TYPE. It touches JavaFX!
-(defn  primary-screen []
-    (Screen/getPrimary))
 
 
 (defn ^StageStyle stagestyle [style-kw]
@@ -1204,11 +1216,11 @@ and the body is called on 'changed'"
           
         (when-let [owner (:owner kwargs)]
           (.initOwner stg owner))
-        
-        (when (:show kwargs) (.show stg))
 
         (when-let [cos (:centeronscreen? kwargs)]
           (when cos (.centerOnScreen stg)))
+
+        (when (:show kwargs) (.show stg))
 
         (when (:tofront kwargs) (.toFront stg))
 

@@ -8,7 +8,7 @@
   (:require
     [clojure.java.io :as cio]
     [common.george.util
-     [cli :refer [warn]]
+     [cli :refer [debug warn]]
      [platform :as pl]])
   (:import
     [java.nio.file Paths Path Files LinkOption StandardCopyOption NoSuchFileException OpenOption]
@@ -245,10 +245,10 @@
 (defn download
   "Optional total-fn takes 1 args: An long indicating the total number of bytes read/written."
   [^URL source ^File target & [total-fn]]
-  (prn 'tranfer)
-  (prn 'source source)
-  (prn 'target target)
-  (prn 'total-fn total-fn)
+  (debug "c.g.u.files/download ...")
+  (debug "  source:  " (str source))
+  (debug "  target:  " (str target))
+  (debug "  total-fn:" (boolean total-fn))
   (let [buffer (byte-array 65536)]
     (with-open [^InputStream input (.getInputStream (-> source .openConnection))
                 ^OutputStream output (Files/newOutputStream (.toPath target) (make-array OpenOption 0))]

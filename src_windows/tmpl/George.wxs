@@ -56,6 +56,10 @@
                 <File Id="GeorgeCLIBatFile" Name="GeorgeCLI.bat" DiskId="1" Source="{{ bat-cli-file }}" KeyPath="yes" />
             </Component>
 
+            <Component Id="SplashImageComp" Guid="*">
+                <File Id="SplashImageFile" Name="{{ splash-image }}" DiskId="1" Source="{{ splash-image }}" KeyPath="yes" />
+            </Component>
+
             <Directory Id="JarDir" Name="jar" />
 
             <Directory Id="JreDir" Name="jre" />
@@ -77,6 +81,7 @@
                  AllowAdvertise="no" Level="1" ConfigurableDirectory="APPLICATIONFOLDER">
             <ComponentRef Id="GeorgeBatComp" />
             <ComponentRef Id="GeorgeCLIBatComp" />
+            <ComponentRef Id="SplashImageComp" />
             <ComponentGroupRef Id="JarGroup" />
             <ComponentGroupRef Id="JreGroup" />
             <ComponentRef Id="ProgramMenuDir" />

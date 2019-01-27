@@ -21,6 +21,11 @@
   [low high x]
   (<= low  x high))
 
+
+(defn half-diff [x1 x2]
+  (-> (- x1 x2) (/ 2)))
+
+
 (defn radians->x-factor [rad]
   (Math/cos rad))
 

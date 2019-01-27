@@ -9,7 +9,8 @@
     [clojure.string :as cs]
     [clojure.java 
      [io :as cio]
-     [browse :refer [browse-url]]])
+     [browse :refer [browse-url]]]
+    [common.george.util.cli :refer [debug]])
   (:import
     [javafx.scene.paint Color]
     [javafx.scene Scene]
@@ -17,7 +18,7 @@
     [javafx.scene.image Image]
     [javafx.scene.control Hyperlink ProgressIndicator]
     [javafx.scene.web WebView WebEvent]
-    [java.util Collection]))
+    [java.util List]))
 
 
 (defn ns-label []
@@ -36,8 +37,8 @@
   (fx/new-label s :size size :color fx/GREY :font (fx/new-font "Roboto" size)))
 
 
-(defn scrolling-widget [& [txt]]
-  (fx/hbox
+(defn scrolling-widget [& [txt vertical?]]
+  (fx/box vertical?
     (doto (ProgressIndicator.) (.setMaxHeight 28.))
     (new-label (or txt "Refreshing ..."))
     :padding 10
@@ -64,14 +65,11 @@
 
 
 (defn add-icon [^Stage stage]
-  (fx/later
-     (-> stage
-       .getIcons
-       (.setAll
-         ^Collection
-         (map #(Image. (format "graphics/George_icon_%s.png" %))
-               [16 32 64 128 256]))))
-  stage)
+  (let [images (map #(Image. (str "graphics/George_icon_" % ".png"))
+                    [16 32 64 128 256])]
+    ;(doseq [i images] (debug "URL:" (.getUrl i))
+    (fx/later (-> stage .getIcons (.setAll ^List images)))
+    stage))
 
 
 (defn style-stage [^Stage stage]

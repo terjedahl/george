@@ -20,15 +20,18 @@
      [layout :as layout]
      [styled :as styled :refer [hr padding]]]
     [george.util.singleton :as singleton]
-    [common.george.config :as c])
+    [common.george.config :as c]
+    [common.george.util.cli :refer [debug warn]])
   (:import
     [javafx.geometry Rectangle2D]
-    [javafx.stage Stage]
+    [javafx.stage Stage WindowEvent]
     [javafx.application Platform]
     [javafx.scene.control Button MenuItem ContextMenu]
     [javafx.beans.property SimpleDoubleProperty]
     [javafx.scene.layout Pane VBox]
-    [javafx.scene.text TextAlignment]))
+    [javafx.scene.text TextAlignment]
+    [java.awt Desktop]
+    [java.awt.desktop AboutHandler QuitHandler]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -36,24 +39,24 @@
 ;(set! *unchecked-math* true)
 
 
+(def tile-width 48)
+
+(def launcher-width (+ ^int tile-width 20))
+
 (def ABOUT_STAGE_KW ::about-stage)
 
 (def versionf "
    George: %s
+    build: %s
   Clojure: %s
-     Java: %s
-    built: %s")
+     Java: %s")
 
 (def copyright "
 Copyright 2015-2019 Terje Dahl.
 Powered by open source software.")
 
-;(defn resource [n]
-;  (.getResource (ClassLoader/getSystemClassLoader) n))
 
 (defn george-version-ts []
-  ;(slurp (cio/resource "george-version.txt")))
-  ;(slurp (resource "george-version.txt")))
   (let [{:keys [version ts]} (c/this-props)]
     [version ts]))
 
@@ -64,15 +67,14 @@ Powered by open source software.")
         (doto
           (fx/new-label
             (format versionf
-               version
-               (clojure-version)
-               (env :java-version)
-               ts)
+                    version
+                    ts
+                    (clojure-version)
+                    (env :java-version))
             :font (fx/new-font "Roboto Mono" 12)))
 
         copyright-info
-        (fx/new-label copyright 
-                      :size 12)
+        (fx/new-label copyright :size 12)
 
         link
         (styled/new-link "www.george.andante.no" #(browse-url "http://www.george.andante.no"))
@@ -95,16 +97,40 @@ Powered by open source software.")
          :scene (fx/scene root)))))
 
 
-
 (defn- about-stage []
   (if-let [st ^Stage (singleton/get ABOUT_STAGE_KW)]
     (.hide st)
     (singleton/get-or-create ABOUT_STAGE_KW about-stage-create)))
 
 
-(def tile-width 48)
+(defmacro safe-desktop [& body]
+  `(try (let [~'desktop (Desktop/getDesktop)] ~@body)
+        (catch UnsupportedOperationException ~'e (warn (.getMessage ~'e)) ~'e)))
+;(user/pprint (macroexpand-1 '(safe-desktop (println desktop))))
 
-(def launcher-width (+ ^int tile-width 20))
+
+(defn- set-desktop-about-handler []
+  (safe-desktop
+    (.setAboutHandler desktop (reify AboutHandler (handleAbout [_ _] (fx/later (about-stage)))))))
+
+
+
+;; TODO: BUG! Possibly in MacOS native code: The Quit dialog only works once!
+(defn- DT-quit-handler []
+  (reify QuitHandler
+    (handleQuitRequestWith [_ _ response]
+      (debug "Intercepted Quit")
+      (.cancelQuit response)
+      (fx/later
+        (doto (core/get-application-stage)
+          (.setIconified false)
+          (#(.fireEvent % (WindowEvent. % WindowEvent/WINDOW_CLOSE_REQUEST))))))))
+
+
+(defn- set-desktop-quit-handler []
+  (safe-desktop
+    (.setQuitHandler desktop (DT-quit-handler))))
+
 
 
 (defn xyxy []
@@ -240,6 +266,9 @@ Powered by open source software.")
 
     (detail-setter welcome-node)
 
+    (set-desktop-about-handler)
+    (set-desktop-quit-handler)
+
     [root dispose-fn]))
 
 
@@ -297,14 +326,15 @@ Powered by open source software.")
         h-prop (double-property (.getHeight stage) #(.setHeight stage %))
         [root-node dispose-fn] application-root]
     ;; Transition stage.
-    (fx/synced-keyframe
-      300
-      [x-prop x]
-      [y-prop y]
-      [w-prop w]
-      [h-prop h])
-    ;; Fade in Launcher root
-    (ui-stage/swap-with-fades stage root-node true 400)
+    (future
+      (fx/synced-keyframe
+        300
+        [x-prop x]
+        [y-prop y]
+        [w-prop w]
+        [h-prop h])
+      ;; Fade in Launcher root
+      (ui-stage/swap-with-fades stage root-node true 400))
 
     (fx/later
       ;; TODO: prevent fullscreen.  Where does the window go after fullscreen?!?
@@ -315,20 +345,18 @@ Powered by open source software.")
         (fx/setoncloserequest (stage-close-handler stage dispose-fn))))))
 
 
+;; TODO: This should be replaced by call to gui/...
 (defn starting-stage
   "Called form Main/-start or launcher/main.
   Returns a small, centered stage, which will morph into the main application window."
   [& [^Stage stage]]
   (fx/now
-    (if stage
-        (doto stage
-          (.setTitle "Loading ...")
-          (.setScene (fx/scene (ui-stage/scene-root-with-child) :size [240 80]))
-          (.centerOnScreen)
-          (.show)
-          (.toFront))
-
-        (starting-stage (fx/stage)))))
+    (doto (or stage (fx/stage))
+      (.setTitle "Loading ...")
+      (.setScene (fx/scene (ui-stage/scene-root-with-child) :size [240 80]))
+      (.centerOnScreen)
+      (.show)
+      (.toFront))))
 
 
 (defn application-root
@@ -343,30 +371,16 @@ Powered by open source software.")
 (defn start
   "Three versions of this method allow for different startup-strategies. The result is always that a created or given stage will be transformed (animated) into the launcher stage."
   ([]
-   (start (starting-stage)))
+   (start (styled/style-stage (starting-stage))))
   ([stage]
-   (start stage (application-root)))
+   (if-not stage
+     (start)
+     (start stage (application-root))))
   ([stage root]
-   (morphe-launcher-stage
-     (styled/style-stage stage)
-     root
-     [0 0 1280 720])))
-
- 
-(defn -main
-  "Launches George (launcher) as a standalone application."
-  [& args]
-  (fx/init)
-  (println "george.application.launcher/-main"
-           (if (empty? args)
-             ""
-             (str " args: " (apply str (interpose " " args)))))
-  (fx/later (start)))
+   (morphe-launcher-stage stage root [0 0 1280 720])))
 
 
 ;;; DEV ;;;
 
-;(when (env :repl?)  (fx/init) (-main))
 ;(when (env :repl?)  (fx/init) (start))
-;(when (env :repl?)  (fx/init) (start (starting-stage)))
 

@@ -122,6 +122,7 @@
 
 (defn- installed-dir []      (c/installed-dir (George)))
 
+(defn- icns-file []          (cio/file "src_macos" "rsc" "George.icns"))
 
 (defn- asserted-jre-dir []
   (asserted-file (jre-dir) "Directory '%s' does not exist.\n  To build the JRE, do:  lein build jre"))
@@ -146,6 +147,17 @@
 
 (defn- ensured-site-platforms-dir []
   (f/ensured-dir (site-platforms-dir)))
+
+
+(defn- splash-image []
+  (-> *project* :build :splash-image))
+
+
+(defn- splash-param []
+  (str "-splash:" (splash-image)))
+
+(defn- dock-params []
+  (list (str "-Xdock:icon=" (icns-file)) (str "-Xdock:name=" (George))))
 
 
 (defn- run
@@ -228,7 +240,7 @@
             (concat
               [(access)]
               (if with-opens? (exports-opens) [])
-              ["-jar" (str (asserted-jar-file))])
+              (concat (dock-params) [(splash-param) "-jar" (str (asserted-jar-file))]))
             %)
          args)))
 
@@ -403,7 +415,8 @@ and unpack in project dir.")))
 
         tmpl-data        {:app          (George)
                           :jar-name     (jar-name)
-                          :upgrade-code (msi-upgrade-code)}
+                          :upgrade-code (msi-upgrade-code)
+                          :splash-image (splash-image)}
 
         bat-tmpl         (slurp (cio/file "src_windows" "tmpl" "George.bat"))
         bat-rendered     (render bat-tmpl tmpl-data)
@@ -465,13 +478,15 @@ and unpack in project dir.")))
                        :app             (George)
                        :ts              (now-iso)
                        :identifier (str "no.andante." (George))
-                       :strict-version  (strict (:version *project*))}
+                       :strict-version  (strict (:version *project*))
+                       :splash-image (splash-image)}
 
         pkg-dir       (cio/file "target" "pkg")
         appl-dir      (cio/file pkg-dir "root" "Applications")
         the-app       (cio/file appl-dir (str (George) ".app"))
 
         contents-dir  (cio/file the-app "Contents")
+        resources-dir (cio/file contents-dir "Resources")
 
         info-tmpl     (slurp (cio/file "src_macos" "tmpl" "Info.plist"))
         info-rendered (render info-tmpl tmpl-data)
@@ -489,8 +504,11 @@ and unpack in project dir.")))
 
     (spit info-file info-rendered)
 
-    (cio/copy (cio/file "src_macos" "rsc" "George.icns")
-              (cio/file (f/ensured-dir (cio/file contents-dir "Resources")) "George.icns"))
+    (cio/copy (icns-file)
+              (cio/file (f/ensured-dir resources-dir) "George.icns"))
+
+    (cio/copy (cio/file (splash-image))
+              (cio/file resources-dir (splash-image)))
 
     (cio/copy jar-file
               (cio/file (f/ensured-dir (cio/file contents-dir "jar")) (.getName jar-file)))
@@ -648,10 +666,13 @@ and unpack in project dir.")))
             (recur (next platforms) cnt)
             (do
               (doseq [d-name ["jar" "installer"]]
-                (let [d (cio/file platform-dir d-name)]
-                  (when (.exists d)
-                    (debug "  Copying to Site dir:" (str d))
-                    (f/copy-dir d (cio/file site-d platform d-name)))))
+                (let [source-d (cio/file platform-dir d-name)]
+                  (when (.exists source-d)
+                    (debug "  Copying to Site dir:" (str source-d))
+                    (let [target-d (cio/file site-d platform d-name)]
+                      (f/copy-dir source-d target-d)
+                      (when (-> target-d .list seq count (> 2))
+                           (warn "More than 2 files in:" (str target-d)))))))
               (recur (next platforms) (inc cnt)))))
         (when (zero? cnt)
           (error "No platform dirs copied to Site."))))))
@@ -700,6 +721,11 @@ and unpack in project dir.")))
 
 
 (defn inject-javafx-modules []
+  (warn-java11)
   (-> *project*
       (update-in [:javac-options] concat (module-args))
-      (update-in [:jvm-opts] concat (module-args true))))
+      (update-in [:jvm-opts] concat
+                 (let [args (module-args true)]
+                   ( if (:with-splash *project*)
+                     (concat [(splash-param)] (dock-params) args)
+                     args)))))

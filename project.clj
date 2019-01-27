@@ -1,4 +1,4 @@
-(defproject no.andante.george/george-application  "2019.0-SNAPSHOT"
+(defproject no.andante.george/george-application  "2019.0-RC"
 
   :description         "George - Application"
   :url                 "https://bitbucket.org/andante-george/george-application"
@@ -77,7 +77,7 @@
   :deploy-repositories [["snapshots" :clojars]
                         ["releases" :clojars]]
 
-  :source-paths        ["src/clj"      "src_spraklab/clj"  "src_common"]
+  :source-paths        ["src/clj"      "src_spraklab/clj"      "src_common"]
   :java-source-paths   ["src/java"     "src_spraklab/java"]
   :resource-paths      ["src/rsc"      "src_spraklab/rsc"
                         "src/include"  "src_spraklab/include"]
@@ -93,8 +93,7 @@
 
   :prep-task           ["javac" "compile"]
 
-  :aot                 [no.andante.george.Run
-                        no.andante.george.Launch]
+  :aot                 [no.andante.george.Launch]
 
   :main                no.andante.george.Launch
 
@@ -119,16 +118,17 @@
   :build               {:msi-upgrade-codes {"George"      "14DE2AD0-4422-4D1F-8D80-F8EC5B9186BA"
                                             "George-TEST" "CB327885-311F-4724-AD4F-C15C7EAB33AB"
                                             :default      "92DB4AE3-F596-4FCA-8CB1-5E7B45A95340"}
-                        :site {:port 9999}}
+                        :splash-image      "george_icon_128.png"
+                        :site              {:port 9999}}
 
   :modules             {;; Download SKSs and jmods from: https://gluonhq.com/products/javafx/
                         ;; Required for javac, compile, java (building JAR and running lein and/or repl)
-                        :libs {"MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.1/lib"
-                               "Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.1\\lib"}
+                        :libs {"MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.2/lib"
+                               "Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.2\\lib"}
 
                         ;; Required for jlink (building JRE)
-                        :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.1"
-                               "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.1"}
+                        :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
+                               "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"}
 
 
                         ;; https://docs.oracle.com/en/java/javase/11/docs/api/index.html
@@ -161,8 +161,10 @@
                                  :javafx.web
                                  :javafx.media]}
 
-  :aliases             {"george" ^{:doc "            Print a list of custom tasks for the George project"}
-                        ["george"]}
+  :aliases             {"george" ^{:doc "            Print a list of custom tasks for the George project."}
+                        ["george"]
+                        "run-splash" ^{:doc "        Same as (lein) 'run', but includes the splash screen."}
+                        ["with-profile" "with-splash" "run"]}
 
   ;; to get PID for this port in unix shell, do:   sudo lsof -n -i :55055
   :repl-options        {:port 55055}
@@ -203,4 +205,6 @@
                         :uberjar {;; Is applied by 'uberjar' TODO: Investigate: Doesn't seem to have any effect.
                                   :target-path "target/uberjar/"
                                   :prep-task   ^:replace ["clean" "javac" "compile"]
-                                  :aot :all}})
+                                  :aot :all}
+
+                        :with-splash {:with-splash true}})
