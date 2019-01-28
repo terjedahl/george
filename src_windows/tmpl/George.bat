@@ -16,7 +16,7 @@ SET logfile=%logdir%\{{ app }}_%yyyy%%mm%%dd%T%H2%%M2%%S2%.log
 ECHO START: [%yyyy%-%mm%-%dd% %H2%:%M2%:%S2%] >> %logfile%
 ECHO. >> %logfile%
 
-START /B jre\bin\javaw.exe -splash:{{ splash-image }} -jar jar\{{ jar-name }} >> %logfile% 2>&1
+START /B jre\bin\javaw.exe -splash:{{ splash-image }} -Dprism.dirtyopts=false -jar jar\{{ jar-name }} >> %logfile% 2>&1
 
 
 :set_ldt
