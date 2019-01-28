@@ -18,7 +18,6 @@
     [leiningen
      [clean :as lc]
      [run :as lr]
-     [classpath :as lcp]
      [uberjar :as lu]]
     [leiningen.core
      [eval :as le]]
@@ -28,7 +27,7 @@
     [common.george.config :as c]
     [common.george.util
      [time :refer [now-iso]]
-     [cli :refer [*debug* debug info warn error]]
+     [cli :refer [*debug* debug info warn error exit]]
      [platform :as pl]
      [files :as f]
      [props :as up]])
@@ -224,8 +223,16 @@
 
 ;; https://blog.codefx.org/java/five-command-line-options-hack-java-module-system
 (defn- exports-opens []
-  ["--add-opens" "javafx.graphics/javafx.scene.text=ALL-UNNAMED"
-   "--add-exports" "javafx.graphics/com.sun.javafx.text=ALL-UNNAMED"])
+  ;; https://github.com/FXMisc/RichTextFX/issues/776
+  (let [exports ["javafx.graphics/com.sun.javafx.geom"
+                 "javafx.graphics/com.sun.javafx.text"
+                 "javafx.graphics/com.sun.javafx.scene.text"]
+        opens   ["javafx.graphics/com.sun.javafx.text"
+                 "javafx.graphics/javafx.scene.text"]]
+    (flatten
+      (list
+        (map #(list "--add-exports" (str % "=ALL-UNNAMED")) exports)
+        (map #(list "--add-opens" (str % "=ALL-UNNAMED")) opens)))))
 
 
 ;; https://jaxenter.com/jdk-9-replace-permit-illegal-access-134180.html
@@ -256,14 +263,23 @@
       (if with-opens? (exports-opens) []))))
 
 
+(defn- proceed? [app]
+  (if-not (#{"George-TEST" "George"} app)
+    true
+    (= "y" (do (printf "'app' is '%s'. Proceed? (y/n): " app) (flush) (read-line)))))
+
+
 ;;;; EMBED / PROPS
 
 
 (defn- build-embed-props [version & {:strs [:app :uri :ts]}]
-  (let [p (assoc (c/default-props app uri ts) :version version)
-        f (embed-file)]
-    (c/dump f p)
-    (pprint p)))
+  (let [app- (or app (-> *project* :build :properties :app))]
+    (when-not (proceed? app-)
+      (exit))
+    (let [p (assoc (c/default-props app- uri  ts)  :version version)
+          f (embed-file)]
+      (c/dump f p)
+      (pprint p))))
 
 
 (defn- build-jar-props [jar-f]
@@ -687,6 +703,8 @@ and unpack in project dir.")))
   (assert-aws)
   (let [site (asserted-site-dir)
         app (George)]
+    (when-not (proceed? app)
+      (exit))
     (info "Deploying Site Amazon S3 for ...")
     (.delete (cio/file site ".DS_Store"))
     (le/sh "aws" "s3" "cp" (str site) "s3://download.george.andante.no/" "--acl" "public-read" "--recursive" "--region" "eu-central-1")
