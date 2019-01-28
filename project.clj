@@ -27,7 +27,7 @@
                         [org.clojure/data.json "0.2.6"]
                         ;; https://github.com/weavejester/environ
                         [environ "1.1.0" :exclusions [org.clojure/clojure]]
-                        ;; TODO: Perhaps not use potemkin anywehre?
+                        ;; TODO: Perhaps not use potemkin anywhere?
                         ;; https://github.com/ztellman/potemkin
                         [potemkin "0.4.5"]
                         ;; https://github.com/yogthos/markdown-clj
@@ -179,28 +179,32 @@
 
   :profiles            {:repl {:env {:repl? "true"}}
 
-                        :dev {;; Is used by 'lein javac', 'lein compile', 'lein run'
-                              :target-path       "target/classes/%s/"
+                        :dev [:dev-common :dev-overrides]
 
-                              :java-source-paths ["src_dev/java"]
+                        :dev-overrides {} ;; Optionally  override this in your profiles.clj
 
-                              :source-paths      ["src_dev/clj" "src_lein"]
+                        :dev-common {;; Is used by 'lein javac', 'lein compile', 'lein run'
+                                     :target-path       "target/classes/%s/"
 
-                              :resource-paths    ["src_dev/rsc"]
+                                     :java-source-paths ["src_dev/java"]
 
-                              :dependencies      [;; Not required, but included here (also) for IDE support
+                                     :source-paths      ["src_dev/clj" "src_lein"]
 
-                                                  [selmer "1.12.5"]
-                                                  ;; https://repo.clojars.org/leiningen/leiningen/
-                                                  [leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
+                                     :resource-paths    ["src_dev/rsc"]
 
-                                                  [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
+                                     :dependencies      [;; Not required, but included here (also) for IDE support
 
-                                                  [org.openjfx/javafx-controls "11.0.1"]
-                                                  [org.openjfx/javafx-fxml     "11.0.1"]
-                                                  [org.openjfx/javafx-swing    "11.0.1"]
-                                                  [org.openjfx/javafx-web      "11.0.1"]
-                                                  [org.openjfx/javafx-media    "11.0.1"]]}
+                                                         [selmer "1.12.5"]
+                                                         ;; https://repo.clojars.org/leiningen/leiningen/
+                                                         [leiningen "2.8.1" :exclusions [org.clojure/clojure clj-stacktrace]]
+
+                                                         [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
+
+                                                         [org.openjfx/javafx-controls "11.0.2"]
+                                                         [org.openjfx/javafx-fxml     "11.0.2"]
+                                                         [org.openjfx/javafx-swing    "11.0.2"]
+                                                         [org.openjfx/javafx-web      "11.0.2"]
+                                                         [org.openjfx/javafx-media    "11.0.2"]]}
 
                         :uberjar {;; Is applied by 'uberjar' TODO: Investigate: Doesn't seem to have any effect.
                                   :target-path "target/uberjar/"

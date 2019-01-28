@@ -73,15 +73,15 @@ and includes the modules listen in [:module :jre] in project.clj."
 
 
 (defn all
-  "Do jre, jar, installer, site in one.            ...
+  "Do jar, jre, installer, site in one.            ...
 
 The args are the same as for jar (or embed).
 
 For details information on the args, do:
   lein help build embed"
   [& args]
-  (jre)
   (apply jar args)
+  (jre)
   (installer)
   (site))
 

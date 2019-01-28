@@ -14,6 +14,7 @@ javafx-libs/*
 pom.xml
 src/rsc/app.properties
 codesign-*
+profiles.clj
 
 # Types
 .*.iml
