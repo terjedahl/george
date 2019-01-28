@@ -8,7 +8,7 @@
 
 SET java="jre\bin\java.exe"
 SET jar="jar\{{ jar-name }}"
-SET run=%java% -splash:{{ splash-image }} -jar %jar%
+SET run=%java% -splash:{{ splash-image }} -Dprism.dirtyopts=false -jar %jar%
 CALL :set_ldt
 
 START cmd.exe /K "pushd %~dp0 & echo Available vars: ^%%java^%%, ^%%jar^%%, and ^%%run^%% && TITLE {{ app }} CLI"
