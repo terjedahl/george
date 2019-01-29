@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2019.0] - 2019-01-29
+
+_A major technology upgrade._
+
+### Highlights
+- Native, dual install (per-user / per-machine) installers for Windows (MSI) and MacOS (PKG).
+- Installs complete application; allowing for offline installations from e.g. USB-drive.
+- Integrated self-updating launch.
+- Java 11 and Clojure 10.
+- Custom build runtime in native install.
+- Multiple isolated application environments: George-DEV, George-TEST, George (PROD), allowing for end-to-end testing without effecting production.
+- Full suite of build-tools as custom Leiningen tasks.
+
+
 ## [2018.9] - 2018-11-14
 
 ### Fixed
