@@ -668,7 +668,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         
         error-label
         (fx/new-label " " 
-           :font (fx/new-font "Roboto" 14) 
+           :font (fx/new-font "Roboto" 14)
            :color Color/RED)
 
         form
@@ -702,29 +702,30 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         do-checks
         (fn []
           (let [n (.trim (.getText name-field))
-                changed? (not= n name)
                 has-content? (not (empty? n))]
-            (if-not (and changed? has-content?)
+            (if-not has-content?
               (fx/set-enable save-button false)
-              (let [p (->path parent-str n)
-                    ;; Does an existing file/folder exist?
-                    new? (not (exists? p))
-                    ;; Is the path legal?  (no bad chars etc)
+
+              (let [changed? (not= n name)
+                    available? (not (exists? (->path parent-str n)))
                     illegals (illegal-chars n)
                     legal? (nil? (first illegals))]
-                (if-not new?
+                ;(debug "new?" new? "changed?" changed? "not available?" (not available?))
+                (cond
+                  (and (or new? changed?) (not available?))
                   (.setText error-label "An object with this name already exists!")
-                  (if-not legal?
-                    (.setText error-label 
-                              (str "Name may not contain " (apply str (interpose " or " (map #(str \' % \') illegals)))))
-                    (.setText error-label " ")))
 
-                (fx/set-enable save-button (and new? legal?))))))]
+                  (not legal?)
+                  (.setText error-label
+                            (str "Name may not contain " (apply str (interpose " or " (map #(str \' % \') illegals)))))
+                  :else
+                  (.setText error-label " "))
+
+                (fx/set-enable save-button (and available? legal?))))))]
     
     (doto ^TextField name-field
       (.requestFocus)
-      (.selectRange 0 
-                    (- (count name) (if file? 4 0)))
+      (.selectRange 0 (- (count name) (if file? 4 0)))
       (-> .textProperty (fx/add-changelistener (do-checks))))
     
     ;; process the return-value from the alert    
