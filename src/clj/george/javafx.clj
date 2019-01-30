@@ -308,14 +308,13 @@ and the body is called on 'changed'"
 
 
 (defn XY [item]
-    [(.getX item) (.getY item)])
+  [(.getX item) (.getY item)])
 
 
 (defn WH [item]
-    (if (instance? Node item)
-        (let [b (.getBoundsInParent item)]
-            [(.getWidth b) (.getHeight b)])
-        [(.getWidth item) (.getHeight item)]))
+  (if (instance? Node item)
+      (WH (.getBoundsInParent item))
+      [(.getWidth item) (.getHeight item)]))
 
 
 (defn set-translate-XY [^Node n [x y]]

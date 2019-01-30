@@ -23,7 +23,7 @@
     [common.george.util
      [text :refer [**]]
      [files :as f :refer [filename ->path ->file ->string hidden? exists? same? parent dir? ensured-dir ensured-file move delete]]
-     [cli :refer [warn]]
+     [cli :refer [debug warn]]
      [platform :as pl]])
   (:import
     [java.io IOException File]
@@ -249,13 +249,11 @@
 
   (.setOnDragOver treecell
     (fx/new-eventhandler ;; DragEvent
-      (let [this-path (.getValue treeitem)
-            ;that-path (get-that-path event)
+      (let [this-path   (.getValue treeitem)
             those-paths (get-those-paths event)]
         (when (will-receive-all? this-path those-paths)
-          (.acceptTransferModes event (into-array TransferMode/MOVE))))))
-          ;(.consume event)))))
-  
+          (.acceptTransferModes event (into-array (list TransferMode/MOVE)))))))
+
   (.setOnDragEntered treecell
     (fx/new-eventhandler
       ;(prn 'db-ct (-> event .getDragboard .getContentTypes (.contains DataFormat/FILES)))
@@ -269,13 +267,12 @@
 
   (.setOnDragExited treecell
     (fx/new-eventhandler ;; DragEvent
-       ;(println "un-marking dir" (.getValue treeitem))
        (mark-dropspot treecell false)
        (.consume event)))
 
   (.setOnDragDropped treecell
     (fx/new-eventhandler
-       (let [this-path (.getValue treeitem)
+       (let [this-path   (.getValue treeitem)
              those-paths (get-those-paths event)]
          (when (will-receive-all-or-warn? this-path those-paths)
            (doseq [that-path those-paths]
@@ -292,57 +289,41 @@
 (defn make-draggable [treecell]
   (let [press-XY (atom nil)
         treeitem (.getTreeItem treecell)
-        path (.getValue treeitem)]
+        path     (.getValue treeitem)]
+
     (doto treecell
-      (.setOnMousePressed
-        (fx/new-eventhandler (reset! press-XY (fx/XY event))))
 
-      ;(.setOnMouseDragged
-      ;  (fx/new-eventhandler (.consume event)))
+     (.setOnMousePressed
+       (fx/new-eventhandler (reset! press-XY (fx/XY event))))
 
-      (.setOnDragDetected
-        (fx/new-eventhandler
-           ;(println "starting drag: " treecell)
-           (let [db
-                 (.startDragAndDrop treecell (into-array (list TransferMode/MOVE)))
-                 cc
-                 (doto (ClipboardContent.) 
-                       ;(.putString (->string path))
-                       (.putFiles [(->file path)]))
+     (.setOnDragDetected
+       (fx/new-eventhandler
+          (when-let [[x y] @press-XY] ;; Mouse was maybe not properly "pressed"
+            (let [db    (.startDragAndDrop treecell (into-array (list TransferMode/MOVE)))
+                  cc    (doto (ClipboardContent.) (.putFiles [(->file path)]))
+                  [w h] (fx/WH treecell)
+                  hoff  (- (/ w 2) x)
+                  voff  (- y (/ h 2))
+                  ghost (doto (SnapshotParameters.) (.setFill Color/TRANSPARENT))]
+              (.setCursor treecell Cursor/MOVE)
+              (.setOpacity treecell 0.8)
+              (.setDragView db (.snapshot treecell ghost nil) hoff voff)
+              (.setOpacity treecell 1.0)
+              (.setContent db cc)
+              (.consume event)))))
 
-                 [x y] @press-XY
-                 [w h] (fx/WH treecell)
-                 hoff (- (/ w 2) x)
-                 voff (- y (/ h 2))
-                 ;_ (println "[x y]:" [x y])
-                 ;_ (println "[w h]:" [w h])
-                 ;_ (println "hoff:" hoff)
-                 ;_ (println "voff:" voff)
+     (.setOnDragDone
+       (fx/new-eventhandler
+         (.setOpacity treecell 1.0)
+         (.setCursor treecell Cursor/DEFAULT)
+         ;(debug "mode" (.getTransferMode me))
+         (when (.getTransferMode event)
+           (try
+             (-> treeitem ^IRefreshable .getParent .refresh)
+             (catch NullPointerException _)))
+         (.consume event)))))
 
-                 ghost
-                 (doto (SnapshotParameters.)
-                       (.setFill Color/TRANSPARENT))]
-             
-             (.setCursor treecell Cursor/MOVE)
-             (.setOpacity treecell 0.8)
-             (.setDragView db (.snapshot treecell ghost nil) hoff voff)
-             ;(.setOpacity treecell 0.2)
-             (.setOpacity treecell 1.0)
-
-             (.setContent db cc)
-             (.consume event))))
-
-      (.setOnDragDone
-        (fx/new-eventhandler 
-          (.setOpacity treecell 1.0)
-          (.setCursor treecell Cursor/DEFAULT)
-          ;(prn 'onDragDone me)
-          ;(prn 'mode (.getTransferMode me))
-          (when (.getTransferMode event)
-            (try (-> treeitem ^IRefreshable .getParent .refresh) 
-                 (catch NullPointerException _)))
-          (.consume event))))))
-
+  treecell)
 
 (defn- set-dir 
   "Sets the directory combo to the selected dir, and mounts the tree for the dir"
@@ -891,6 +872,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 
 ;(when (env :repl?) (fx/init) (-> (file-nav) deref :rootpane stage))
 
+;; TODO: Dropdown now needs to be clicked twice as marking consumes the first click, not leaving the menu open.
 ;; TODO: Ensure that long filenames compress rather than activating horizontal scrolling - both in filetree and openlist.
 
 ;;;; FUTURE RELEASE
