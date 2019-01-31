@@ -40,7 +40,7 @@
   (:import
     [javafx.scene.paint Color]
     [javafx.scene Group Node Scene]
-    [javafx.scene.shape Line Rectangle Polygon]
+    [javafx.scene.shape Line Rectangle Polygon StrokeLineCap]
     [javafx.scene.text TextBoundsType Text]
     [javafx.stage Stage]
     [javafx.geometry VPos]
@@ -739,37 +739,32 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
           "Clones certain JavaFX Node sub-classes"
           (fn [obj] (class obj)))
 
-;(defmethod clone String [obj]
-;  (println "Got a String:" obj)
-;  obj)
-
-;(defmethod clone Long [obj]
-;  (println "Got a Long:" obj)
-;  obj)
 
 (defmethod clone Polygon [^Polygon obj]
-  ;(println "Got a Polygon:" obj)
   (doto
     (apply fx/polygon
            (concat
              (vec (.getPoints obj))
-             [:fill (.getFill obj) :stroke (.getStroke obj) :strokewidth (.getStrokeWidth obj)]))
+             (list :fill (.getFill obj) :stroke (.getStroke obj) :strokewidth (.getStrokeWidth obj))))
+    (transfer-node-values obj)))
+
+
+(defmethod clone Line [^Line obj]
+  (doto
+    (apply fx/line
+           (list :x1 (.getStartX obj) :y1 (.getStartY obj) :x2 (.getEndX obj) :y2 (.getEndY obj)
+                 :color (.getStroke obj) :width (.getStrokeWidth obj)
+                 :smooth (.isSmooth obj) :round (= StrokeLineCap/ROUND (.getStrokeLineCap obj))))
     (transfer-node-values obj)))
 
 
 (defmethod clone Group [^Group obj]
-  ;(println "Got a Group!:" obj)
-  ;(println "clone:" (.getPoints obj) (.getFill obj) (.getStroke obj) (.getStrokeWidth obj) (userdata
   (apply fx/group (map clone (.getChildren obj))))
 
 
 (defmethod clone :default [obj]
   (throw (IllegalArgumentException. (format "Don't know how to clone object of type '%s'" (.getName (class obj))))))
 
-;(clone "Hello")
-;(clone 1)
-;(clone (int 2))
-;(println (clone (turtle-polygon)))
 
 
 (defn get-state 
@@ -2348,12 +2343,32 @@ There are a number of optional ways to set font:
  ([]
   (home (turtle)))
  ([turtle]
-  (let [pen-down? (is-down turtle)]
+  (let [down? (is-down turtle)]
     (pen-up turtle)
     (set-heading turtle 0)
     (set-position turtle [0 0])
-    (when pen-down? (pen-down turtle)))
+    (set-down turtle down?))
   nil))
+
+
+
+(defn reset-turtle
+  "Sets all turtle's properties back to default value, including location and heading.
+
+*Example:*
+```
+(reset-turtle)
+```
+"
+ ([]
+  (reset-turtle (turtle)))
+ ([turt]
+  (with-turtle turt
+    (home) (show)  (pen-down)
+    (set-speed :default) (set-color :default) (set-fill :default) (set-font :default) (set-width :default) (set-round :default)
+    (set-undo 0) (set-shape :default)
+    (swap! (turtle) assoc :props (get-default :props)))
+  turt))
 
 
 (defn reset
@@ -2376,9 +2391,7 @@ There are a number of optional ways to set font:
   (stop-ticker)  ;; important to do before clearing any nodes - as the ticker may continue to effect something.
   (clear keep-1-turtle?)
   (when keep-1-turtle?
-        (show) (set-speed :default) (pen-up) (home) (pen-down)
-        (set-color :default) (set-fill :default) (set-font :default) (set-width :default) (set-round :default) (set-undo 0)) 
-  
+    (reset-turtle (turtle)))
   (set-background :default)  (reset-onkey) (set-fence :default) (set-screen-onclick nil)
 
   nil))
@@ -2950,14 +2963,13 @@ See topic [Clojure](:Clojure) for more information."
 (defn- set-shape_
   "Applied to deref-ed turtle."
   [turt shapes-or-node]
-  (let [turtle-group
-        (:group turt)
-        
-        node
-        (cond
-          (is-shapes shapes-or-node)  (to-group shapes-or-node)  
-          (is-node shapes-or-node)  (remove-parent shapes-or-node))]
-    (set-now turtle-group node)))
+  (if (#{:shape :default} shapes-or-node)
+    (set-shape_ turt (get-default :shape))
+    (set-now
+      (:group turt)
+      (cond
+        (is-shapes shapes-or-node) (to-group shapes-or-node)
+        (is-node shapes-or-node)   (remove-parent shapes-or-node)))))
 
 
 (defn- union-XYXY-
