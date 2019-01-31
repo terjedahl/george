@@ -302,7 +302,7 @@
 
     (when (and (= crow row) caret-visible)
       (let [caret ^Node (caret-factory line-height)]
-        (.setTranslateX caret (- ^double (calculate-offset texts ccol) 1.0)) ;; negative offset for cursor width
+        (.setTranslateX caret (- ^double (calculate-offset texts ccol) 1.0)) ;; negative offset for caret width
         (fx/children-add pane caret)))))
 
 
