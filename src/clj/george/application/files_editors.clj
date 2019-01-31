@@ -33,7 +33,8 @@
 
 
 (defn- set-editor! [item]
-  (.setCenter ^BorderPane @editor-pane_ (:editor-root item)))
+  (.setCenter ^BorderPane @editor-pane_ (:editor-root item))
+  (.focus (:editor item)))
 
 
 (defn- set-open-files [items]

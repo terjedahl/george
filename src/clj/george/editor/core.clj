@@ -96,7 +96,8 @@
 
 (definterface IEditorPane
   ^Atom        (getStateAtom [])
-  ^VirtualFlow (getFlow []))
+  ^VirtualFlow (getFlow [])
+  ^void        (focus []))
 
 
 (defn editor-view
@@ -115,8 +116,8 @@
   (let [[flow state_] (editor content-string content-type)]
     (proxy [VirtualizedScrollPane IEditorPane] [flow]
       (getStateAtom [] state_)
-      (getFlow [] flow)))))
-
+      (getFlow [] flow)
+      (focus [] (.requestFocus flow))))))
 
 (defn text [editor-view]
   (-> editor-view .getStateAtom st/text))
