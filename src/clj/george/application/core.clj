@@ -6,34 +6,34 @@
 (ns george.application.core)
 
 
-(def default-state 
-  {
-   ;; map of 1 arg functions called synchronously before and after quit-dialog is shown/hidden. 
-   ;; Arg is one of :show :quit :cancel
-   :quit-dialog-listeners {}
-   
+(def proto-state
+  {:dialog-listeners {}
    :application-stage nil})
 
 (defonce ^:private state_ (atom nil))
 
 (defn init-state []
-  (reset! state_ default-state))
+  (reset! state_ proto-state))
 
 
 ;;;;
 
 
-(defn add-quit-dialog-listener [k fn]
-  (swap! state_ update-in [:quit-dialog-listeners] assoc k fn))
+(defn add-dialog-listener
+  "'k' should be a ns-qualified keyword.
+  'fn' is a function of 1 argument. The argument will be a boolean telling the listener that is should yield or not -
+  i.e. give up it's position of alwayontop."
+  [k fn]
+  (swap! state_ update-in [:dialog-listeners] assoc k fn))
 
 
-(defn remove-quit-dialog-listener [k]
-  (swap! state_ update-in [:quit-dialog-listeners] dissoc k))
+(defn remove-dialog-listener [k]
+  (swap! state_ update-in [:dialog-listeners] dissoc k))
 
 
-(defn call-quit-dialog-listeners [kw]
-  (doseq [f (-> @state_ :quit-dialog-listeners vals)]
-    (try (f kw) (catch Exception e (.printStackTrace e)))))
+(defn notify-dialog-listeners [yield?]
+  (doseq [f (-> @state_ :dialog-listeners vals)]
+    (try (f yield?) (catch Exception e (.printStackTrace e)))))
 
 
 ;;;;

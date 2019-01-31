@@ -13,6 +13,7 @@
     [hara.io.watch]
     [hara.common.watch :as watch]
     [george.javafx :as fx]
+    [george.application.core :as app]
     [george.application.ui
      [styled :as styled]
      [layout :as layout]]
@@ -692,7 +693,8 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
           :content form
           :options options
           :cancel-option? true
-          :mode nil)
+          :mode nil
+          :owner (app/get-application-stage))
 
         save-button
         (doto
@@ -727,7 +729,9 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
       (.requestFocus)
       (.selectRange 0 (- (count name) (if file? 4 0)))
       (-> .textProperty (fx/add-changelistener (do-checks))))
-    
+
+    (app/notify-dialog-listeners true)
+
     ;; process the return-value from the alert    
     (when (fx/option-index (.showAndWait alert) options)
       (let [p (->path parent-str (.trim (.getText name-field)))]
@@ -741,10 +745,12 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         (.refresh (if-let [itemp (.getParent item)] itemp item))
         (doto state_
           (clear-selection)
-          (reveal  p))))))
+          (reveal p))))
+
+    (app/notify-dialog-listeners false)))
 
 
-(def default-state
+(def proto-state
   {:rootpane nil
    :treeview nil
    :empty-label nil
@@ -756,7 +762,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
   "Entry point to module. Returns an state-atom containing all relevant objects."
   [& [inital-path]]
   (let [
-        state_ (atom default-state)
+        state_ (atom proto-state)
 
         initial-path (or inital-path (->path (c/documents-dir)))
 
@@ -873,12 +879,11 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 
 ;(when (env :repl?) (fx/init) (-> (file-nav) deref :rootpane stage))
 
-;; TODO: Dropdown now needs to be clicked twice as marking consumes the first click, not leaving the menu open.
-;; TODO: Ensure that long filenames compress rather than activating horizontal scrolling - both in filetree and openlist.
 
 ;;;; FUTURE RELEASE
 
-;; TODO: Update files when they are moved with DnD
+;; TODO: Dropdown now needs to be clicked twice as marking consumes the first click, not leaving the menu open.
+;; TODO: Ensure that long filenames compress rather than activating horizontal scrolling - both in filetree and openlist.
 
 ;; TODO: Make "shortcut" back to "George" folder.  (Also note that it was confusing that double-clicking stepped pupils inn to sub-folder.)
 

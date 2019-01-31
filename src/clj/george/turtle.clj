@@ -35,7 +35,7 @@
     [george.javafx :as fx]
     [george.util.math :as um]
     [george.turtle.extra :as aux]
-    [george.application.core :as core]
+    [george.application.core :as app]
     [common.george.util.cli :refer [warn]])
   (:import
     [javafx.scene.paint Color]
@@ -2827,23 +2827,23 @@ See topic [Clojure](:Clojure) for more information."
             :sizetoscene true
             :tofront true
             :alwaysontop true
-            :owner (core/get-application-stage)
+            :owner (app/get-application-stage)
             :onhidden #(set-screen-visible screen false)))]
        
-       (core/add-quit-dialog-listener 
-         :turtle-screen 
-         #(fx/later (.setAlwaysOnTop stage (not= % :show))))
+    (app/add-dialog-listener
+      :george.turtle/screen
+      #(fx/later (.setAlwaysOnTop stage (not %))))
          
-       (doto ^Rectangle border
-         (-> .widthProperty (.bind (-> scene .widthProperty (.subtract 4))))
-         (-> .heightProperty (.bind (-> scene .heightProperty (.subtract 4)))))
+    (doto ^Rectangle border
+      (-> .widthProperty (.bind (-> scene .widthProperty (.subtract 4))))
+      (-> .heightProperty (.bind (-> scene .heightProperty (.subtract 4)))))
        
-       (doto ^Group root
-         (-> .layoutXProperty (.bind (-> scene .widthProperty (.divide 2))))
-         (-> .layoutYProperty (.bind (-> scene .heightProperty (.divide 2)))))
+    (doto ^Group root
+      (-> .layoutXProperty (.bind (-> scene .widthProperty (.divide 2))))
+      (-> .layoutYProperty (.bind (-> scene .heightProperty (.divide 2)))))
 
-       (swap! screen assoc :scene scene :stage stage)
-       nil))
+    (swap! screen assoc :scene scene :stage stage)
+    nil))
 
 
 (defn set-screen-visible

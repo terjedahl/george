@@ -276,7 +276,7 @@ Powered by open source software.")
 (defn- stage-close-handler [^Stage application-stage dispose-fn]
   (fx/new-eventhandler
      (.toFront application-stage)
-     (core/call-quit-dialog-listeners :show)
+     (core/notify-dialog-listeners true)
      (let [repl? (boolean (env :repl?))
            button-index
            (fx/now
@@ -292,10 +292,9 @@ Powered by open source software.")
 
           (if-not exit?
             (do
-              (core/call-quit-dialog-listeners :cancel)
+              (core/notify-dialog-listeners false)
               (.consume event))
             (do
-              (core/call-quit-dialog-listeners :quit)
               (repl-server/stop!)
               (dispose-fn)
               (println "Bye for now!" (if repl? " ... NOT" ""))
