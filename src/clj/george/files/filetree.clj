@@ -31,7 +31,7 @@
     [java.nio.file Files Path LinkOption]
     [javafx.geometry Pos]
     [javafx.scene Cursor SnapshotParameters]
-    [javafx.scene.control TreeView TreeItem TreeCell TextField MultipleSelectionModel]
+    [javafx.scene.control TreeView TreeItem TreeCell TextField MultipleSelectionModel OverrunStyle]
     [javafx.scene.input TransferMode ClipboardContent KeyEvent MouseButton MouseEvent DragEvent]
     [javafx.scene.paint Color]
     [javafx.util Callback]
@@ -127,7 +127,7 @@
   (-> state_ <-treeview .getSelectionModel))
 
 
-(defn- <-selected [state_]
+(defn <-selected [state_]
   (-> state_ <-selection-model .getSelectedItem))
 
 
@@ -148,15 +148,12 @@
   (fx/imageview "graphics/folder-16.png"))
 
 
-(defn disclosure-node
- ([expanded?]
-  (disclosure-node true expanded?))
- ([dir? expanded? & [extra-padding-top]]
-  (when dir?
+(defn disclosure-node [dir? empty? expanded? & [extra-padding-top]]
+  (when (and dir? (not empty?))
     (let [n (fx/polygon 0 0  8 5  0 10 :fill Color/DARKSLATEGRAY :strokewidth 0)]
       (when expanded? (.setRotate n 90))
-      (doto (fx/stackpane n) 
-        (fx/set-padding (+ 0 (or extra-padding-top 0)) 5 0 5))))))
+      (doto (fx/stackpane n)
+        (fx/set-padding (+ 0 (or extra-padding-top 0)) 5 0 5)))))
 
 
 (defn new-graphic [path]
@@ -355,6 +352,14 @@ created:   %s
 modified:  %s  " (to-string path) size creationTime lastModifiedTime)))
 
 
+(defn dir-empty?
+  "Lazy check to see if dir contains at least one."
+  [d]
+  (when (dir? d)
+    ;; The first file in file-seq is the directory itself.  Therefore we use 'rest' to drop it checking if there is more.
+    (-> d to-file file-seq rest first boolean not)))
+
+
 (defn- path-treecell
   "Returns a custom TreeCell.
   '->str' is optional 1-arg function which takes at item and returns a String."
@@ -375,38 +380,43 @@ modified:  %s  " (to-string path) size creationTime lastModifiedTime)))
                  (.setGraphic nil)
                  (.setText nil))
                ;; else
-               (let [item# (.getTreeItem ~'this)
-                     dir?# (dir? path#)]
+               (let [item#         (.getTreeItem ~'this)
+                     dir?#         (dir? path#)
+                     empty?#       (dir-empty? path#)
+                     reveal-label# (format "Reveal in %s" (cond (pl/macos?) "Finder" (pl/windows?) "Explorer" :else "File manager"))]
                  (doto ~'this
-                   (.setDisclosureNode (disclosure-node dir?# (.isExpanded item#) 5))
+                   (.setMinWidth 120)
+                   (.setPrefWidth 120)
+                   (.setDisclosureNode (disclosure-node dir?# empty?# (.isExpanded item#) 5))
                    (.setGraphic 
                      (fx/hbox 
                        (new-graphic path#) 
-                       (fx/new-label (filename path#) :font 14) 
-                       (fx/region :hgrow :always) 
+                       (doto (fx/new-label (filename path#) :font 14)
+                         (.setTextOverrun OverrunStyle/ELLIPSIS))
+                       (fx/region :hgrow :always)
                        (doto
                          (layout/menu
-                           [:button " " :bottom [(when dir?# [:item "New file ..." #(new-rename-dialog state_# item# true true)])
+                           [:button " " :bottom [(when dir?# [:item "New file ..."   #(new-rename-dialog state_# item# true true)])
                                                  (when dir?# [:item "New folder ..." #(new-rename-dialog state_# item# true false)])
                                                  (when dir?# [:separator])
-                                                 [:item "Rename ..."  #(new-rename-dialog state_# item# false nil)]
+                                                 [:item "Rename ..."                 #(new-rename-dialog state_# item# false nil)]
                                                  [:separator]
-                                                 ;[:item "Copy" #(println "Copy    NO IMPL")]
-                                                 ;(when dir?# [:item "Paste ..." #(println "Paste    NO IMPL")])
-                                                 [:item "Delete ..."  #(delete-dialog state_# item#)]
+                                                 ;[:item "Copy"                      #(println "Copy    NO IMPL")]
+                                                 ;(when dir?# [:item "Paste ..."     #(println "Paste    NO IMPL")])
+                                                 [:item "Delete ..."                 #(delete-dialog state_# item#)]
                                                  [:separator]
-                                                 (when dir?# [:item "Refresh"  #(.refresh item#)])                 
-                                                 [:item "Info"  #(fx/alert :content (fx/new-label (info-str path#) :font (fx/new-font fx/ROBOTO_MONO 14)))]
+                                                 (when dir?# [:item "Refresh"        #(.refresh item#)])
+                                                 [:item "Info"                       #(fx/alert :content (fx/new-label (info-str path#) :font (fx/new-font fx/ROBOTO_MONO 14)))]
                                                  [:separator]
-                                                 [:item (format "Reveal in %s" (cond (pl/macos?) "Finder" (pl/windows?) "Explorer" :else "File manager"))
-                                                        #(future (f/reveal path#))]]])
-                         (.addEventFilter MouseEvent/MOUSE_CLICKED  (fx/new-eventhandler (select-item state_# item#)))
-                         (fx/add-class "g-no-button"))
- 
+                                                 [:item reveal-label#                #(future (f/reveal path#))]]])
+                         (fx/add-class "g-no-button")
+                         (#(when-not (= (<-selected state_#) item#)
+                             (.setDisable % true)
+                             (.addEventFilter % MouseEvent/MOUSE_CLICKED  (fx/new-eventhandler (select-item state_# item#))))))
+
                        :padding [0 10 0 0]
                        :spacing 3
                        :alignment fx/Pos_CENTER_LEFT))
-                            
                    (make-draggable)
                    (make-dropspot item#))))))))))
             
