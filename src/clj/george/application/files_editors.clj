@@ -15,7 +15,7 @@
     [george.files.filetree :as filetree]
     [george.util.singleton :as singleton]
     [common.george.util
-     [files :refer [ ->path ->file ->string exists? filename to-path]]
+     [files :refer [ to-path to-file to-string exists? filename to-path]]
      [cli :refer [debug]]])
   (:import
     [javafx.scene.control SplitPane ListCell ListView]
@@ -43,7 +43,7 @@
 
 (defn- set-open-files [items]
   (let [open-files
-        (mapv #(-> % :file-info_ deref :path ->string) items)]
+        (mapv #(-> % :file-info_ deref :path to-string) items)]
     ;(doseq [f open-files] (prn '-- f))
     (hist/set-open-files open-files)))
 
@@ -132,7 +132,7 @@ swap-saved:  %s")
 
 Has it been renamed, moved, or deleted?
 
-(Remove file from list by clicking the 'x')" (->string path))
+(Remove file from list by clicking the 'x')" (to-string path))
       :color fx/RED
       :font 16))) 
                              
@@ -140,7 +140,7 @@ Has it been renamed, moved, or deleted?
 (defn file-item [filenav-state_ path & {:keys [ns] :or {ns "user.turtle"}}]
   (let [found?     (exists? path)
         
-        content    (when found? (-> path ->file slurp))
+        content    (when found? (-> path to-file slurp))
         editor     (if found? (ed/editor-view content :clj) :not-found)
         file-info_ (eds/new-file-info_ path)
         save-chan  (when found? (eds/save-to-swap-channel))
@@ -185,7 +185,7 @@ Has it been renamed, moved, or deleted?
 (defn open-or-reveal
   "Opens content of file in editor if not already open, else reveals the editor displaying the file."
   [filenav-state_ path]
-  ;(println "open-or-reveal" (->string path))
+  ;(println "open-or-reveal" (to-string path))
   (let [items (.getItems @listview_)
         ;items (filter #(-> % :file-info_ some?) items)
         item (->> items 
@@ -217,7 +217,7 @@ Has it been renamed, moved, or deleted?
     (reset! listview_ opens)
     
     (-> opens .getItems 
-        (.addAll ^List (map #(file-item filenav-state_ (->path %)) (hist/get-open-files))))
+        (.addAll ^List (map #(file-item filenav-state_ (to-path %)) (hist/get-open-files))))
     
     (-> opens .getItems 
         (.addListener  (fx/new-listchangelistener (set-open-files (.getList change))))) 

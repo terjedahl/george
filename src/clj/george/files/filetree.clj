@@ -23,7 +23,7 @@
     [common.george.launch.props :as p]
     [common.george.util
      [text :refer [**]]
-     [files :as f :refer [filename ->path ->file ->string hidden? exists? same? parent dir? ensured-dir ensured-file move delete]]
+     [files :as f :refer [filename to-path to-file to-string hidden? exists? same? parent dir? ensured-dir ensured-file move delete]]
      [cli :refer [debug warn]]
      [platform :as pl]])
   (:import
@@ -104,7 +104,7 @@
 
 
 (defn- item->path->string [item]
-  (-> item item->path ->string))
+  (-> item item->path to-string))
 
 
 (defn- treecell->path [^TreeCell treecell]
@@ -177,7 +177,7 @@
 
 
 (defn- get-those-paths [^DragEvent event]
-  (map ->path  (-> event .getDragboard .getFiles)))
+  (map to-path  (-> event .getDragboard .getFiles)))
 
 
 (defn- is-ancestor
@@ -205,12 +205,12 @@
   [that-path this-path]
   (let [child-paths (get-child-paths this-path)]
     (when-let [p (get (set (map filename child-paths)) (filename that-path))]
-      (->path this-path p))))
+      (to-path this-path p))))
 
 
 (defn- warn-of-existing [path]
   (let [nam (filename path)
-        par (->string (parent path))
+        par (to-string (parent path))
         dir? (dir? path)]
     (fx/alert 
       :type :error
@@ -260,7 +260,7 @@
       ;(prn 'db-ct (-> event .getDragboard .getContentTypes (.contains DataFormat/FILES)))
       ;(doseq [f (-> event .getDragboard .getFiles)]
       ;  (prn 'f f))
-      ;(println " drag-entered:" (->string (.getValue treeitem)))
+      ;(println " drag-entered:" (to-string (.getValue treeitem)))
       (when (will-receive-all? (.getValue treeitem) (get-those-paths event))
             ;(println "marking dir" (.getValue treeitem))
             (mark-dropspot treecell true))
@@ -277,7 +277,7 @@
              those-paths (get-those-paths event)]
          (when (will-receive-all-or-warn? this-path those-paths)
            (doseq [that-path those-paths]
-             (move-file that-path (->path this-path (filename that-path))))
+             (move-file that-path (to-path this-path (filename that-path))))
            (.refresh treeitem)
            (.setDropCompleted event true)
            (-> treecell .getTreeView .getSelectionModel 
@@ -301,7 +301,7 @@
        (fx/new-eventhandler
           (when-let [[x y] @press-XY] ;; Mouse was maybe not properly "pressed"
             (let [db    (.startDragAndDrop treecell (into-array (list TransferMode/MOVE)))
-                  cc    (doto (ClipboardContent.) (.putFiles [(->file path)]))
+                  cc    (doto (ClipboardContent.) (.putFiles [(to-file path)]))
                   [w h] (fx/WH treecell)
                   hoff  (- (/ w 2) x)
                   voff  (- y (/ h 2))
@@ -352,7 +352,7 @@
     (format "path:      %s  
 size:      %s bytes  
 created:   %s  
-modified:  %s  " (->string path) size creationTime lastModifiedTime)))
+modified:  %s  " (to-string path) size creationTime lastModifiedTime)))
 
 
 (defn- path-treecell
@@ -399,7 +399,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
                                                  [:item "Info"  #(fx/alert :content (fx/new-label (info-str path#) :font (fx/new-font fx/ROBOTO_MONO 14)))]
                                                  [:separator]
                                                  [:item (format "Reveal in %s" (cond (pl/macos?) "Finder" (pl/windows?) "Explorer" :else "File manager"))
-                                                        #(future (f/open (if dir?# path# (parent path#))))]]])
+                                                        #(future (f/reveal path#))]]])
                          (.addEventFilter MouseEvent/MOUSE_CLICKED  (fx/new-eventhandler (select-item state_# item#)))
                          (fx/add-class "g-no-button"))
  
@@ -430,17 +430,17 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
     (when dir?
       ;(prn 'refresh-item filetreeitem)
       (let [old-paths-str (map item->path->string (.getChildren filetreeitem))
-            new-paths-str (map ->string (get-child-paths path))
+            new-paths-str (map to-string (get-child-paths path))
             ;; diff/diff only works on seqs of Strings
             edit-script (diff/diff old-paths-str new-paths-str)
             ;; We need to replace "add" strings with filetreeitems before passing it to diff/patch
             edit-script1 
             (update-in edit-script [:+] 
                        (fn [v] 
-                         (mapv (fn [[i s]] [i (lazy-filetreeitem (->path s))])
+                         (mapv (fn [[i s]] [i (lazy-filetreeitem (to-path s))])
                                v)))]
         ;; The "del-object" needs to be compatible with TreeView, as it will be temporarily inserted before being removed.
-        (binding [uc/*DEL_OBJ* (lazy-filetreeitem (->path "DEL_OBJ"))]
+        (binding [uc/*DEL_OBJ* (lazy-filetreeitem (to-path "DEL_OBJ"))]
           (diff/patch (.getChildren filetreeitem) edit-script1))
         ;; Call refresh on all children. They will sort out if they need to do the same on theirs.
         (doseq [c (.getChildren filetreeitem)]
@@ -543,7 +543,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
       (fx/later (.setText watched-label "w?"))
       
       (let [root (<-root state_)
-            file ^File (-> root item->path ->file)
+            file ^File (-> root item->path to-file)
             res    
             (timeout 5000 ::timed-out
                      (watch/add file :tree-root #(.refresh root) 
@@ -591,7 +591,6 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
   (when (dir? path)  
     (doseq [p (get-child-paths path true true)]
       (delete-path p)))
-  ;(prn 'deleting-path (->string path))
   (delete path))
 
 
@@ -646,7 +645,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
           (parent path))
  
         parent-str
-        (str (->string parent-path) (pl/file-sep))
+        (str (to-string parent-path) (pl/file-sep))
         
         newnamef  
         (when new? (if file? "file%s.clj" "folder%s"))
@@ -654,7 +653,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
         new-name 
         (when new?
           (loop [name (format newnamef "") n 1]
-            (if (exists? (->path (str parent-str name)))            
+            (if (exists? (to-path (str parent-str name)))
               (recur (format newnamef n) (inc n))
               name)))
         
@@ -709,7 +708,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
               (fx/set-enable save-button false)
 
               (let [changed? (not= n name)
-                    available? (not (exists? (->path parent-str n)))
+                    available? (not (exists? (to-path parent-str n)))
                     illegals (illegal-chars n)
                     legal? (nil? (first illegals))]
                 ;(debug "new?" new? "changed?" changed? "not available?" (not available?))
@@ -734,7 +733,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
 
     ;; process the return-value from the alert    
     (when (fx/option-index (.showAndWait alert) options)
-      (let [p (->path parent-str (.trim (.getText name-field)))]
+      (let [p (to-path parent-str (.trim (.getText name-field)))]
         (if new?
           (if file?
             (@open-or-reveal_ (ensured-file p))
@@ -764,7 +763,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
   (let [
         state_ (atom proto-state)
 
-        initial-path (or inital-path (->path (c/documents-dir)))
+        initial-path (or inital-path (to-path (c/documents-dir)))
 
         to-parent-button (styled/small-button "Up"
                                     :tooltip "Open parent folder"
