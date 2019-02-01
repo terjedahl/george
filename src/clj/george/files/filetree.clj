@@ -396,7 +396,7 @@ modified:  %s  " (->string path) size creationTime lastModifiedTime)))
                                                  [:item "Delete ..."  #(delete-dialog state_# item#)]
                                                  [:separator]
                                                  (when dir?# [:item "Refresh"  #(.refresh item#)])                 
-                                                 [:item "Info"  #(fx/alert :content (fx/new-label (info-str path#) :font (fx/new-font "Source Code Pro" 14)))]
+                                                 [:item "Info"  #(fx/alert :content (fx/new-label (info-str path#) :font (fx/new-font fx/ROBOTO_MONO 14)))]
                                                  [:separator]
                                                  [:item (format "Reveal in %s" (cond (pl/macos?) "Finder" (pl/windows?) "Explorer" :else "File manager"))
                                                         #(future (f/open (if dir?# path# (parent path#))))]]])

@@ -28,8 +28,8 @@
 ;(set! *unchecked-math* true)
 
 
-(def gutter-font (memoize #(fx/new-font "Source Code Pro" %)))
-(def font (memoize #(fx/new-font "Source Code Pro Medium" %)))
+(def gutter-font (memoize #(fx/new-font fx/SOURCE_CODE_PRO %)))
+(def font (memoize #(fx/new-font fx/SOURCE_CODE_PRO_MEDIUM %)))
 (def LINE_INSETS (fx/insets 0 24 0 12))
 
 (def derived-line-height (memoize (fn [^double font-size] (int (+ (*  font-size 1.5) 2)))))

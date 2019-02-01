@@ -184,7 +184,7 @@
 ;(println (to-font 12))
 ;(println (to-font [12]))
 ;(println (to-font ["Arial" 12]))
-;(println (to-font ["Source Code Pro" 12]))
+;(println (to-font [fx/SOURCE_CODE_PRO 12]))
 ;(println (to-font ["Arial" :normal 12]))
 ;(println (to-font ["Geneva" :bold :italic 12]))
 ;(println (to-font (fx/new-font 16)))

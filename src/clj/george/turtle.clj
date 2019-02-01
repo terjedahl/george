@@ -1353,7 +1353,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
    :down true
    :round false
    :fill :dodgerblue
-   :font ["Source Code Pro" :normal 14]
+   :font [fx/SOURCE_CODE_PRO :normal 14]
    :props {}
    :undo 0
    
