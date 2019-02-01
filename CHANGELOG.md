@@ -3,6 +3,29 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2019.0.1] - 2019-02-02
+
+### Fixed
+- (regression) DnD in filetree causing exception.
+- New/Rename file/folder uniqueness logic incorrect.
+- TG: clone-turtle threw Exception if shape contained line.
+- TG: reset didn't reset shape or props.
+- Caret blink continuously caused scroll to caret.
+- Moving or renaming a folder orphaned contained open files.
+- New file dialog appeared behind turtle screen.
+- (regression) Input history didn't load.
+- Input history index was decremented if miss on local history.
+- File dropdown is now only enabled for selected file. 
+
+### Improved
+- When a file is opened or selected the editor now automatically gets focus.
+- About dialog now supports click-to-copy version info. Also, fixed font issues.
+- Reveal in Explorer/Finder now marks actual file, not just parent folder.
+- No disclosure-triangle if folder is empty.
+- Long filenames compress rather than force filetree to scroll horizontally.
+- The selected file's path doesn't wrap in the middle of the filename.
+
+
 ## [2019.0] - 2019-01-29
 
 _A major technology upgrade._
