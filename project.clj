@@ -1,4 +1,4 @@
-(defproject no.andante.george/george-application  "2019.0.1-RC1"
+(defproject no.andante.george/george-application  "2019.0.1"
 
   :description         "George - Application"
   :url                 "https://bitbucket.org/andante-george/george-application"
