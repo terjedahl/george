@@ -169,7 +169,7 @@
                         style (format gutter-style-f col1 col2 col3)]    
                     (doto (fx/new-label (marking-for-typ typ)
                                         :color Color/WHITE
-                                        :font "Source Code Pro"
+                                        :font fx/SOURCE_CODE_PRO
                                         :size 16
                                         :style style)))))
 

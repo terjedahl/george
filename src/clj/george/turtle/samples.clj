@@ -5,8 +5,10 @@
 
 (ns george.turtle.samples
   (:require
-    [george.turtle :refer :all] :reload
-    [george.turtle.extra :as aux]))
+    [george.turtle :refer :all]
+    :reload
+    [george.turtle.extra :as aux]
+    [george.javafx :as fx]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -167,7 +169,7 @@
       :speed 10
       :visible false
       :color :white
-      :font ["Source Code Pro" 24]
+      :font [fx/SOURCE_CODE_PRO 24]
       :undo 2
       :props {:score 0})
     (move-to SCORE_LIFE_POS)
@@ -230,7 +232,7 @@
       :visible false
       :color :white
       :position [-100 16]
-      :font ["Source Code Pro" 32])
+      :font [fx/SOURCE_CODE_PRO_MEDIUM 32])
     (write "game over")))
 
 

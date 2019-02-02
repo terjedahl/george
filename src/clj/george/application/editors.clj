@@ -27,7 +27,7 @@
     [javafx.geometry Side]
     [javafx.scene.input KeyEvent]
     [javafx.scene.text TextFlow Text]
-    [java.util List Collection]))
+    [java.util Collection]))
 
 
 (defn save-to-swap-channel []
@@ -203,11 +203,11 @@
   (let [path      (:path file-info)
         path-str  (to-string path)
         nam       (filename path)
-        dir-txt   (doto (Text. (-> path str (subs 0 (- (count path-str) (count nam)))))
-                        (.setStyle "-fx-font-size: 14; -fx-fill: gray;"))
-        nam-txt   (doto (Text. nam)
-                        (.setStyle "-fx-font-size: 14; -fx-fill: black;"))]
-    (fx/children-set-all textflow (list dir-txt nam-txt))))
+        dir       (subs path-str 0 (- (count path-str) (count nam)))
+        dir-txt   (doto (Text. dir) (.setStyle "-fx-font-size: 14; -fx-fill: gray;"))
+        nam-txt   (doto (fx/new-label nam :size 16))]
+    (doto textflow
+      (fx/children-set-all (list dir-txt  nam-txt)))))
 
 
 (defn- new-editor-bar [editor file-info_ reveal-fn]

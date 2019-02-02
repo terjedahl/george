@@ -26,7 +26,7 @@
      Tooltip
      ScrollPane CheckBox ScrollBar]
     [javafx.scene.image ImageView]
-    [javafx.scene.input MouseEvent KeyEvent]
+    [javafx.scene.input MouseEvent KeyEvent Clipboard ClipboardContent]
     [javafx.scene.layout
      BorderPane HBox Priority Region StackPane VBox
      Border
@@ -161,6 +161,14 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 
 (def HORIZONTAL Orientation/HORIZONTAL)
 (def VERTICAL Orientation/VERTICAL)
+
+
+(def OPEN_SANS              "Open Sans")    ;; preferably use in body text
+(def ROBOTO                 "Roboto")       ;; preferably use in headers and labels
+(def ROBOTO_MONO            "Roboto Mono")  ;; preferably use in non-code
+
+(def SOURCE_CODE_PRO        "Source Code Pro")        ;; preferably use in connection to code
+(def SOURCE_CODE_PRO_MEDIUM "Source Code Pro Medium") ;; preferably use in actual code
 
 
 (defn ^CornerRadii corner-radii [rad]
@@ -308,14 +316,13 @@ and the body is called on 'changed'"
 
 
 (defn XY [item]
-    [(.getX item) (.getY item)])
+  [(.getX item) (.getY item)])
 
 
 (defn WH [item]
-    (if (instance? Node item)
-        (let [b (.getBoundsInParent item)]
-            [(.getWidth b) (.getHeight b)])
-        [(.getWidth item) (.getHeight item)]))
+  (if (instance? Node item)
+      (WH (.getBoundsInParent item))
+      [(.getWidth item) (.getHeight item)]))
 
 
 (defn set-translate-XY [^Node n [x y]]
@@ -866,7 +873,7 @@ and the body is called on 'changed'"
 (defn  new-label
   [s & {:keys [graphic font size color mouseclicked tooltip style]  
           :or {size 12}}]
-  (let [label (doto  (Label. s graphic) (set-font (or font (new-font size))))]
+  (let [label (doto  (Label. s graphic) (set-font (or font (new-font ROBOTO size))))]
     (when color (.setTextFill label color))
     (when style (.setStyle label style))
     (when mouseclicked (set-onmouseclicked label mouseclicked))
@@ -1038,6 +1045,10 @@ and the body is called on 'changed'"
 
         [_ {:keys [options type] :as kwargs}] (uc/partition-args args default-kwargs)
 
+        options
+        (if (and (empty? options) (not (:cancel-option? kwargs)))
+          (do (debug "Adding 'OK' option. (There must be one button on dialog.)" )["OK"]) options)
+
         buttons
         (mapv #(ButtonType. %) options)
         
@@ -1051,7 +1062,7 @@ and the body is called on 'changed'"
           (.setTitle (:title kwargs))
           (.initOwner (:owner kwargs))
           (.setHeaderText (:header kwargs))
-          (-> .getButtonTypes (.setAll (into-array buttons))))]
+          (-> .getButtonTypes (.setAll ^List buttons)))]
 
     (when-let [t (:text kwargs)]
       (.setContentText alert t))
@@ -1245,6 +1256,23 @@ and the body is called on 'changed'"
 
 (defn ^FileChooser filechooser [& filters]
     (doto (FileChooser.) (-> .getExtensionFilters (.addAll ^Collection filters))))
+
+
+(def clipboard
+  (memoize
+    (fn[]
+      (now (Clipboard/getSystemClipboard)))))
+
+
+(defn clipboard-str []
+  ;(println "  ## clipboard content types:" (fx/now (.getContentTypes CB)))
+  (now (.getString ^Clipboard (clipboard))))
+
+
+(defn set-clipboard-str [s]
+  (let [cbc (doto (ClipboardContent.)
+              (.putString s))]
+    (now (.setContent ^Clipboard (clipboard) cbc))))
 
 
 (defn char-ensured

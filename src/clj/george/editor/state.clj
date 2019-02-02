@@ -18,7 +18,6 @@
     [clojure.core.rrb-vector :as fv])
   (:import
     [javafx.collections FXCollections ObservableList]
-    [javafx.scene.input ClipboardContent Clipboard]
     [java.util List]
     [clojure.core.rrb_vector.rrbt Vector]
     [clojure.lang PersistentVector Keyword Atom IPersistentMap]
@@ -719,23 +718,6 @@
         append-history_)))
 
 
-(def CB
-  (memoize
-    (fn[]
-      (fx/now (Clipboard/getSystemClipboard)))))
-
-
-(defn clipboard-str []
-  ;(println "  ## CB content types:" (fx/now (.getContentTypes CB)))
-  (fx/now (.getString ^Clipboard (CB))))
-
-
-(defn set-clipboard-str [s]
-  (let [cbc (doto (ClipboardContent.)
-              (.putString s))]
-    (fx/now (.setContent ^Clipboard (CB) cbc))))
-
-
 (defn- selection_
   "Returns selection as vector of chars, else nil if no selection"
   [state]
@@ -749,7 +731,7 @@
   [state]
   (when-let [sel (selection_ state)]
       ;(println "sel:" (apply str sel))
-      (set-clipboard-str (apply str sel)))
+      (fx/set-clipboard-str (apply str sel)))
   state)
 
 
@@ -767,7 +749,7 @@
 
 
 (defn- paste_ [state]
-  (if-let [s (clipboard-str)]
+  (if-let [s (fx/clipboard-str)]
     (let [[^int start end] (sort (caret-anchor_ state))
           len (count s)]
       (-> state

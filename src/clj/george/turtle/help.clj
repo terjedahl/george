@@ -423,13 +423,13 @@ You can get a list containing all registered turtles with the command [``]
 (defn var-label [vr detail-fn]
   (fx/new-label (str "  " (if (labeled? vr) (:label vr) (var->name vr)))
                 :tooltip (var->aritylisting (if (labeled? vr) (:value vr) vr))
-                :font (fx/new-font "Source Code Pro" 16)
+                :font (fx/new-font fx/SOURCE_CODE_PRO 16)
                 :mouseclicked #(detail-fn (rendered-var-detail vr detail-fn))))
 
 
 (defn kw-label [kw detail-fn]
   (fx/new-label (str "     " (if (labeled? kw) (:label kw) (name kw)))
-                :font (fx/new-font "Open Sans" :normal 16)
+                :font (fx/new-font fx/OPEN_SANS :normal 16)
                 :color Color/CORNFLOWERBLUE
                 :tooltip (format "%s" (if (labeled? kw) (:label kw) (name kw)))
                 :mouseclicked #(detail-fn (rendered-kw-detail (if (labeled? kw) (:value kw) kw) 

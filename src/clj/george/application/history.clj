@@ -11,7 +11,9 @@
     [clojure.edn :as edn]
     [george.editor.core :as ed]
     [common.george.config :as c]
-    [common.george.util.files :as f])
+    [common.george.util
+     [files :as f]
+     [cli :refer [debug]]])
   (:import
     [java.util Date]
     [java.sql Timestamp]
@@ -48,7 +50,7 @@
 
 
 (defn- ensure-loaded-history []
-  (when-not @history_
+  (when (empty? @history_)
     (do-load-history)))
 
 
@@ -85,27 +87,29 @@
           (filter #(= (:repl-uuid %) repl-uuid) items-global))
 
         i (+ @current-history-index_ (- direction))
+        ;; TODO: Use clamp
         i (if (< i -1) -1 i)
         i (if (> i (count items)) (count items) i)
 
         content
         (when (and (not (empty? items))
-                   (not (< i 0))
+                   (not (neg? i))
                    (not (>= i (count items))))
             (:content (nth items i)))
 
-        content
+        content1
         (if content
           content
-          (if (< i 0)
+          (if (neg? i)
             ""
             (if (= (count items) (count items-global))
               ";; No more global history."
               ";; No more local history.\n;; To access global history use SHIFT-CLICK.")))]
 
-    (reset! current-history-index_ i)
+    (reset! current-history-index_ (if content i (+ i direction)))
+
     (doto code-area
-      (ed/set-text content))))
+      (ed/set-text content1))))
 
 
 (defn set-open-files [paths]

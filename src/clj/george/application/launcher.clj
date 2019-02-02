@@ -63,21 +63,38 @@ Powered by open source software.")
 
 (defn- about-stage-create []
   (let [[version ts] (george-version-ts)
+        version-str  (format versionf version ts (clojure-version) (env :java-version))
+
+        copy-fn
+        #(let [stage (fx/stage
+                       :style :undecorated
+                       :scene (fx/scene
+                                (doto
+                                  (fx/vbox
+                                    (fx/new-label "  Copied" :size 18)
+                                    (fx/new-label version-str :font (fx/new-font fx/ROBOTO_MONO 12))
+                                    :padding 10)
+                                  (.setBorder (fx/new-border fx/GREY))))
+                       :owner (core/get-application-stage))]
+           (fx/set-clipboard-str version-str)
+           (fx/future-sleep-later 1000 (.hide stage)))
+
         version-info
-        (doto
-          (fx/new-label
-            (format versionf
-                    version
-                    ts
-                    (clojure-version)
-                    (env :java-version))
-            :font (fx/new-font "Roboto Mono" 12)))
+        (fx/new-label
+          version-str
+          :font (fx/new-font fx/ROBOTO_MONO 12)
+          :mouseclicked copy-fn
+          :tooltip "Click to copy version info")
 
         copyright-info
         (fx/new-label copyright :size 12)
 
+        url "http://www.george.andante.no"
+
         link
-        (styled/new-link "www.george.andante.no" #(browse-url "http://www.george.andante.no"))
+        (doto (styled/new-link "www.george.andante.no" #(browse-url url))
+          (.setFont (fx/new-font fx/ROBOTO 12))
+          (fx/set-tooltip (str "Open in browser: " url)))
 
         root
         (fx/vbox
@@ -89,18 +106,22 @@ Powered by open source software.")
 
     (styled/style-stage
       (fx/stage
-         :style :utility
+         :style       :utility
          :sizetoscene true
-         :title (str "About " (c/this-app))
-         :onhidden #(singleton/remove ABOUT_STAGE_KW)
-         :resizable false
-         :scene (fx/scene root)))))
+         :title       (str "About " (c/this-app))
+         :onhidden   #(do (core/notify-dialog-listeners false)
+                          (singleton/remove ABOUT_STAGE_KW))
+         :resizable  false
+         :scene      (fx/scene root)
+         :owner      (core/get-application-stage)))))
 
 
 (defn- about-stage []
   (if-let [st ^Stage (singleton/get ABOUT_STAGE_KW)]
     (.hide st)
-    (singleton/get-or-create ABOUT_STAGE_KW about-stage-create)))
+    (do
+      (core/notify-dialog-listeners true)
+      (singleton/get-or-create ABOUT_STAGE_KW about-stage-create))))
 
 
 (defmacro safe-desktop [& body]
@@ -114,12 +135,11 @@ Powered by open source software.")
     (.setAboutHandler desktop (reify AboutHandler (handleAbout [_ _] (fx/later (about-stage)))))))
 
 
-
-;; TODO: BUG! Possibly in MacOS native code: The Quit dialog only works once!
+;; BUG! Possibly in MacOS native code: The Quit dialog only works once!
 (defn- DT-quit-handler []
   (reify QuitHandler
     (handleQuitRequestWith [_ _ response]
-      (debug "Intercepted Quit")
+      ;(debug "Intercepted Quit")
       (.cancelQuit response)
       (fx/later
         (doto (core/get-application-stage)
@@ -130,7 +150,6 @@ Powered by open source software.")
 (defn- set-desktop-quit-handler []
   (safe-desktop
     (.setQuitHandler desktop (DT-quit-handler))))
-
 
 
 (defn xyxy []
@@ -222,7 +241,8 @@ Powered by open source software.")
         about-label
         (fx/new-label "About" 
                       :size 11
-                      :mouseclicked about-stage)
+                      :mouseclicked about-stage
+                      :tooltip (format "Click to view or hide \"About %s\"" (c/this-app)))
 
         applet-infos
         (applet/load-applets)
@@ -276,7 +296,7 @@ Powered by open source software.")
 (defn- stage-close-handler [^Stage application-stage dispose-fn]
   (fx/new-eventhandler
      (.toFront application-stage)
-     (core/call-quit-dialog-listeners :show)
+     (core/notify-dialog-listeners true)
      (let [repl? (boolean (env :repl?))
            button-index
            (fx/now
@@ -292,10 +312,9 @@ Powered by open source software.")
 
           (if-not exit?
             (do
-              (core/call-quit-dialog-listeners :cancel)
+              (core/notify-dialog-listeners false)
               (.consume event))
             (do
-              (core/call-quit-dialog-listeners :quit)
               (repl-server/stop!)
               (dispose-fn)
               (println "Bye for now!" (if repl? " ... NOT" ""))

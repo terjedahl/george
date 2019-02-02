@@ -473,7 +473,7 @@ View stacktrace bellow:" (.getMessage lue))
               :expandable-content 
               (fx/expandable-content  
                                      (->> lue .getStackTrace seq (cons (.toString lue )) (interpose "\n  ") (apply str)) 
-                                     (fx/new-font "Source Code Pro" 12) 
+                                     (fx/new-font fx/ROBOTO_MONO 12)
                                      500)))
               
       ;;setText("<html>Mikrofonfeil:<br>Systemet får ikke kontakt med mikrofon!</html>");

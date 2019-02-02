@@ -28,8 +28,8 @@
 ;(set! *unchecked-math* true)
 
 
-(def gutter-font (memoize #(fx/new-font "Source Code Pro" %)))
-(def font (memoize #(fx/new-font "Source Code Pro Medium" %)))
+(def gutter-font (memoize #(fx/new-font fx/SOURCE_CODE_PRO %)))
+(def font (memoize #(fx/new-font fx/SOURCE_CODE_PRO_MEDIUM %)))
 (def LINE_INSETS (fx/insets 0 24 0 12))
 
 (def derived-line-height (memoize (fn [^double font-size] (int (+ (*  font-size 1.5) 2)))))
@@ -302,7 +302,7 @@
 
     (when (and (= crow row) caret-visible)
       (let [caret ^Node (caret-factory line-height)]
-        (.setTranslateX caret (- ^double (calculate-offset texts ccol) 1.0)) ;; negative offset for cursor width
+        (.setTranslateX caret (- ^double (calculate-offset texts ccol) 1.0)) ;; negative offset for caret width
         (fx/children-add pane caret)))))
 
 

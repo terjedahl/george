@@ -34,7 +34,7 @@
 
 
 (defn new-label [s & {:keys [size] :or {size 16}}]
-  (fx/new-label s :size size :color fx/GREY :font (fx/new-font "Roboto" size)))
+  (fx/new-label s :size size :color fx/GREY :font (fx/new-font fx/ROBOTO size)))
 
 
 (defn scrolling-widget [& [txt vertical?]]

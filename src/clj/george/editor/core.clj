@@ -61,7 +61,10 @@
         mouse-event-handler 
         (i/mouse-event-handler flow (partial st/mouseaction state_))]
   
-    (add-watch state_ :ensure-scrolled-to-caret #(v/ensure-scrolled-to-caret flow %4))
+    (add-watch state_ :ensure-scrolled-to-caret
+               #(when (or (not= (:caret %3) (:caret %4))
+                          (not= (:anchor %3) (:anchor %4)))
+                      (v/ensure-scrolled-to-caret flow %4)))
 
     (doto flow
 
@@ -93,7 +96,8 @@
 
 (definterface IEditorPane
   ^Atom        (getStateAtom [])
-  ^VirtualFlow (getFlow []))
+  ^VirtualFlow (getFlow [])
+  ^void        (focus []))
 
 
 (defn editor-view
@@ -112,8 +116,8 @@
   (let [[flow state_] (editor content-string content-type)]
     (proxy [VirtualizedScrollPane IEditorPane] [flow]
       (getStateAtom [] state_)
-      (getFlow [] flow)))))
-
+      (getFlow [] flow)
+      (focus [] (.requestFocus flow))))))
 
 (defn text [editor-view]
   (-> editor-view .getStateAtom st/text))

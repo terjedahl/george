@@ -41,7 +41,7 @@
   (let [textarea
         (doto ^TextArea
               (fx/textarea :text details
-                           :font (fx/new-font "Source Code Pro" 12))
+                           :font (fx/new-font fx/SOURCE_CODE_PRO 12))
           (.setEditable false)
           (.setWrapText false)
           (.setMaxWidth Double/MAX_VALUE)

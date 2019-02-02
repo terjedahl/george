@@ -139,10 +139,10 @@ Optional arguments are:
 
 (defn- installed-load [stage args]
   (gui/set-text "Loading installed application ...")
-  (let [app (c/this-app)
-        dir (c/installed-dir app)
-        file (:file (c/installed-props app))
-        jar-url (f/to-url (f/->path dir file))]
+  (let [app     (c/this-app)
+        dir     (c/installed-dir app)
+        file    (:file (c/installed-props app))
+        jar-url (f/to-url (f/to-path dir file))]
     (-> (make-and-set-classloader-for-jar jar-url (not (or (no-gui?) (help?))))
         (invoke-loadOrRun stage args))))
 

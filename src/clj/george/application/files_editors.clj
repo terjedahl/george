@@ -14,7 +14,9 @@
     [george.editor.core :as ed]
     [george.files.filetree :as filetree]
     [george.util.singleton :as singleton]
-    [common.george.util.files :refer [ ->path ->file ->string exists? filename]])
+    [common.george.util
+     [files :refer [ to-path to-file to-string exists? filename to-path]]
+     [cli :refer [debug]]])
   (:import
     [javafx.scene.control SplitPane ListCell ListView]
     [javafx.geometry Orientation]
@@ -33,23 +35,31 @@
 
 
 (defn- set-editor! [item]
-  (.setCenter ^BorderPane @editor-pane_ (:editor-root item)))
+  ;(debug 'item item)
+  (.setCenter ^BorderPane @editor-pane_ (:root item))
+  (when-let [e (:editor item)]
+    (.focus e)))
 
 
 (defn- set-open-files [items]
   (let [open-files
-        (mapv #(-> % :file-info_ deref :path ->string) items)]
+        (mapv #(-> % :file-info_ deref :path to-string) items)]
     ;(doseq [f open-files] (prn '-- f))
     (hist/set-open-files open-files)))
 
 
-(defn rename-file! [^Path old ^Path new]
-  (when-let [item (->> @listview_ .getItems (filter #(= old (-> % :file-info_ deref :path) )) first)]
-    ;(prn 'rename-file item)
-    (let [{:keys [file-info_]} item]
-      (swap! file-info_ assoc :path new :swap-path nil :saved? true :saved-to-swap? true))
-    (set-open-files (.getItems @listview_))
-    true))
+(defn rename-file!
+  "Returns count of how many files were moved/renamed."
+  [^Path old ^Path new]
+  ;(debug 'rename-file! (str old) (str new))
+  (if-let [item (->> @listview_ .getItems (filter #(.startsWith ^Path (-> % :file-info_ deref :path) old)) first)]
+    (let [{:keys [file-info_]} item
+          sub (subs (str (:path @file-info_)) (count (str old)))
+          res (to-path (str new sub))]
+      (swap! file-info_ assoc :path res :swap-path nil :saved? true :saved-to-swap? true)
+      (set-open-files (.getItems @listview_))
+      (+ 1 (rename-file! old new)))
+    0))
 
 
 (defn close-file! [^Path path save?]
@@ -63,7 +73,7 @@
       (doto lv
         (-> .getItems (.remove item))
         (-> .getSelectionModel .clearSelection))
-      (set-editor! {:editor-root (fx/new-label "No file selected")})
+      (set-editor! {:root (fx/new-label "No file selected")})
       true)))    
 
 
@@ -122,7 +132,7 @@ swap-saved:  %s")
 
 Has it been renamed, moved, or deleted?
 
-(Remove file from list by clicking the 'x')" (->string path))
+(Remove file from list by clicking the 'x')" (to-string path))
       :color fx/RED
       :font 16))) 
                              
@@ -130,7 +140,7 @@ Has it been renamed, moved, or deleted?
 (defn file-item [filenav-state_ path & {:keys [ns] :or {ns "user.turtle"}}]
   (let [found?     (exists? path)
         
-        content    (when found? (-> path ->file slurp))
+        content    (when found? (-> path to-file slurp))
         editor     (if found? (ed/editor-view content :clj) :not-found)
         file-info_ (eds/new-file-info_ path)
         save-chan  (when found? (eds/save-to-swap-channel))
@@ -148,9 +158,9 @@ Has it been renamed, moved, or deleted?
     {:editor editor 
      :listable (fx/hbox label (fx/region :hgrow :always) close-x)
      :file-info_ file-info_
-     :editor-root (if found? 
-                    (eds/new-editor-root editor file-info_ ns reveal-fn)
-                    (not-found-pane path))}))
+     :root (if found? 
+             (eds/new-editor-root editor file-info_ ns reveal-fn)
+             (not-found-pane path))}))
 
 
 (defn opens-listcell 
@@ -175,7 +185,7 @@ Has it been renamed, moved, or deleted?
 (defn open-or-reveal
   "Opens content of file in editor if not already open, else reveals the editor displaying the file."
   [filenav-state_ path]
-  ;(println "open-or-reveal" (->string path))
+  ;(println "open-or-reveal" (to-string path))
   (let [items (.getItems @listview_)
         ;items (filter #(-> % :file-info_ some?) items)
         item (->> items 
@@ -207,7 +217,7 @@ Has it been renamed, moved, or deleted?
     (reset! listview_ opens)
     
     (-> opens .getItems 
-        (.addAll ^List (map #(file-item filenav-state_ (->path %)) (hist/get-open-files))))
+        (.addAll ^List (map #(file-item filenav-state_ (to-path %)) (hist/get-open-files))))
     
     (-> opens .getItems 
         (.addListener  (fx/new-listchangelistener (set-open-files (.getList change))))) 
@@ -263,10 +273,6 @@ Has it been renamed, moved, or deleted?
 ;(when (env :repl?) (println "Warning: Running george.files-editors/get-or-create-stage") (fx/init) (get-or-create-stage))
 ;(when (env :repl?) (println "Warning: Running george.files-editors/new-stage") (fx/init) (new-stage))
 
-
-;; TODO: When file selected, editor should get focus
-
-;; TODO: Handle case where file has moved and #swap#/file cannot save but cannot close.
 
 ;; TODO: Better tooltip in open-list,
 ;; TODO: Save state of last selected file in editor.
