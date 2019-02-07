@@ -35,12 +35,10 @@
           ['clojure.pprint :refer ['pprint]]
           ['george.turtle.extra :as 'aux]
           ['george.turtle.tom :as 'tom]
-          ['george.turtle.samples :as 'samples]
-          ['george.turtle.adhoc.jf4k :as 'jf4k]))
+          ['george.turtle.samples :as 'samples]))
       (list 
         (list :import 
-              ['javafx.scene.paint 'Color])) 
-      
+              ['javafx.scene.paint 'Color]))
       body)))
 
 ;(user/pprint (macroexpand-1 '(ns-turtle hello.world (:require [user] [g]) (:use [a]) (:import [something Else]))))
@@ -69,7 +67,6 @@
       (require '[george.turtle.extra :as aux])
       (require '[george.turtle.tom :as tom])
       (require '[george.turtle.samples :as samples])
-      (require '[george.turtle.adhoc.jf4k :as jf4k])
       (import '[javafx.scene.paint Color])
       (in-ns (ns-name this-ns)))  ;; return to the current namespace
     (find-ns sym)))  ;; test and return the newly created namespace

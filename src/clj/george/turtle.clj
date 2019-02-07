@@ -30,23 +30,23 @@
 
   (:require
     [clojure.string :as cs]
-    [defprecated.core :as depr]
     [flatland.ordered.map :refer [ordered-map]]
     [george.javafx :as fx]
     [george.util.math :as um]
     [george.turtle.extra :as aux]
     [george.application.core :as app]
-    [common.george.util.cli :refer [warn]])
+    [common.george.util.cli :refer [debug warn]])
   (:import
     [javafx.scene.paint Color]
-    [javafx.scene Group Node Scene]
+    [javafx.scene Group Node Scene Parent]
     [javafx.scene.shape Line Rectangle Polygon StrokeLineCap]
     [javafx.scene.text TextBoundsType Text]
     [javafx.stage Stage]
     [javafx.geometry VPos]
     [javafx.scene.transform Rotate]
     [javafx.animation Timeline Animation Animation$Status]
-    [clojure.lang Atom RT]))
+    [clojure.lang Atom RT]
+    [javafx.event EventHandler]))
 
 "UCB Logo commands (to be) implemented:
 (ref: https://people.eecs.berkeley.edu/~bh/usermanual )
@@ -122,8 +122,8 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 "
 
 
-;(set! *warn-on-reflection* true)
-;(set! *unchecked-math* :warn-on-boxed)
+(set! *warn-on-reflection* true)
+(set! *unchecked-math* :warn-on-boxed)
 
 
 (declare
@@ -228,11 +228,11 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
 
 (defn flip-Y-XYXY [[x1 y1 x2 y2]]
-  [x1 (- y1) x2 (- y2)])
+  [x1 (- ^double y1) x2 (- ^double y2)])
 
 
 (defn flip-Y-XYWH [[x y w h]]
-  [x (- y) w h])
+  [x (- ^double y) w h])
 
 
 (defn get-root
@@ -616,15 +616,15 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
         res-nodes1 (if line (conj res-nodes line) res-nodes)
       
-        ;; prevent deadlock in animation - i.e. if on fx-thhead, speed will be automatically nil
+        ;; prevent deadlock in animation - i.e. if on fx-thread, speed will be automatically nil
         speed0 
         (get-speed turtle)
         
         speed
         (if (and speed0 (fx/fxthread?))
             (warn "Using speed 'nil'
-   (Animated movements not allowed on FX application thread.
-    Wrap movement in 'future' or Thread, or set turtle's speed to 'nil')")
+  (Animated movements not allowed on FX application thread.
+   Set turtle's speed to 'nil' or wrap movement in 'future' or Thread.)")
             speed0)
             
         duration
@@ -734,37 +734,28 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
     (.setVisible (.isVisible from-node))))
 
 
-;(ns-unmap *ns* 'clone)
-(defmulti clone
-          "Clones certain JavaFX Node sub-classes"
-          (fn [obj] (class obj)))
-
-
-(defmethod clone Polygon [^Polygon obj]
-  (doto
-    (apply fx/polygon
-           (concat
-             (vec (.getPoints obj))
-             (list :fill (.getFill obj) :stroke (.getStroke obj) :strokewidth (.getStrokeWidth obj))))
-    (transfer-node-values obj)))
-
-
-(defmethod clone Line [^Line obj]
-  (doto
-    (apply fx/line
-           (list :x1 (.getStartX obj) :y1 (.getStartY obj) :x2 (.getEndX obj) :y2 (.getEndY obj)
-                 :color (.getStroke obj) :width (.getStrokeWidth obj)
-                 :smooth (.isSmooth obj) :round (= StrokeLineCap/ROUND (.getStrokeLineCap obj))))
-    (transfer-node-values obj)))
-
-
-(defmethod clone Group [^Group obj]
-  (apply fx/group (map clone (.getChildren obj))))
-
-
-(defmethod clone :default [obj]
-  (throw (IllegalArgumentException. (format "Don't know how to clone object of type '%s'" (.getName (class obj))))))
-
+(defn clone [obj]
+  (condp = (type obj)
+    Polygon
+    (let [p ^Polygon obj]
+      (doto
+        (apply fx/polygon
+               (concat
+                 (.getPoints p)
+                 (list :fill (.getFill p) :stroke (.getStroke p) :strokewidth (.getStrokeWidth p))))
+        (transfer-node-values p)))
+    Line
+    (let [l ^Line obj]
+      (doto
+        (apply fx/line
+               (list :x1 (.getStartX l) :y1 (.getStartY l) :x2 (.getEndX l) :y2 (.getEndY l)
+                     :color (.getStroke l) :width (.getStrokeWidth l)
+                     :smooth (.isSmooth l) :round (= StrokeLineCap/ROUND (.getStrokeLineCap l))))
+        (transfer-node-values l)))
+    Group
+    (apply fx/group (map clone (.getChildren ^Group obj)))
+    ;; default
+    (throw (IllegalArgumentException. (format "Don't know how to clone object of type '%s'" (type obj))))))
 
 
 (defn get-state 
@@ -782,7 +773,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
 
 ;(def member-keys #{:position :heading :visible :shape :parent})
-(def attribute-keys #{:name :speed :color :width :down :round :fill :font :props :undo})
+(def ^:private attribute-keys #{:name :speed :color :width :down :round :fill :font :props :undo})
 
 
 (defn set-state 
@@ -879,18 +870,14 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
              :props props
              :group (fx/group shape)
              :onclick onclick}))]
-       (-> @turtle 
-           :group 
-           (.setOnMouseClicked 
-             (fx/new-eventhandler
-               (when-let [f (:onclick @turtle)]
-                 ;; 'future' both ensures that the gui remains responsive 
-                 ;; and that turtle-commands are initially off the fxthread (for animation issues)
-                 (future (f))
-                 (.consume event)))))
-                   
+       (.setOnMouseClicked ^Group (:group @turtle) ^EventHandler
+         (fx/new-eventhandler
+           (when-let [f (:onclick @turtle)]
+             ;; 'future' both ensures that the gui remains responsive
+             ;; and that turtle-commands are initially off the fxthread (for animation issues)
+             (future (f))
+             (.consume event))))
 
-       
        (register-turtle turtle)
        (fx/now
          (doto @turtle
@@ -1072,7 +1059,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
     (fx/later (.toFront ^Stage (:stage @screen))))))
 
 
-(defn- relayout-stage [stage]
+(defn- relayout-stage [^Stage stage]
   (when stage
     (let [
           [^double w ^double h] (fx/WH stage)]
@@ -1277,15 +1264,14 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
    (-> turtle get-props key)))
 
 
-(defn- remove-parent [node]
-  (let [p (.getParent node)]
-    (when p
-      (-> p .getChildren (.remove node)))
-    node))
+(defn- remove-parent [^Node node]
+  (when-let [p ^Parent (.getParent node)]
+    (fx/children-remove p  node))
+  node)
 
 
 (defn set-shape
-  "Sets the \"node\" for the turtle. 'node' can be any JavaFX Node."
+  "Sets the graphical \"node\" for the turtle. 'node' can be any JavaFX Node or sequence (vector or list) of Nodes."
  ([node-or-shapes]
   (set-shape (turtle) node-or-shapes))
  ([turtle node-or-shapes]
@@ -1293,6 +1279,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
 
 (defn get-shape
+  "Returns the graphical \"node\" of the turtle."
   ([]
    (get-shape (turtle)))
   ([turtle]
@@ -1396,7 +1383,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
     (if (< -1.5 radius 1.5) ;; if the radius is to small, then simply turn on the spot
       (turn turtle degrees)
       (let [step-len0 (/ radius 5.)
-            step-len 
+            ^double step-len
             (if (pos? step-len0)  ;; a 5th of radius is pretty good, min 1, max 5
               (um/clamp-double 1.5 step-len0 15.)
               (um/clamp-double -15. step-len0 -1.5))
@@ -1596,18 +1583,20 @@ See [Cartesian coordinate system](https://en.wikipedia.org/wiki/Cartesian_coordi
           360.0))))
 
 
-(depr/defn heading
-           {:deprecated {:in "2018.1"}
-                        :use-instead get-heading
-                        :print-warning :always}
-  []
-  (get-heading))
-
-
-(defn- set-position_ 
+(defn- get-position_
   "Applied to deref-ed turtle."
-  [turt pos]
-  (fx/now (fx/set-translate-XY (:group turt) (flip-Y pos))))
+  [turt]
+  (let [node ^Node (:group turt)]
+    [^double (.getTranslateX node) (- ^double (.getTranslateY node))]))
+
+
+(defn- set-position_
+  "Applied to deref-ed turtle."
+  [turt [x y]]
+  (let [[x0 y0]  (get-position_ turt)
+        x (if x x x0)
+        y (if y y y0)]
+    (fx/now (fx/set-translate-XY (:group turt) (flip-Y [x y])))))
 
 
 (defn set-position
@@ -1629,13 +1618,10 @@ See [Cartesian coordinate system](https://en.wikipedia.org/wiki/Cartesian_coordi
   See [Cartesian coordinate system](https://en.wikipedia.org/wiki/Cartesian_coordinate_system) for more information."
  ([[x y]]
   (set-position (turtle) [x y]))
- ([turtle [^double x ^double y :as position]]
+ ([turtle [x y]]
   (let [prev-state (get-state turtle)
-        [x ^double y] 
-        (if (#{:position :default} position)
-            (get-default :position)
-            position)]
-       (set-position_ @turtle [x y])
+        [x1 y1]      (if (#{:position :default} [x y]) (get-default :position) [x y])]
+       (set-position_ @turtle [x1 y1])
        (append-undo-maybe turtle prev-state)
     nil)))
 
@@ -1657,16 +1643,7 @@ See [`set-position`](var:set-position) for more details.
  ([]
   (get-position (turtle)))
  ([turtle]
-  (let [node ^Group (:group @turtle)]
-    [^double (.getTranslateX node) (- ^double (.getTranslateY node))])))
-
-
-(depr/defn position
-           {:deprecated {:in "2018.1"}
-            :use-instead get-position
-            :print-warning :always}
-           []
-           (get-position))
+  (get-position_ @turtle)))
 
 
 (defn set-down 
@@ -1685,21 +1662,9 @@ See [`set-position`](var:set-position) for more details.
  ([bool]
   (set-down (turtle) bool))
  ([turtle bool]
-  (let [down? 
-        (if (#{:down :default} bool)
-            (get-default :down)
-            bool)]
+  (let [down? (if (#{:down :default} bool) (get-default :down) bool)]
     (swap! turtle assoc :down (boolean down?)))
   nil))
-
-
-(depr/defn set-pen-down
-           {:deprecated {:in "2018.2"
-                         :use-instead set-down
-                         :print-warning :always}}
-           [down?]
-           (set-down down?))
-
 
 
 (defn is-down
@@ -1751,15 +1716,6 @@ See [`set-position`](var:set-position) for more details.
    (:round @turtle)))
 
 
-(depr/defn is-pen-down
-           {:deprecated {:in "2018.2"
-                         :use-instead is-down
-                         :print-warning :always}}
-           []
-           (is-down))
-
-
-
 (defn pen-up
   "Picks up the pen, so when the turtle moves, no line will be drawn.
  
@@ -1786,14 +1742,6 @@ See [`set-position`](var:set-position) for more details.
  ([turtle]
   (set-down turtle true)
   nil))
-
-
-(depr/defn get-pen-down
-           {:deprecated {:in "2018.1"}
-            :use-instead is-down
-            :print-warning :always}
-           []
-           (is-down))
 
 
 (defn set-speed
@@ -1847,14 +1795,6 @@ See [`set-position`](var:set-position) for more details.
   (:speed @turtle)))
 
 
-(depr/defn speed
-           {:deprecated {:in "2018.1"}
-            :use-instead get-speed
-            :print-warning :always}
-           []
-           (get-speed))
-
-
 (defn set-color
   "Sets the turtle's (pen) color.
   It is used when drawing lines, or as border for filled areas, or when writing.
@@ -1878,14 +1818,6 @@ See [`set-position`](var:set-position) for more details.
   nil))
 
 
-(depr/defn set-pen-color
-           {:deprecated {:in "2018.0"
-                         :use-instead set-color
-                         :print-warning :always}}
-           [color]
-           (set-color color))
-
-
 (defn get-color
   "Returns the turtle's (pen) color  in the form it was set.
   
@@ -1900,14 +1832,6 @@ See [`set-position`](var:set-position) for more details.
   (get-color (turtle)))
  ([turtle]
   (:color @turtle)))
-
-
-(depr/defn get-pen-color
-           {:deprecated {:in "2018.0"
-                         :use-instead get-color
-                         :print-warning :always}}
-           []
-           (get-color))
 
 
 (defn set-width 
@@ -1982,14 +1906,6 @@ See [`set-position`](var:set-position) for more details.
   (is-visible (turtle)))
  ([turtle]
   (-> @turtle :group (#(.isVisible ^Group %)))))
-
-
-(depr/defn is-showing
-           {:deprecated {:in "2018.1"}
-            :use-instead is-visible
-            :print-warning :always}
-           []
-           (is-visible))
 
 
 (defn show
@@ -2102,7 +2018,7 @@ There are a number of optional ways to set font:
   The turtle uses the 'font' and 'color 'you have set on it.
   See [`set-font`](var:set-font) and [`set-color`](var:set-color) for more about font and fill. 
   
-  The text is written such that the top left corner of the text starts where the turtle is positioned, 
+  The text is written such that the top baseline of the first line text starts where the turtle is positioned,
   and is printed at whatever heading the turtle has; including upside-down if the turtle is facing left.
   
   If 'move?' is set to `true`, then the turtle will move to the end of the text.
@@ -2130,8 +2046,8 @@ There are a number of optional ways to set font:
         (fx/text (str text) 
                  :font (aux/to-font font))]
     (doto txt
-      (.setTextOrigin VPos/TOP)
-      (.setBoundsType TextBoundsType/VISUAL)
+      (.setTextOrigin VPos/BASELINE)
+      (.setBoundsType TextBoundsType/LOGICAL)
       (-> .getTransforms (.add (Rotate. (- heading) 0 0)))
       (fx/set-translate-XY (flip-Y position)))
     (when color (.setFill txt (aux/to-color color)))
@@ -2149,7 +2065,6 @@ There are a number of optional ways to set font:
 "
 (reset)\n(left 30)\n(forward 30)\n(write \"HelloW\" true)\n(set-font 30)\n(set-fill [255 0 0 0.5])\n(println (get-color))\n(write \"World!\\n ... not\" true)\n(forward 30)\n(set-color :green)\n(set-font [\"Geneva\" 36])\n(write \"Done!\")\n
 "
-;; TODO: Text position + dimensions are slightly off.  Can it be fixed?
 
 
 (defmacro filled-with-turtle 
@@ -2247,7 +2162,7 @@ There are a number of optional ways to set font:
       [(.getMinX b) (.getMaxY b) (.getWidth b) (.getHeight b)])))
   
 
-(defn XYXY->XYWH [[x1 y1 x2 y2]]
+(defn XYXY->XYWH [[^double x1 ^double y1 ^double x2 ^double y2]]
   [x1 y1 (- x2 x1) (- y2 y1)])
 
 ;(defn XYXY [^Line l]
@@ -2556,7 +2471,7 @@ See topic [Clojure](:Clojure) for more information."
 (defn- assert-onkey-key [k]
   (assert (or (and (vector? k) (> (count k) 0) (every? keyword? k))
               (and (string? k) (= (count k) 1)))
-          (format "Key for assoc/dissoc/get-onkey must be one of vector-of-keywords or 1-char string. Got  %s" k)))
+          (format "Key for set-/unset-/get-onkey must be one of vector-of-keywords or 1-char string. Got  '%s'" k)))
 
 
 (defn- uppercase-and-makeset-keywords [v]
@@ -2572,9 +2487,9 @@ See topic [Clojure](:Clojure) for more information."
 
   'key-combo-or-char-str' is either a vector of one or more keywords form of a KeyCode - representing a pressed combination - or a string with a single character, matching a keystroke (or combination) as returned by the operating system.
     
-  'function' is a no-arg function that will be called every time the specified character is typed or key-kombo pressed.
+  'function' is a no-arg function that will be called every time the specified character is typed or key-combo pressed.
   
-  See [JavaFX KeyCode](https://docs.oracle.com/javase/8/javafx/api/index.html?javafx/scene/input/KeyCode.html) for an overview of all available keykodes.
+  See [JavaFX KeyCode](https://docs.oracle.com/javase/8/javafx/api/index.html?javafx/scene/input/KeyCode.html) for an overview of all available key-codes.
  
 *Examples:*
 ```
@@ -2582,7 +2497,7 @@ See topic [Clojure](:Clojure) for more information."
 (set-onkey [:UP :SHORTCUT] #(println \"Got CTRL-UP or CMD-UP\")
 (set-onkey \"a\" #(println \"Got a lower-case a\")
 (set-onkey \"Å\" #(println \"Got an upper-case Å\")
-``  
+```
 "
   [key-combo-or-char-str function]
   (assert-onkey-key key-combo-or-char-str)
@@ -2726,18 +2641,16 @@ See topic [Clojure](:Clojure) for more information."
              ;; onkey is an atom as key-handlers can read from an atom directly
              :onkey (atom {})
              :onclick nil}))]
-        
-       (-> @screen
-           :pane
-           (.setOnMouseClicked
-             (fx/new-eventhandler
-               (when-let [f (:onclick @screen)]
-                 ;; 'future' both ensures that the gui remains responsive 
-                 ;; and that turtle-commands are initially off the fxthread (for animation issues)
-                 (future (f))
-                 (.consume event)))))
 
-       screen)))
+    (.setOnMouseClicked pane
+      (fx/new-eventhandler
+        (when-let [f (:onclick @screen)]
+          ;; 'future' both ensures that the gui remains responsive
+          ;; and that turtle-commands are initially off the fxthread (for animation issues)
+          (future (f))
+          (.consume event))))
+
+    screen)))
 
 
 (defonce ^:dynamic *screen* (new-screen))
@@ -2767,7 +2680,7 @@ See topic [Clojure](:Clojure) for more information."
 
 
 (defn- resize-screen [screen]
-  (let [{:keys [size scene stage]} @screen
+  (let [{:keys [size ^Scene scene ^Stage stage]} @screen
         ;; figure out the diffs for the chrome
         diff-w (- (.getWidth stage) (.getWidth scene))
         diff-h (- (.getHeight stage) (.getHeight scene))
@@ -2786,7 +2699,7 @@ See topic [Clojure](:Clojure) for more information."
 
 
 (defn- make-hidden [screen]
-  (let [{:keys [stage scene border root]} @screen]
+  (let [{:keys [^Stage stage ^Scene scene border root]} @screen]
 
     (binding [*screen* screen]
       (stop-ticker true))
@@ -2832,7 +2745,7 @@ See topic [Clojure](:Clojure) for more information."
        
     (app/add-dialog-listener
       :george.turtle/screen
-      #(fx/later (.setAlwaysOnTop stage (not %))))
+      #(fx/later (.setAlwaysOnTop ^Stage stage (not %))))
          
     (doto ^Rectangle border
       (-> .widthProperty (.bind (-> scene .widthProperty (.subtract 4))))
@@ -2914,12 +2827,13 @@ See topic [Clojure](:Clojure) for more information."
 
 
 (defn is-shapes [shapes]
-  (and (vector? shapes)
+  (and (sequential? shapes)
+       (every? is-node shapes)
        (every? is-node shapes)))
 
 
 (defn to-group
-  "Diss-associates nodes from current parent, creates and returns a new group."
+  "Disassociates nodes from current parent, creates and returns a new group."
   [shapes]
   (assert (is-shapes shapes) (format "'shapes' should be a vector of Nodes. Got '%s'" shapes))
   ;(doseq [s shapes] (prn 's (str s)))
@@ -2931,12 +2845,11 @@ See topic [Clojure](:Clojure) for more information."
   The position of all nodes are shifted by as much as is required for the first node drawn to be at [0 0].
   
   This vector (of nodes) can be then: 
-  - Be set as node on a turtle, or
-  - be cloned before being set as a node, and/or
-  - be set to visible (true/false) using `set-visible`
-  
-  TODO: examples
+- Be set as node on a turtle, or
+- be cloned before being set as a node, and/or
+- be set to visible (true/false) using `set-visible`
   "
+  ;; TODO: examples
   [& body]
   `(binding [*grouped-group* (atom [])]
      ~@body
@@ -2945,16 +2858,8 @@ See topic [Clojure](:Clojure) for more information."
      ;(shift-grouped @*grouped-group*)))
 
 
-;; TODO: decide whether to use 'grouped' or 'shapes' (or both?)
-(defmacro grouped
-  "Returns a vector of references to instances of javafx.scene.Node that were added to the screen within the body.
-   "
-  [& body]
-  `(to-group (shapes ~@body)))
-
-
 (defn get-shapes 
-  "Returns a vector of references to the children of the group. Does not diss-associate them."
+  "Returns a vector of references to the children of the group. Does not disassociate them."
   [group]
   (assert (is-group group) (format "'group' should be an instance of Group. Got '%s'" group))
   (-> group fx/children vec))
@@ -2973,8 +2878,7 @@ See topic [Clojure](:Clojure) for more information."
 
 
 (defn- union-XYXY-
-
- ([[x1 y1 x2 y2] [x3 y3 x4 y4]]
+ ([[^double x1 ^double y1 ^double x2 ^double y2] [^double x3 ^double y3 ^double x4 ^double y4]]
   [(min x1 x3) (min y1 y3) (max x2 x4) (max y2 y4)])
  ([b] 
   b)
@@ -2990,46 +2894,18 @@ See topic [Clojure](:Clojure) for more information."
 
 (defn get-bounds 
   "Returns '[x y w h]'. 
-  'x' and 'y' are Cartesian cartesian coordinates (not JavaFX graphics)."
+  'x' and 'y' are Cartesian coordinates (not JavaFX graphics).
+"
   [node-or-shapes]
   (cond 
     (is-node node-or-shapes)   (do (XYWH node-or-shapes))
     (is-shapes node-or-shapes) (XYXY->XYWH (union-XYXY node-or-shapes))))
 
 
-;(defmulti set-center
-;          "Offsets the Node(s)"
-;          (fn [obj _]
-;            (cond
-;              (sequential? obj) :sequential
-;              (instance? Node obj) :node
-;              :else (class obj))))
-
-;(defmethod set-center :sequential [obj [off-x off-y]]
-;  (mapv #(shift-grouped)))
-
-;(defmethod set-center :default [obj]
-;  (throw (IllegalArgumentException. (format "Don't know how to set-center for type '%s'" (.getName (class obj))))))
-
-
-;(defn set-center
-; ([node-or-shapes]
-;  (set-center node-or-shapes nil))
-;
-; ([node-or-shapes [cx cy :as center]]
-;  (if (is-shapes node-or-shapes)
-;    (doseq [shape node-or-shapes]
-;      (set-center shape center))    
-;    (let [[x y w h]
-;          (get-bounds node-or-shapes)
-;          [xc yc] 
-;          (if center center [(/ w 2) (/ h 2)])]
-;      ;(prn 'y y)
-;      ;(prn 'yc yc)
-;      (fx/set-translate-XY node-or-shapes  [(- (- xc) x) (- yc y)])))))
-
-
 (defn set-center
+  "Takes a node or group of shapes and sets its defined \"center\",
+  either to the exact center of the group or to an explicit point [xc xy] relative to its bounds or the passed-in absolute Cartesian bounds.
+"
 
  ([node-or-shapes]
   (set-center node-or-shapes nil))
@@ -3038,12 +2914,11 @@ See topic [Clojure](:Clojure) for more information."
   (let [bounds (get-bounds node-or-shapes)]
     (set-center node-or-shapes center bounds)))
 
- ([node-or-shapes [xc yc :as center] [x y w h :as bounds]]
+ ([node-or-shapes [xc yc :as center] [^double x ^double y ^double w ^double h :as bounds]]
   (assert (every? number? [x y w h]) (format "'bounds' malformed or missing. Got '%s'" bounds))
   (when center (assert (every? number? [xc yc]) (format "'center' malformed. Got '%s'" center)))
-  (let [[xc yc :as center]
+  (let [[^double xc ^double yc :as center]
         (if center center [(/ w 2) (/ h 2)])]
-        ;(prn 'yc yc)
       (if (is-node node-or-shapes)
         (do
           (fx/set-translate-XY node-or-shapes [(- (- xc) x) 

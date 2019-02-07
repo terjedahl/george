@@ -690,11 +690,11 @@ and the body is called on 'changed'"
      (group* nodes)))
 
 
-(defn pane* [nodes]
+(defn ^Pane pane* [nodes]
   (Pane. (into-array Node nodes)))
 
 
-(defn pane
+(defn ^Pane pane
   ([& nodes]
    (pane* nodes)))
 

@@ -301,6 +301,8 @@ You can get a list containing all registered turtles with the command [``]
    #'swap-prop
    #'move-to
    #'turn-to
+   #'set-shape
+   #'get-shape
    "Screen (advanced)"
    #'set-ticker
    #'start-ticker
@@ -319,10 +321,14 @@ You can get a list containing all registered turtles with the command [``]
    #'sleep
    #'distance-to
    #'heading-to
+   #'set-center
+   #'get-bounds
+   #'shapes
    "Samples"
    (->Labeled "samples/flower" #'samples/flower)
    (->Labeled "samples/multi-tree" #'samples/multi-tree)
    (->Labeled "samples/asteroids" #'samples/asteroids)
+   (->Labeled "samples/rail-maze" #'samples/rail-maze)
    "Auxiliary"
    (->Labeled "aux/to-color" #'aux/to-color)
    (->Labeled "aux/to-font" #'aux/to-font)

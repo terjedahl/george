@@ -7,7 +7,7 @@
 (ns george.applet
   (:require
     [clojure.pprint :refer [pprint]]
-    [common.george.util.cli :refer [info warn except]])
+    [common.george.util.cli :refer [debug info warn except]])
   (:import
     [clojure.lang Symbol]))
 
@@ -50,9 +50,9 @@
         (catch Exception e (except (format "  ERROR: Calling %s/info failed!  %s" applet-ns e)) (set! *e e)))
       ;; else
       (except "ERROR: The applet's 'info' function could not be resolved!"))
-    (catch Exception _
-      (warn (format "Loading namespace '%s' failed!" applet-ns)))))
-
+    (catch Exception e
+      (warn (format "Loading namespace '%s' failed!" applet-ns))
+      (debug e))))
 
 ;; The whole dynamic loading from classpath was cool,
 ;; but we will abandon this mechanism as it gets waaaay more complicated with Java 9/10.

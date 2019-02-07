@@ -620,8 +620,8 @@
 
 (defn- usage []
   (sleep 4000)
-  (write-info [-90 -140] "(Click beeds to play.)" 2000)
-  (write-info [-140 -160] "(Click screen to toggle auto-play.)" 2000))
+  (write-info [ -90 -150] "(Click beeds to play.)" 2000)
+  (write-info [-140 -170] "(Click screen to toggle auto-play.)" 2000))
 
 
 (defn- screen-onclick [beeds_]
@@ -636,8 +636,7 @@
 
 
 (defn rail-maze 
-  "
-  https://duckduckgo.com/?q=bead+rail+maze&iar=images  
+  "[rail-maze images](https://duckduckgo.com/?q=bead+rail+maze&iar=images)
   "
   [& [auto-play?]]
   (reset false)

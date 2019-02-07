@@ -32,8 +32,6 @@
                         [potemkin "0.4.5"]
                         ;; https://github.com/yogthos/markdown-clj
                         [markdown-clj "1.0.5"]
-                        ;; https://github.com/alexander-yakushev/defprecated
-                        [defprecated "0.1.3" :exclusions [org.clojure/clojure]]
                         ;; https://github.com/amalloy/ordered
                         [org.flatland/ordered "1.5.7"]
                         ;; https://github.com/zcaudate/hara
