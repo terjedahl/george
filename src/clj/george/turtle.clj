@@ -35,7 +35,7 @@
     [george.util.math :as um]
     [george.turtle.extra :as aux]
     [george.application.core :as app]
-    [common.george.util.cli :refer [debug warn]])
+    [common.george.util.cli :refer [debug warn errln]])
   (:import
     [javafx.scene.paint Color]
     [javafx.scene Group Node Scene Parent]
@@ -567,7 +567,10 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
     (swap! turtle assoc :positions (conj positions  position))))
 
 
-(defn- move-to-impl 
+(defonce speed-nil-warned_ (atom false))
+
+
+(defn- move-to-impl
   "Implements move-to. This avoids revealing the optional parameters to the user in documentation."
  ([turtle [x y] & [prev-state res-nodes]]
   ;(println "/move-to-impl" [x y]) 
@@ -622,10 +625,14 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
         
         speed
         (if (and speed0 (fx/fxthread?))
-            (warn "Using speed 'nil'
+          (do
+            (when (not @speed-nil-warned_)
+              (errln "Warning: Using speed 'nil'
   (Animated movements not allowed on FX application thread.
    Set turtle's speed to 'nil' or wrap movement in 'future' or Thread.)")
-            speed0)
+              (reset! speed-nil-warned_ true))
+            nil)
+          speed0)
             
         duration
         (when speed
@@ -2308,6 +2315,7 @@ There are a number of optional ways to set font:
   (when keep-1-turtle?
     (reset-turtle (turtle)))
   (set-background :default)  (reset-onkey) (set-fence :default) (set-screen-onclick nil)
+  (reset! speed-nil-warned_ false)
 
   nil))
 
