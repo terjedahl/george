@@ -275,29 +275,3 @@
 ;        _ (prn "  ## r:" r)]
 ;    r))
 ;(prn (apply str (time (olist-diffpatch-test))))
-
-
-(defn- not-keyword? [x]
-  (not (keyword? x)))
-
-
-(defn partition-args
-  "returns args in a vector vector: [args kwargs], where args is a seq and kwargs a map.
-Optionally a map of default kwargs is applied to the kwargs.
-If default-kwargs is supplies, then keywords not present in default will throw IllegalArgumentException."
-
-  ([all-args]
-   (partition-args all-args nil))
-
-  ([all-args default-kwargs]
-   (let [args (vec (take-while not-keyword? all-args))
-         kwargs (apply hash-map (drop-while not-keyword? all-args))]
-
-     (if-not default-kwargs
-       ;; return args and kwargs as-is
-       [args kwargs]
-       ;; else check that all keyword are in default
-       (let [unknowns (filter #(not ((set (keys default-kwargs)) %)) (keys kwargs))]
-         (if (not-empty unknowns)
-           (throw (IllegalArgumentException. (str "Unknown keywords: " (seq unknowns))))
-           [args (merge default-kwargs kwargs)]))))))

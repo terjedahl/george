@@ -20,7 +20,6 @@
     [george.util :refer [->Labeled labeled? timeout]]
     [george.util.colls :as uc]                              ;; This loads defmethod diff/patch
     [common.george.config :as c]
-    [common.george.launch.props :as p]
     [common.george.util
      [text :refer [**]]
      [files :as f :refer [filename to-path to-file to-string hidden? exists? same? parent dir? ensured-dir ensured-file move delete]]

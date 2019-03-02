@@ -6,7 +6,6 @@
 (ns george.turtle.samples
   (:require
     [george.turtle :refer :all]
-    :reload
     [george.turtle.extra :as aux]
     [george.javafx :as fx]))
 

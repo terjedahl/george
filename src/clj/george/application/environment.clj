@@ -8,6 +8,7 @@
   (:require
     [george.javafx :as fx]
     [george.util.singleton :as singleton]
+    [g]
 
     [george.turtle.help :as help]
 

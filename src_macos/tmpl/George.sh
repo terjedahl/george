@@ -21,4 +21,4 @@ splash=$Contents/Resources/{{ splash-image }}
 
 jar=$(ls "$Contents"/jar/{{ jar-name }})
 
-"$java_cmd" "-Xdock:icon=$icon" "-Xdock:name={{ app }}" "-splash:$splash" -jar  "$jar" $@
+"$java_cmd" "-Xdock:icon=$icon" "-Xdock:name={{ app }}" "-splash:$splash" "-Dprism.dirtyopts=false" -jar  "$jar" $@

@@ -158,6 +158,9 @@
 (defn- dock-params []
   (list (str "-Xdock:icon=" (icns-file)) (str "-Xdock:name=" (George))))
 
+(defn- graphic-param []
+  "-Dprism.dirtyopts=false")
+
 
 (defn- run
   "Does 'lein run -m <qualified-fn> & args'
@@ -247,7 +250,7 @@
             (concat
               [(access)]
               (if with-opens? (exports-opens) [])
-              (concat (dock-params) [(splash-param) "-jar" (str (asserted-jar-file))]))
+              (concat (dock-params) [(splash-param) (graphic-param) "-jar" (str (asserted-jar-file))]))
             %)
          args)))
 

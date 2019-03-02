@@ -11,7 +11,6 @@
     [george.javafx :as fx]
     [george.application.core :as core]
     [common.george.config :as c]
-    [common.george.launch.props :as p]
     [common.george.util
      [cli :refer [except]]
      [files :as f]])
@@ -66,7 +65,7 @@
                (try (.showSaveDialog fc owner)
                     (catch IllegalArgumentException _
                       (show-something-missing-alert :folder)
-                      (.setInitialDirectory fc (c/documents-dir ))
+                      (.setInitialDirectory fc (c/documents-dir))
                       (create-file-for-save)))]
 
       (.setInitialDirectory clj-filechooser (.getParentFile f))

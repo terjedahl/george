@@ -27,7 +27,6 @@
                         [org.clojure/data.json "0.2.6"]
                         ;; https://github.com/weavejester/environ
                         [environ "1.1.0" :exclusions [org.clojure/clojure]]
-                        ;; TODO: Perhaps not use potemkin anywhere?
                         ;; https://github.com/ztellman/potemkin
                         [potemkin "0.4.5"]
                         ;; https://github.com/yogthos/markdown-clj
@@ -42,9 +41,6 @@
                         [it.sauronsoftware/junique "1.0.4"]]
 
   :jar-exclusions      [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
-
-  :uberjar-exclusions  [;; Java9+ modules does not allow unnamed packages (class-file in top-level).
-                        #"^g[$|__init].*class" #"^user.*class" #"^clj.tuple.*class" #"^potemkin.*class"]
 
   :plugins             [;; Required as plugins
                         ;; https://github.com/weavejester/environ
@@ -61,11 +57,7 @@
                         ;; https://www.eclipse.org/jetty
                         [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
                         ;; https://github.com/cemerick/pomegranate
-                        [com.cemerick/pomegranate "1.1.0"]
-
-                        ;; Required by user.clj which is also loaded for Leiningen tasks
-                        ;; TODO: Remove any 3rd party requirements from user.clj
-                        [potemkin "0.4.5"]]
+                        [com.cemerick/pomegranate "1.1.0"]]
 
   :repositories        [;; junique
                         ["github-terjedahl-junique"
@@ -87,7 +79,9 @@
 
   ;; --module-path, --add-modules=, -add-opens, and --add-exports ar appended via middleware
   :jvm-opts            [;; should give crisper text on Mac
-                        "-Dapple.awt.graphics.UseQuartz=true"]
+                        "-Dapple.awt.graphics.UseQuartz=true"
+                        ;; rendering issue seen on Windows and in lein run (from IDE shell)
+                        "-Dprism.dirtyopts=false"]
 
   :prep-task           ["javac" "compile"]
 
@@ -165,7 +159,7 @@
                         ["with-profile" "with-splash" "run"]}
 
   ;; to get PID for this port in unix shell, do:   sudo lsof -n -i :55055
-  :repl-options        {:port 55055}
+  ;:repl-options        {:port 55055}
 
   :codox               {:doc-paths ["docs"]
                         :output-path "target/docs"

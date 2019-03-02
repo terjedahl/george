@@ -5,10 +5,8 @@
 
 (ns george.application.ui.layout
   (:require
-    [markdown.core :refer [md-to-html-string]]
     [george.javafx :as fx]
-    [george.application.ui.styled :as styled]
-    [clojure.string :as cs])
+    [george.application.ui.styled :as styled])
   (:import
     [javafx.scene Node]
     [javafx.scene.control TabPane SeparatorMenuItem MenuItem MenuButton]
@@ -145,29 +143,3 @@
                     :alignment fx/Pos_TOP_LEFT]))
                     ;:background fx/GREEN]))
     (.setBorder (styled/new-border (if top? [0 0 1 0] [1 0 0 0])))))
-
-
-(defn- code-tag [text state]
-  [(cs/replace text #"<code>" "<code class=\"clj\">") state])
-
-
-(defn- ahref-tag [text state]
-  [(cs/replace text #"<a href" "<a <a onclick=\"window.status='CLICK:'+this;return false;\" href") state])
-
-
-(defn nonspaced-br [text {:keys [code lists] :as state}]
-  ;(prn "  ## text:" text)
-  [(if (and (not (or code 
-                     lists
-                     (cs/ends-with? text ">")
-                     (empty? text))))
-     (str text "<br />")
-     text)
-   state])
-
-(defn doc->html
-  "Returns the markdown as an html-string"
-  [^String md]
-  (let [html (md-to-html-string md :custom-transformers [code-tag ahref-tag nonspaced-br])]
-    ;(println html)
-    html))

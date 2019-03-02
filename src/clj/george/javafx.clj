@@ -7,8 +7,8 @@
   (:require
     [clojure.string :as cs]
     [clojure.java.io :as cio]
-    [george.util.colls :as uc]
-    [common.george.util.cli :refer [debug warn info except]])
+    [common.george.util.cli :refer [debug warn info except]]
+    [george.util :as u])
   (:import
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Application Platform]
@@ -726,7 +726,7 @@ and the body is called on 'changed'"
 
 (defn ^Polygon polygon [& args]
     (let [[points kwargs]
-          (uc/partition-args
+          (u/partition-args
               args
               {:fill Color/TRANSPARENT
                :stroke Color/BLACK
@@ -748,7 +748,7 @@ and the body is called on 'changed'"
            :fill Color/BLACK
            :arc 0}
 
-          [_ kwargs] (uc/partition-args args default-kwargs)
+          [_ kwargs] (u/partition-args args default-kwargs)
 
           location (:location kwargs)
           size (:size kwargs)
@@ -909,7 +909,7 @@ and the body is called on 'changed'"
 
 
 (defn box [vertical? & args]
-    (let [[nodes kwargs] (uc/partition-args
+    (let [[nodes kwargs] (u/partition-args
                              (filter some? args) 
                              {:spacing 0
                               :insets 0
@@ -953,7 +953,7 @@ and the body is called on 'changed'"
           default-kwargs
           {:center nil :top nil :right nil :bottom nil :left nil
            :insets 0}
-          [_ kwargs] (uc/partition-args args default-kwargs)]
+          [_ kwargs] (u/partition-args args default-kwargs)]
 
       (doto
           (BorderPane. (:center kwargs)
@@ -970,7 +970,7 @@ and the body is called on 'changed'"
                    ;:antialiasing SceneAntialiasing/BALANCED  ;; set to nil if not required
                    :antialiasing nil}  ;; set to nil due to "upside-down" bug on Mac/Linux
 
-                  [_ kwargs] (uc/partition-args args default-kwargs)
+                  [_ kwargs] (u/partition-args args default-kwargs)
                   size (:size kwargs)]
 
                 (doto (if size
@@ -1043,7 +1043,7 @@ and the body is called on 'changed'"
                         :mode :show-and-wait ;; :show-and-wait or :show or nil
                         :type :information}
 
-        [_ {:keys [options type] :as kwargs}] (uc/partition-args args default-kwargs)
+        [_ {:keys [options type] :as kwargs}] (u/partition-args args default-kwargs)
 
         options
         (if (and (empty? options) (not (:cancel-option? kwargs)))
@@ -1203,7 +1203,7 @@ and the body is called on 'changed'"
            :onhiding #()  ;; good for saving content
            :onhidden #()}  ;; good for removing references to self
 
-          [_ kwargs] (uc/partition-args args default-kwargs)]
+          [_ kwargs] (u/partition-args args default-kwargs)]
 
       (let [stg (doto (Stage. (stagestyle (:style kwargs)))
                     (.setTitle (:title kwargs))

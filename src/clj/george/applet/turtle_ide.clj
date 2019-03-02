@@ -6,18 +6,24 @@
 (ns george.applet.turtle-ide
   (:require
     [george.applet :refer [->AppletInfo]]
-
     [george.javafx :as fx]
-
-    [george.application
-     [environment :as ide]]
-
-    [george.turtle :as turtle]
     [george.application.ui.styled :as styled])
 
   (:import
     [javafx.animation Timeline]
-    [javafx.scene.paint Color]))
+    [javafx.scene.paint Color]
+    [javafx.scene.shape Polygon]
+    [java.util List]))
+
+;(set! *warn-on-reflection* true)
+
+(defn- turtle-poly []
+  (fx/polygon
+    5 0
+    -5 -5
+    -3 0
+    -5 5
+    :fill fx/ANTHRECITE))
 
 
 (defn icon
@@ -31,14 +37,14 @@
         background-rect
         (fx/rectangle :size [w h] :fill Color/TRANSPARENT)
         trtl
-        (doto (turtle/turtle-polygon)
+        (doto (turtle-poly)
               (fx/set-translate-XY [x1 y1]))
         t
-        (doto (fx/simple-timeline
-                1000
-                nil
-                [(.translateXProperty trtl) x2]
-                [(.translateYProperty trtl) y2])
+        (doto ^Timeline (fx/simple-timeline
+                          1000
+                          nil
+                          [(.translateXProperty ^Polygon trtl) x2]
+                          [(.translateYProperty ^Polygon trtl) y2])
           (.setCycleCount Timeline/INDEFINITE)
           (.setAutoReverse true))
 
@@ -51,7 +57,7 @@
                                :x2 x2
                                :y2 y2
                                :color Color/DODGERBLUE)
-                  (-> .getStrokeDashArray (.setAll (into-array (list 5. 5.)))))
+                  (-> .getStrokeDashArray (.setAll ^List (list 5. 5.))))
                 trtl)
 
           (.setOnMouseEntered (fx/new-eventhandler (.play t)))
@@ -69,10 +75,12 @@
 
 
 (defn main []
-  (ide/ide-root :turtle))
+  (require '[george.application.environment :as ide])
+  ((resolve 'ide/ide-root) :turtle))
+
 
 (defn dispose []
-  (ide/ide-root-dispose :turtle)
+  ((resolve 'ide/ide-root-dispose) :turtle)
   (styled/new-heading (format "%s has been disposed" (label))))
 
 

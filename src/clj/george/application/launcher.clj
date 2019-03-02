@@ -5,16 +5,11 @@
 
 (ns george.application.launcher
   (:require
-    [clojure.repl :refer [doc]]
-    [clojure.java
-     [browse :refer [browse-url]]]
     [environ.core :refer [env]]
-    [g]
     [george
      [javafx :as fx]
      [applet :as applet]]
     [george.application.core :as core]
-    [george.application.repl-server :as repl-server]
     [george.application.ui
      [stage :as ui-stage]
      [layout :as layout]
@@ -92,7 +87,10 @@ Powered by open source software.")
         url "http://www.george.andante.no"
 
         link
-        (doto (styled/new-link "www.george.andante.no" #(browse-url url))
+        (doto (styled/new-link "www.george.andante.no"
+                               (fn []
+                                 (require '[clojure.java.browse])
+                                 ((resolve 'clojure.java.browse/browse-url) url)))
           (.setFont (fx/new-font fx/ROBOTO 12))
           (fx/set-tooltip (str "Open in browser: " url)))
 
@@ -315,7 +313,8 @@ Powered by open source software.")
               (core/notify-dialog-listeners false)
               (.consume event))
             (do
-              (repl-server/stop!)
+              (require '[george.application.repl-server :as repl-server])
+              ((resolve 'repl-server/stop!))
               (dispose-fn)
               (println "Bye for now!" (if repl? " ... NOT" ""))
               (Thread/sleep 300)

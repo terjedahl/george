@@ -14,6 +14,7 @@
      [extra :as aux]]
     [george.util.singleton :as singleton]
     [george.application.ui.styled :as styled]
+    [george.application.ui.webview :as w]
     [george.javafx :as fx]
     [george.util :refer [->Labeled labeled?]]
     [george.application.ui.layout :as layout])
@@ -368,8 +369,7 @@ You can get a list containing all registered turtles with the command [``]
 (defn rendered-detail
   "Given markdown and a detail-fn, returns a WebView with a kw-handler attached"
   [markdown detail-fn]
-  (styled/new-webview (layout/doc->html markdown)
-                      (click-handler detail-fn)))
+  (w/new-webview (w/doc->html markdown) (click-handler detail-fn)))
 
 
 (defn- var-meta [var]
