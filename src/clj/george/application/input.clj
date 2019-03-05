@@ -14,13 +14,16 @@
     [george.application.output :refer [oprintln]]
     [george.application.eval :as eval]
     [george.editor.core :as ed]
-    [george.application.ui.layout :as layout]
-    [common.george.util.platform :as pl])
+    [common.george.util.platform :as pl]
+    [george.application.ui.styled :as styled])
   (:import
     [javafx.scene.input KeyEvent MouseEvent]
     [java.net SocketException]
-    [javafx.scene.control Tab Button TabPane]
-    [javafx.scene Node Scene]))
+    [javafx.scene.control Button SplitPane ListView ListCell]
+    [javafx.geometry Orientation]
+    [javafx.util Callback]
+    [javafx.scene Node]
+    [javafx.scene.paint Color]))
 
 
 ;(set! *warn-on-reflection* true)
@@ -28,7 +31,7 @@
 ;(set! *unchecked-math* true)
 
 
-(defn- request-focus [^Node focusable]
+(defn- request-focus [focusable]
   (try
     (fx/future-sleep-later 300 (.requestFocus focusable))
     ;; The focusable may be gone as the interrupt being a result of closing it.
@@ -89,23 +92,13 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" (pl/shortcu
 
 
 (defn run-button [& [clearable?]]
-  (fx/button
-    "Run"
-    :width 130
-    :tooltip (run-tooltip clearable?)))
+  (fx/button "Run" :width 130 :tooltip (run-tooltip clearable?)))
 
 
 (defn interrupt-button []
   (doto
-    (fx/button "X"
-               :width 30
-               :tooltip "Interrupt current 'Run'")
+    (fx/button "X" :width 30 :tooltip "Interrupt current 'Run'")
     (.setDisable true)))
-
-
-(defn ns-label []
-  (fx/new-label nil
-     :style "-fx-font: 14 'Source Code Pro Medium'; -fx-text-fill: gray; -fx-padding: 3;"))
 
 
 (defn set-ns-label-fn [label]
@@ -116,12 +109,13 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" (pl/shortcu
         (fx/set-tooltip (str "*ns* " ns))))))
 
 
-(defn new-input-root [file-name selected_ focused_ tab & {:keys [ns]}]
+(defn new-input-root- [file-name & {:keys [ns]}]
   (let [repl-uuid (gu/uuid)
         current-history-index_ (atom -1)
 
         ns-label
-        (ns-label)
+        (styled/ns-label)
+
         update-ns-fn
         (set-ns-label-fn ns-label)
         _ (update-ns-fn (or ns "user"))
@@ -131,9 +125,6 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" (pl/shortcu
 
         focusable
         (.getFlow editor)
-
-        focus-on-editor
-        #(fx/future-sleep-later 500 (.requestFocus ^Node focusable))
 
         do-history-fn
         (fn [direction global?]
@@ -150,8 +141,8 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" (pl/shortcu
           (fx/checkbox "Clear"
                        :tooltip
                        "Clear on 'Run'. Code is cleared after successful evaluation.")
-          (.setStyle "-fx-padding: 3px;"))
-          ;(.setSelected true))
+          (.setStyle "-fx-padding: 3px;")
+          (.setFocusTraversable false))
 
         do-clear-fn
         (fn [inverse-clear]  ;; do the opposite of clear-checkbox
@@ -183,155 +174,142 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" (pl/shortcu
         #(.fire interrupt-button)
 
         prev-button
-        (doto (fx/button
+        (doto (styled/small-button
                 (str  \u25C0)  ;; up: \u25B2,  left: \u25C0
                 :tooltip
                 "Previous local history.         CLICK
 Previous global history.  SHIFT-CLICK")
+          (.setFocusTraversable false)
           (.setOnMouseClicked
               (fx/new-eventhandler
                 (do-history-fn hist/PREV (.isShiftDown ^MouseEvent event))
                 (.consume event))))
 
         next-button
-        (doto (fx/button
+        (doto (styled/small-button
                 (str \u25B6)  ;; down: \u25BC,  right: \u25B6
                 :tooltip
                 "Next local history.         CLICK
 Next global history.  SHIFT-CLICK")
+          (.setFocusTraversable false)
          (.setOnMouseClicked
              (fx/new-eventhandler
                 (do-history-fn hist/NEXT (.isShiftDown ^MouseEvent event))
                 (.consume event))))
-        
-        top
-        (layout/menubar true
-          ns-label)
 
         bottom
-        (layout/menubar false
-          ns-label
-          (fx/region :hgrow :always)
-          prev-button
-          next-button
-          (fx/region :hgrow :sometimes)
-          ;structural-combo
-          ;(fx/region :hgrow :always)
-          clear-checkbox
-          ;(fx/region :hgrow :always)
-          interrupt-button
-          run-button)
+        (doto
+          (fx/hbox
+            ns-label
+            (fx/region :hgrow :always)
+            prev-button next-button
+            (fx/region :hgrow :sometimes)
+            clear-checkbox interrupt-button run-button
+            :spacing 3 :padding 5 :alignment fx/Pos_CENTER_LEFT)
+          (.setBorder (styled/new-border [1 0 0 0])))
 
         border-pane
         (fx/borderpane
-          ;:top top
-          :center editor
-          :bottom bottom
-          :insets [5 0 0 0])
+          :center editor :bottom bottom :insets [5 2 0 0])
 
         get-code-fn
         #(ed/text editor)
 
         key-pressed-handler
-        (fx/key-pressed-handler {
-                                 #{:SHORTCUT :ENTER}
-                                 #(.fire run-button)
-
-                                 #{:SHIFT :SHORTCUT :ENTER}
-                                 #(when-not (.isDisabled run-button)
-                                    (do-eval-fn (get-code-fn) true))
-
-                                 #{:SHORTCUT :ESCAPE}
-                                 #(.fire interrupt-button)})]
+        (fx/key-pressed-handler
+          {
+           #{:SHORTCUT :ENTER}        #(.fire run-button)
+           #{:SHIFT :SHORTCUT :ENTER} #(when-not (.isDisabled run-button)
+                                         (do-eval-fn (get-code-fn) true))
+           #{:SHORTCUT :ESCAPE}       #(.fire interrupt-button)})]
 
     (fx/set-onaction run-button #(do-eval-fn (get-code-fn) false))
-
     (.addEventFilter border-pane KeyEvent/KEY_PRESSED key-pressed-handler)
-    ;; TODO: ensure editor always gets focus back when focus in window ...
-    ;; TODO: colorcode also when history is the same
-    ;; TODO: nicer tooltips.  (monospace and better colors)
 
-    (add-watch selected_ tab #(when (= %4 tab) (focus-on-editor)))
-
-    (add-watch focused_ tab #(when (and %4 (= @selected_ tab)) (focus-on-editor)))
-
-    [border-pane on-closed-fn]))
+    [border-pane on-closed-fn editor]))
 
 
-(defn new-input-tab [selected_ focused_ & {:keys [ns]}]
-  (let [nr (hist/next-repl-nr)
-        file-name (format "Input %s" nr)
-        tab (Tab. file-name)
-        [root on-closed-fn] (new-input-root file-name selected_ focused_ tab :ns ns)]
-
-    (reset! selected_ tab)
-    (reset! focused_ true)
-
-    (doto tab
-      (.setContent root)
-      (.setOnClosed (fx/new-eventhandler (on-closed-fn))))))
+(defn- inputs-listcell [_]
+  (eval
+    `(proxy [ListCell] []
+       (updateItem [item# empty?#]
+         (proxy-super updateItem item# empty?#)
+         (doto ~'this (.setText  nil) (.setGraphic (when (and (not empty?#) (some? item#)) (:listable item#))))))))
 
 
-
-(defn new-tabbed-input-root [& {:keys [ns]}]
-  (let [selected_ (atom nil)
-        focused_ (atom false)
-        [root ^TabPane tabpane] (layout/tabpane "Inputs" "New Input"
-                                                #(new-input-tab selected_ focused_ :ns ns)
-                                                true)]
-    (layout/set-listeners tabpane selected_ focused_)
-
-    (fx/future-sleep-later 500 (fx/later (.requestFocus tabpane)))
-
-    root))
+(defn- create [listview ns]
+  (let  [[root on-closed-fn editor] (new-input-root- "some-file-name" :ns ns)]
+    (-> listview .getItems
+        (.add {:listable (fx/text (format " %2d " (hist/next-repl-nr))
+                                  :font (fx/new-font fx/ROBOTO_MONO 14)
+                                  :color Color/DARKSLATEGRAY)
+               :root     root
+               :editor   editor
+               :onclosed on-closed-fn}))
+    (-> listview .getSelectionModel .selectLast)))
 
 
-(defn- input-scene [root]
-  (doto
-    (fx/scene root :size [600 300])
-    (fx/add-stylesheets "styles/codearea.css")))
+(defn- item-selected [item input-pane]
+  (.setCenter  input-pane (:root item))
+  (when-let [e (:editor item)]
+    (fx/future-sleep-later 200 (.focus e))))
 
 
-;; For Input stage layout
-(defonce ^:private input-vertical-offset (atom 0))
-(defonce ^:private input-horizontal-offset (atom 0))
-(defn next-input-vertical-offset [] (swap! input-vertical-offset inc))
-(defn next-input-horizontal-offset [] (swap! input-horizontal-offset inc))
+(defn new-input-root [& {:keys [ns]}]
+  (let [container
+        (fx/borderpane :center (fx/new-label "No input selected"))
+
+        listview
+        (doto
+          (ListView.)
+          (.setCellFactory (reify Callback (call [_ param] (inputs-listcell param))))
+          (.setFocusTraversable false))
+
+        create-button
+        (doto
+          (fx/button "+" :tooltip "New Input editor" :onaction #(create listview ns))
+          (.setFocusTraversable false))
+
+        remove-button
+        (doto
+          (fx/button "-" :tooltip "Delete selected Input editor"
+                         :onaction #(when-let [item (-> listview .getSelectionModel .getSelectedItem)]
+                                      ((:onclosed item)) (-> listview .getItems (.remove item))))
+          (.setFocusTraversable false))
+
+        left
+        (doto
+          (fx/borderpane :center listview :bottom (fx/hbox create-button remove-button :padding 2 :spacing 2))
+          (SplitPane/setResizableWithParent false))
+
+        splitpane
+        (doto
+          (SplitPane. (into-array Node (list left container)))
+          (.setOrientation Orientation/HORIZONTAL))]
+
+    ;; Why do I have to set both a mouseclicklistener and a changelistener?  :-(
+    (doto listview
+      (-> (.setOnMouseClicked
+            (fx/new-eventhandler (-> event .getSource .getSelectionModel .getSelectedItem (item-selected container)))))
+      (-> .getSelectionModel .selectedItemProperty
+          (fx/add-changelistener (item-selected new-value container))))
+
+    (fx/future-sleep-later 200 (.setDividerPosition splitpane 0 0.1))
+    (.fire create-button)
+
+    splitpane))
 
 
 (defn new-input-stage [& [ns]]
-  ;; TODO: consolidate/fix integrations/dependencies
-  ;; TODO: add interrupt-possibility (button) to/for run-thread
-
   (future (repl/session-ensure! true))
-  (let [
-        repl-nr
-        (hist/next-repl-nr)
-
-        root (new-tabbed-input-root  :ns ns)
-
-        scene ^Scene (input-scene root)
-
-        screen-WH (-> (fx/primary-screen) .getVisualBounds fx/WH)
-
-        horizontal-offset (* ^int (next-input-horizontal-offset) 5)
-        vertical-offset (* ^int (next-input-vertical-offset) 20)
-
-        stage
-        (fx/now
-          (doto (fx/stage
-                  :title (format "Input %s" repl-nr)
-                  :scene scene
-                  :sizetoscene true
-
-                  :location [(- ^double (first screen-WH) (.getWidth scene) 30 horizontal-offset)
-                             (+ 80 vertical-offset)])))]
-
-    stage))
+  (fx/now
+    (doto (fx/stage
+            :title "Inputs"
+            :scene (doto (fx/scene (new-input-root  :ns ns) :size [600 300])
+                     (fx/add-stylesheets "styles/codearea.css"))))))
 
 
 ;;; DEV ;;;
 
 
 ;(when (env :repl?) (println "Warning: Running george.application.input/new-input-stage") (new-input-stage))
-

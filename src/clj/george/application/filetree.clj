@@ -3,7 +3,7 @@
 ;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
 ;; You must not remove this notice, or any other, from this software.
 
-(ns george.files.filetree
+(ns george.application.filetree
   (:require
     [clojure
      [string :as cs]
@@ -890,9 +890,6 @@ modified:  %s  " (to-string path) size creationTime lastModifiedTime)))
 
 ;;;; FUTURE RELEASE
 
-;; TODO: Dropdown now needs to be clicked twice as marking consumes the first click, not leaving the menu open.
-;; TODO: Ensure that long filenames compress rather than activating horizontal scrolling - both in filetree and openlist.
-
 ;; TODO: Make "shortcut" back to "George" folder.  (Also note that it was confusing that double-clicking stepped pupils inn to sub-folder.)
 
 ;; TODO: Ensure that there is always an ending on the file. ('.clj' or similar)
@@ -905,7 +902,6 @@ modified:  %s  " (to-string path) size creationTime lastModifiedTime)))
 ;; TODO: When an item is moved, the wrong item is marked with an outline afterwards
 
 ;; TODO: Ensure that children are also "ghosted" when dragging
-;; TODO: No triangle if folder is empty
 
 ;; TODO: Better graphics !!!
 ;; TODO: Custom folder/file icons for locked folders/files

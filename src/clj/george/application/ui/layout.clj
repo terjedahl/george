@@ -9,9 +9,7 @@
     [george.application.ui.styled :as styled])
   (:import
     [javafx.scene Node]
-    [javafx.scene.control TabPane SeparatorMenuItem MenuItem MenuButton]
-    [javafx.scene.layout AnchorPane]
-    [javafx.scene.input KeyEvent]))
+    [javafx.scene.control SeparatorMenuItem MenuItem MenuButton]))
 
 
 (defn- nil-or-node? [n] (or (nil? n) (instance? Node n)))
@@ -30,91 +28,6 @@
         detail-setter
         #(when (nil-or-node? %) (.setCenter detail-pane %))]
     [root master-setter detail-setter]))
-
-
-(defn- new-tab-action [tab-factory tpane]
-  (let [tab      (tab-factory)
-        handler0 (.getOnCloseRequest tab)
-        handler1 (fx/new-eventhandler
-                   (when handler0
-                     (.handle handler0 event))
-                   (when-not (.isConsumed event)
-                     (-> event .getSource .getTabPane .getSelectionModel .selectNext)))]
-
-    (.setOnCloseRequest tab handler1)
-    (doto tpane
-      (-> .getTabs (.add tab))
-      (-> .getSelectionModel .selectLast))))
-
-
-(defn close-tab-nicely [tpane tab]
-  (let [tpane (or tpane (.getTabPane tab))]
-    (when-let [be (-> tpane .getSkin .getBehavior)]
-      (let [tab (or tab (-> tpane .getSelectionModel .getSelectedItem))]
-        (when (and tab (.canCloseTab be tab))  (.closeTab be tab))))))
-
-
-(defn tabpane
-  [empty-label newbutton-tooltip tab-factory start-with-one?]
-  (let [
-        tpane
-        (doto (TabPane.)
-              (-> .getStyleClass (.add TabPane/STYLE_CLASS_FLOATING)))
-
-        newbutton
-        (doto (fx/button "+" :tooltip  newbutton-tooltip
-                             :onaction #(new-tab-action tab-factory tpane))
-              (.setFocusTraversable false))
-
-        newbutton-box
-        (fx/hbox newbutton)
-
-        empty-text
-        (styled/new-heading empty-label)
-
-        root
-        (doto (AnchorPane. (into-array Node (list empty-text tpane newbutton-box)))
-              (.setMinHeight  2))]
-
-    (doto empty-text
-      (AnchorPane/setTopAnchor  8.0)
-      (AnchorPane/setLeftAnchor 16.0))
-
-    (doto tpane
-      (AnchorPane/setTopAnchor 0.0)
-      (AnchorPane/setRightAnchor 40.0)
-      (AnchorPane/setLeftAnchor 0.0)
-      (AnchorPane/setBottomAnchor 0.0))
-
-    (doto newbutton-box
-      (AnchorPane/setTopAnchor 3.0)
-      (AnchorPane/setRightAnchor 5.0))
-
-    (when start-with-one?
-      (.fire newbutton))
-
-    (.addEventFilter tpane
-                      KeyEvent/KEY_PRESSED
-                      (fx/key-pressed-handler {#{:N :SHORTCUT} #(.fire newbutton)}))
-                                               ;#{:C :SHORTCUT}  #(close-tab-nicely tpane nil)}))
-
-    [root tpane]))
-
-
-(defn set-listeners [tabpane selected_ focused_]
-  (when selected_
-    (-> tabpane
-        .getSelectionModel
-        .selectedIndexProperty
-        (fx/add-changelistener (reset! selected_
-                                       (when-not (neg? new-value)
-                                         (-> tabpane .getTabs (.get new-value))))))
-    (when focused_
-      (-> tabpane
-        .focusedProperty
-        (fx/add-changelistener (reset! focused_ new-value))))
-
-    tabpane))
 
 
 (defn menu

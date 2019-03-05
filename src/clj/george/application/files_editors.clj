@@ -9,13 +9,13 @@
     [george.javafx :as fx]
     [george.application
      [history :as hist]
-     [editors :as eds]]
+     [editors :as eds]
+     [filetree :as filetree]]
     [george.application.ui.styled :as styled]
     [george.editor.core :as ed]
-    [george.files.filetree :as filetree]
     [george.util.singleton :as singleton]
     [common.george.util
-     [files :refer [ to-path to-file to-string exists? filename to-path]]
+     [files :refer [to-path to-file to-string exists? filename to-path]]
      [cli :refer [debug]]])
   (:import
     [javafx.scene.control SplitPane ListCell ListView]
@@ -230,7 +230,7 @@ Has it been renamed, moved, or deleted?
 (defn main-root []
   (let [filenav-state_ (filetree/file-nav)
 
-        lr (left-root filenav-state_) 
+        lr (left-root filenav-state_)
 
         container
         (reset! editor-pane_ (fx/borderpane :center (fx/new-label "No file selected")))

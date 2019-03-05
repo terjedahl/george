@@ -46,7 +46,7 @@
 
 (defn output-input-root [& {:keys [ns]}]
   (let [[o-root clear-button] (output/output-root)
-        inputs-root (input/new-tabbed-input-root :ns ns)
+        inputs-root (input/new-input-root :ns ns)
         split-pane
         (doto (SplitPane. (into-array Node (list o-root inputs-root)))
           (.setOrientation Orientation/VERTICAL))]
