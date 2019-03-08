@@ -140,6 +140,7 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 (def BLUE Color/BLUE)
 (def GREEN Color/GREEN)
 (def BLACK Color/BLACK)
+(def THREES (Color/web "#333"))
 
 (def BLUE Color/BLUE)
 (def GREY Color/GREY)
@@ -199,8 +200,8 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
     "Utility function for 'thread'."
     [expr]
     (if (fxthread?)
-        (try (expr) (catch Throwable e e (println e)))
-        (Platform/runLater #(try (expr) (catch Throwable e e (println e))))))
+      (try (expr) (catch Throwable e e (println e)))
+      (Platform/runLater #(try (expr) (catch Throwable e e (println e))))))
 
 
 (defmacro later
@@ -209,14 +210,12 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
     `(later* (fn [] ~@body)))
 
 
-(defmacro future-later
-  ([& body]
-   `(future (later* (fn [] ~@body)))))
+(defmacro future-later [& body]
+  `(future (later* (fn [] ~@body))))
 
 
-(defmacro future-sleep-later
-  ([ms & body]
-   `(future (Thread/sleep ~ms) (later* (fn [] ~@body)))))
+(defmacro future-sleep-later [ms & body]
+  `(future (Thread/sleep ~ms) (later* (fn [] ~@body))))
 
 
 (defn now*
@@ -258,8 +257,7 @@ and the body is called on 'changed'"
   `(reify ChangeListener (~'changed ~args-vec ~@body)))
 
 
-(defmacro ^ChangeListener new-changelistener
-  [& body]
+(defmacro ^ChangeListener new-changelistener [& body]
   `(reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body)))
 
 
@@ -267,8 +265,7 @@ and the body is called on 'changed'"
   `(.addListener ~observable (reify ChangeListener (~'changed [~'this ~'observable ~'old-value ~'new-value] ~@body))))
 
 
-(defmacro ^ListChangeListener new-listchangelistener
-  [& body]
+(defmacro ^ListChangeListener new-listchangelistener [& body]
   `(reify ListChangeListener (~'onChanged [~'this ~'change] ~@body)))
 
 
@@ -325,41 +322,51 @@ and the body is called on 'changed'"
       [(.getWidth item) (.getHeight item)]))
 
 
-(defn set-translate-XY [^Node n [x y]]
-  (doto n
-    (.setTranslateX x)
-    (.setTranslateY y)))
+(defn get-translate-XY [^Node node]
+    [(.getTranslateX node) (.getTranslateY node)])
 
 
-(defn get-translate-XY [^Node n]
-    [(.getTranslateX n) (.getTranslateY n)])
+(defn set-translate-XY [^Node node [x y]]
+  (when (some? x) (.setTranslateX node (double x)))
+  (when (some? y) (.setTranslateY node (double y)))
+  node)
 
 
 (defn set-WH [item [w h]]
-  (doto item
-    (.setWidth w)
-    (.setHeight h)))
+  (when (some? w) (.setWidth item (double w)))
+  (when (some? h) (.setHeight item (double h)))
+  item)
 
 
 (defn set-XY [item [x y]]
-  (doto item
-    (.setX x)
-    (.setY y)))
+  (when (some? x) (.setX item (double x)))
+  (when (some? y) (.setY item (double y)))
+  item)
 
 
-(defn set-pref-WH [n [w h]]
-  (doto n
-    (.setPrefWidth  (double w))
-    (.setPrefHeight (double h))))
+(defn set-min-WH [node [w h]]
+  (when (some? w) (.setMinWidth node (double w)))
+  (when (some? h) (.setMinHeight node (double h)))
+  node)
 
 
-(defn set-all-WH [n [w h :as size]]
-  (doto n 
+(defn set-pref-WH [node [w h]]
+  (when (some? w) (.setPrefWidth node (double w)))
+  (when (some? h) (.setPrefHeight node (double h)))
+  node)
+
+
+(defn set-max-WH [node [w h]]
+  (when (some? w) (.setMaxWidth node (double w)))
+  (when (some? h) (.setMaxHeight node (double h)))
+  node)
+
+
+(defn set-all-WH [node [w h :as size]]
+  (doto node
+    (set-min-WH size)
     (set-pref-WH size)
-    (.setMinWidth (double w))
-    (.setMinHeight (double h))
-    (.setMaxWidth (double w))
-    (.setMaxHeight (double h))))
+    (set-max-WH size)))
 
 
 (defn new-border
@@ -379,22 +386,18 @@ and the body is called on 'changed'"
                               (BorderWidths. width))))))))
 
 
-(defn get-userdata
-  [^Node n]
+(defn get-userdata [^Node n]
   (.getUserData n))
 
 
-(defn set-userdata
-  [^Node n m]
+(defn set-userdata [^Node n m]
   (.setUserData n m)
   m)
 
 
-(defn swap-userdata
-  [^Node n f & args]
+(defn swap-userdata [^Node n f & args]
   (let [res (apply f (cons (get-userdata n) args))]
     (set-userdata n res)))
-
 
 
 (defn load-fxml [pth]
@@ -416,8 +419,7 @@ and the body is called on 'changed'"
          (cs/split id #"#")
          [a b]
          [(if (empty? a) nil a) (if (empty? b) nil b)]]
-        ;			_ (println "[a b]:" [a b])
-        
+
      (if  ;; does this match on tpe and id, or either?
       (or
         (and
@@ -446,81 +448,51 @@ and the body is called on 'changed'"
                     (try (.getMenus node) (catch Exception _))
                     (try (.getItems node) (catch Exception _)))))))))
                        
-        
 
-;(import
-;  '[com.sun.javafx.util Logging]
-;  '[sun.util.logging PlatformLogger$Level])
+(defn external [path]
+  (.toExternalForm (cio/resource (str path))))
 
 
-(defn add-stylesheet [scene-or-parent path]
-  (let []
-        ;logger (Logging/getCSSLogger)
-        ;level (.level logger)]
-    ;(.setLevel logger PlatformLogger$Level/OFF)  ;; turn off logger. Doesn't work well.
-    (-> scene-or-parent .getStylesheets (.add path))))  ;; set stylesheet
-    ;(.setLevel logger level))) ;; turn logger back to previous level
+(defn remove-stylesheet [scene-or-parent path]
+  (doto scene-or-parent
+    (-> .getStylesheets (.remove (external path)))))
 
 
-(defn add-stylesheets [scene-or-parent & paths]
-  (mapv #(add-stylesheet scene-or-parent %) paths))
+(defn add-stylesheet [scene-or-parent path & [refresh? delay]]
+  (let [css (external path)
+        ss  (.getStylesheets scene-or-parent)]
+    (.add ss css)
+    (when refresh?
+      (future-sleep-later (or delay 2000)
+        (doto ss (.remove css) (.add css))))
+    scene-or-parent))
 
 
-(defn clear-stylesheets [^Scene scene]
-  (-> scene .getStylesheets .clear))
+(defn remove-class [node css-class]
+  (doto node
+    (-> .getStyleClass (.remove (str css-class)))))
 
 
-(defn set-Modena []
-    (Application/setUserAgentStylesheet Application/STYLESHEET_MODENA))
+(defn add-class [node css-class]
+  (doto node
+    (-> .getStyleClass (.add (str css-class)))))
 
 
-(defn remove-class
-  [node ^String css-class]
-  (-> node .getStyleClass (.remove css-class))
-  node)
+(defn re-add-class [node css-class]
+  (doto node
+    (-> .getStyleClass (.remove (str css-class)))
+    (-> .getStyleClass (.add (str css-class)))))
 
 
-(defn add-class [node ^String css-class]
-   (-> node .getStyleClass  (.add css-class))
-   node)
-
-
-(defn re-add-class [node ^String css-class]
-  (doto (.getStyleClass node)
-    (.remove css-class)
-    (.add css-class))
-  node)
-
-
-(defn ^KeyFrame keyframe*
-    "creates an instance of Keyframe with duration (millis) and KeyValue-s from a seq of vectors of format [property value]"
-    [duration keyvalues]
-    (KeyFrame.
-        (Duration. duration)
-        (into-array KeyValue (map (fn [[p v]](KeyValue. p v))
-                                  (filter some? keyvalues)))))
-
-
-(defn ^KeyFrame new-keyframe*
-  [duration onfinished keyvalues]
+(defn ^KeyFrame new-keyframe
+  "creates an instance of Keyframe with duration (millis) and KeyValue-s from vectors of format [property value]"
+  [duration onfinished & keyvalues]
   (let [d (Duration. duration)
         ah (when onfinished (new-eventhandler (onfinished)))
         kvs (mapv (fn [[p v]] (KeyValue. p v)) (filter some? keyvalues))]
     (if ah
       (KeyFrame. d "NN" ^EventHandler ah ^Collection kvs)
       (KeyFrame. d (into-array KeyValue kvs)))))
-
-
-;(defn keyframe
-;    "creates an instance of Keyframe with duration (millis) and KeyValue-s from vectors of format [property value]"
-;    [duration & keyvalues]
-;    (keyframe* duration keyvalues))
-
-
-(defn ^KeyFrame new-keyframe
-  "creates an instance of Keyframe with duration (millis) and KeyValue-s from vectors of format [property value]"
-  [duration onfinish & keyvalues]
-  (new-keyframe* duration onfinish keyvalues))
 
 
 (defn ^Timeline timeline
@@ -537,7 +509,7 @@ and the body is called on 'changed'"
     onfinished (or nil),
     and keyvalues as vectors as per function 'keyframe'"
     [duration onfinished & keyvalues]
-    (timeline onfinished (new-keyframe* duration nil keyvalues)))
+    (timeline onfinished (apply new-keyframe (concat (list duration nil) keyvalues))))
 
 
 (def NANO_PR_SEC
@@ -672,31 +644,16 @@ and the body is called on 'changed'"
         (VBox/setVgrow (priority vgrow))))
 
 
-(defn ^StackPane stackpane* [nodes]
-    (StackPane. (into-array Node nodes)))
+(defn ^StackPane stackpane [& nodes]
+  (StackPane. (into-array Node nodes)))
 
 
-(defn ^StackPane stackpane
-    ([& nodes]
-     (stackpane* nodes)))
+(defn ^Group group [& nodes]
+     (Group. (into-array Node nodes)))
 
 
-(defn ^Group group* [nodes]
-    (Group. (into-array Node nodes)))
-
-
-(defn ^Group group
-    ([& nodes]
-     (group* nodes)))
-
-
-(defn ^Pane pane* [nodes]
-  (Pane. (into-array Node nodes)))
-
-
-(defn ^Pane pane
-  ([& nodes]
-   (pane* nodes)))
+(defn ^Pane pane [& nodes]
+   (Pane. (into-array Node nodes)))
 
 
 (defn ^Line line [& {:keys [x1 y1 x2 y2 color width smooth round]
@@ -706,7 +663,6 @@ and the body is called on 'changed'"
                             width 1
                             smooth true
                             round false}}]
-
     (doto (Line. x1 y1 x2 y2)
       (.setStroke color)
       (.setStrokeWidth width)
@@ -783,13 +739,14 @@ and the body is called on 'changed'"
 
 
 ; ^Button  ;; DON'T TYPE. It touches JavaFX!
-(defn button [label & {:keys [onaction width minwidth tooltip style]}]
-    (let [b (Button. label)]
-      (when width    (.setPrefWidth  b (double width)))
-      (when minwidth (.setMinWidth b  (double minwidth)))
+(defn new-button [s & {:keys [graphic onaction pref-WH all-WH tooltip style focusable?]}]
+    (let [b (Button. s graphic)]
+      (when pref-WH   (set-pref-WH b pref-WH))
+      (when all-WH   (set-all-WH b all-WH))
       (when onaction (set-onaction b onaction))
       (when tooltip  (set-tooltip b tooltip))
       (when style    (.setStyle b style))
+      (when (some? focusable?) (.setFocusTraversable b focusable?))
       b))
 
 
@@ -870,9 +827,8 @@ and the body is called on 'changed'"
 
 
 ; ^Label  ;; DON'T TYPE. It touches JavaFX!
-(defn  new-label
-  [s & {:keys [graphic font size color mouseclicked tooltip style]  
-          :or {size 12}}]
+(defn  new-label [s & {:keys [graphic font size color mouseclicked tooltip style]
+                       :or   {size 12}}]
   (let [label (doto  (Label. s graphic) (set-font (or font (new-font ROBOTO size))))]
     (when color (.setTextFill label color))
     (when style (.setStyle label style))
@@ -884,7 +840,6 @@ and the body is called on 'changed'"
 (defn insets
     ([v]
      (if (sequential? v) (apply insets v) (Insets. v)))
-  
     ([top right bottom left]
      (Insets. top right bottom left)))
 
@@ -927,7 +882,6 @@ and the body is called on 'changed'"
           (BorderPane/setMargin (insets (:insets kwargs)))
           (set-alignment  (:alignment kwargs)))
       
-      ;(.setStyle (format "-fx-padding: %s %s;" (:padding kwargs) (:padding kwargs))))]
       (if (number? padding)
           (set-padding box padding)
           (apply set-padding (cons box padding)))      
@@ -1110,12 +1064,11 @@ and the body is called on 'changed'"
     [(/ w 2) (/ h 2)]))
 
 
-(defn ^ImageView imageview 
-  [image-or-rsc-str & {:keys [width height preserveratio smooth]
-                       :or {width nil
-                            height nil
-                            preserveratio true
-                            smooth true}}]
+(defn ^ImageView imageview [image-or-rsc-str & {:keys [width height preserveratio smooth]
+                                                :or   {width nil
+                                                       height nil
+                                                       preserveratio true
+                                                       smooth true}}]
   (let [iv (doto (ImageView.  image-or-rsc-str)
              (.setSmooth smooth)
              (.setPreserveRatio preserveratio))]
@@ -1183,8 +1136,7 @@ and the body is called on 'changed'"
 
 
 (defn ^Stage stage [& args]
-    (let [
-          default-kwargs
+    (let [default-kwargs
           {:style  :decorated
            :modality nil
            :title  "Untitled stage"
@@ -1243,14 +1195,12 @@ and the body is called on 'changed'"
 
 
 (defn filechooser-filters-clj [] 
-  [
-   (filechooserfilter "Clojure Files" "*.clj")
+  [(filechooserfilter "Clojure Files" "*.clj")
    (filechooserfilter "All Files"   "*.*")])
 
 
 (defn filechooser-filters-png [] 
-  [
-   (filechooserfilter "PNG files" "*.png")
+  [(filechooserfilter "PNG files" "*.png")
    (filechooserfilter "All Files"   "*.*")])
 
 
@@ -1259,9 +1209,7 @@ and the body is called on 'changed'"
 
 
 (def clipboard
-  (memoize
-    (fn[]
-      (now (Clipboard/getSystemClipboard)))))
+  (memoize #(now (Clipboard/getSystemClipboard))))
 
 
 (defn clipboard-str []
@@ -1401,17 +1349,3 @@ Example of codes-map:
                 (if (instance? EventHandler v)
                     (.handle v event)
                     (v))))))
-
-
-;(defn ^Callback callback [f]
-;  (reify Callback
-;    (call [_ param]
-;      (f param))))
-
-
-;(defn listcell 
-;  [f]
-;  (proxy [ListCell] []
-;    (updateItem [item is-empty]
-;      (proxy-super updateItem item is-empty)
-;      (f this item is-empty))))

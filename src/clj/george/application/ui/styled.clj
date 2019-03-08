@@ -7,10 +7,9 @@
   (:require
     [george.javafx :as fx]
     [clojure.java.browse :refer [browse-url]]
-    [common.george.util.cli :refer [debug]])
+    [common.george.util.cli :refer [debug repl?]])
   (:import
     [javafx.scene.paint Color]
-    [javafx.scene Scene]
     [javafx.stage Stage]
     [javafx.scene.image Image]
     [javafx.scene.control Hyperlink ProgressIndicator]
@@ -22,7 +21,7 @@
                 :style "-fx-font: 14 'Source Code Pro'; -fx-text-fill: gray; -fx-padding: 3;"))
 
 (defn small-button [& args]
-  (apply fx/button (concat args [:style "-fx-font-size: 12;-fx-padding: 3 6;"])))
+  (apply fx/new-button (concat args (list :style "-fx-font-size: 12;-fx-padding: 3 6;"))))
 
 
 (defn new-heading [s & {:keys [size] :or {size 16}}]
@@ -42,8 +41,8 @@
     :alignment fx/Pos_CENTER))
 
 
-(defn padding [h]
-  (fx/line :x2 h :y2 h :color Color/TRANSPARENT))
+(defn padding [h & [w]]
+  (fx/line :x2 (or w h) :y2 h :color Color/TRANSPARENT))
 
 
 (defn hr [w]
@@ -54,12 +53,6 @@
   (fx/new-border Color/GAINSBORO w-or-trbl))
 
 
-(defn skin-scene [^Scene scene]
-  (fx/clear-stylesheets scene)
-  (fx/set-Modena)  ;; This should clear the StyleManager's "cache" so everything is reloaded.
-  (fx/add-stylesheets scene "styles/application.css"))
-
-
 (defn add-icon [^Stage stage]
   (let [images (map #(Image. (str "graphics/George_icon_" % ".png"))
                     [16 32 64 128 256])]
@@ -68,10 +61,16 @@
     stage))
 
 
+(defn skin-application [scene-or-parent & [refresh?]]
+  (doto scene-or-parent
+    (fx/add-stylesheet "styles/application.css" refresh? 2000)))
+
+
 (defn style-stage [^Stage stage]
-  (doto stage
-        add-icon
-        (-> .getScene skin-scene)))
+  (fx/now
+    (doto stage
+          add-icon
+          (-> .getScene (skin-application (repl?))))))
 
 
 (def LINK_COLOR "#337ab7")

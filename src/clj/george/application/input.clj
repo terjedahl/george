@@ -92,12 +92,11 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" (pl/shortcu
 
 
 (defn run-button [& [clearable?]]
-  (fx/button "Run" :width 130 :tooltip (run-tooltip clearable?)))
+  (fx/new-button "Run" :pref-WH [130 nil] :tooltip (run-tooltip clearable?)))
 
 
 (defn interrupt-button []
-  (doto
-    (fx/button "X" :width 30 :tooltip "Interrupt current 'Run'")
+  (doto (fx/new-button "X" :pref-WH [30 nil] :tooltip "Interrupt current 'Run'")
     (.setDisable true)))
 
 
@@ -266,16 +265,17 @@ Next global history.  SHIFT-CLICK")
           (.setFocusTraversable false))
 
         create-button
-        (doto
-          (fx/button "+" :tooltip "New Input editor" :onaction #(create listview ns))
-          (.setFocusTraversable false))
+        (doto (fx/new-button "+"
+                             :tooltip "New Input editor"
+                             :onaction #(create listview ns)
+                             :focusable? false))
 
         remove-button
-        (doto
-          (fx/button "-" :tooltip "Delete selected Input editor"
-                         :onaction #(when-let [item (-> listview .getSelectionModel .getSelectedItem)]
-                                      ((:onclosed item)) (-> listview .getItems (.remove item))))
-          (.setFocusTraversable false))
+        (doto (fx/new-button "-"
+                             :tooltip "Delete selected Input editor"
+                             :onaction #(when-let [item (-> listview .getSelectionModel .getSelectedItem)]
+                                          ((:onclosed item)) (-> listview .getItems (.remove item)))
+                             :focusable? false))
 
         left
         (doto
@@ -306,7 +306,7 @@ Next global history.  SHIFT-CLICK")
     (doto (fx/stage
             :title "Inputs"
             :scene (doto (fx/scene (new-input-root  :ns ns) :size [600 300])
-                     (fx/add-stylesheets "styles/codearea.css"))))))
+                     (fx/add-stylesheet "styles/codearea.css"))))))
 
 
 ;;; DEV ;;;

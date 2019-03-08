@@ -62,3 +62,7 @@
   [& args]
   (apply errln (cons "[ERROR]" args))
   (exit -1))
+
+
+(defn repl? []
+  (env :repl?))

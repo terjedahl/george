@@ -292,12 +292,11 @@
 
         clear-button
         (doto
-          (fx/button
-            "Clear"
-            :onaction #(do (ca/set-text codearea "") 
-                           (swap! gutter-types assoc :prevs [] :curr nil)
-                           (.setParagraphGraphicFactory codearea (gutter-factory)))
-            :tooltip "Clear output")
+          (fx/new-button "Clear"
+                         :tooltip "Clear output"
+                         :onaction #(do (ca/set-text codearea "")
+                                        (swap! gutter-types assoc :prevs [] :curr nil)
+                                        (.setParagraphGraphicFactory codearea (gutter-factory))))
           (fx/add-class "g-small-button"))
 
         top

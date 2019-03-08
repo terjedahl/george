@@ -17,14 +17,14 @@ Tutorial:
    -anthrecite: #2b292e;
    -anthrecite-ish:#3b3248; /* slightly more purple */
    -light-border: GAINSBORO;
-   
+   -g-background-color: derive(WHITESMOKE, 20%);
 }
 
 .root {
     -fx-font-size: 11pt;
     -fx-font-family: "Roboto";
     -fx-text-base-color: -anthrecite-ish;
-    -fx-background-color: WHITESMOKE;
+    -fx-background-color: -g-background-color;
 }
 
 .tooltip {
@@ -65,7 +65,16 @@ https://stackoverflow.com/questions/30680570/javafx-button-border-and-hover#3068
     -fx-background-color: -fx-shadow-highlight-color, -fx-outer-border, -fx-inner-border, -fx-body-color;
 }  
 
-
+.g-launcher-button {
+    -fx-background-color: -g-background-color;
+    -fx-background-radius: 6;
+    -fx-border-color: gray;
+    -fx-border-width: 0.5;
+    -fx-border-radius: 6;
+}
+.g-launcher-button:hover {
+    -fx-background-color: derive(-g-background-color, -5%);
+}
 /*
 http://blog.ngopal.com.np/2012/07/11/customize-scrollbar-via-css/
 */

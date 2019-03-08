@@ -21,7 +21,7 @@
     [javafx.geometry Rectangle2D]
     [javafx.stage Stage WindowEvent]
     [javafx.application Platform]
-    [javafx.scene.control Button MenuItem ContextMenu]
+    [javafx.scene.control MenuItem ContextMenu]
     [javafx.beans.property SimpleDoubleProperty]
     [javafx.scene.layout Pane VBox]
     [javafx.scene.text TextAlignment]
@@ -34,9 +34,9 @@
 ;(set! *unchecked-math* true)
 
 
-(def tile-width 48)
-
-(def launcher-width (+ ^int tile-width 20))
+(def TILE_W 64)
+(def MARGIN 15)
+(def LAUNCHER_W (+ MARGIN TILE_W MARGIN))
 
 (def ABOUT_STAGE_KW ::about-stage)
 
@@ -154,7 +154,7 @@ Powered by open source software.")
   (let [vb ^Rectangle2D (.getVisualBounds (fx/primary-screen))]
     [(.getMinX vb)
      (.getMinY vb)
-     (+ (.getMinX vb) ^int launcher-width)
+     (+ (.getMinX vb) ^int LAUNCHER_W)
      (.getMaxY vb)]))
 
 
@@ -165,64 +165,53 @@ Powered by open source software.")
 
 (defn- applet-tile
   "Builds a 'tile' (a parent) containing a labeled button (for the launcher)."
-  [applet-info tile-width main-wrapper]
-  ;(println app-info)
-  ;(pprint app-info)
-  ;(println ":icon-fn:" (:icon-fn app-info) (type (:icon-fn app-info)))
-  (let [
-        {:keys [label description icon main dispose]} applet-info
-        arc 6
-        label-font-size 10
-        button-width (- ^int tile-width (* 2 arc))
-        icon-width button-width
+  [applet-info main-wrapper]
+  (let [{:keys [label description icon main dispose]} applet-info
+
+        icon-width (- TILE_W 12)
+
         dispose-fn
         (fn []
           (main-wrapper
             #(let [res (dispose)]
-               (if (fx/node? res)
-                   res
-                   (styled/new-heading (format "'%s' unloaded" (label)))))))
+               (if (fx/node? res) res (styled/new-heading (format "'%s' unloaded" (label)))))))
 
         load-fn
         (fn []
-          (future ;; avoid lag in button
-            (fx/later (main-wrapper #(styled/scrolling-widget (format "Loading %s ..." (label)))))
-            (Thread/sleep 200)  ;; enough time that the scroller will appear
-            (fx/later (main-wrapper main))))
+          (fx/future-later ;; avoid lag in button
+            (main-wrapper
+              #(styled/scrolling-widget (format "Loading %s ..." (label)) true))
+            (fx/future-sleep-later 50 ;; enough time that the scroller will render
+              (main-wrapper main))))]
 
-        tile
-        (fx/vbox
+    (fx/vbox
+      (doto
+        (fx/new-button nil
+           :graphic (icon icon-width icon-width)
+           :tooltip (description)
+           :onaction load-fn
+           ;:style (format "-fx-background-radius: %s;" arc)
+           :focusable? false
+           :all-WH [TILE_W TILE_W])
+        (fx/add-class "g-launcher-button")
+        (.setContextMenu
+          (ContextMenu. (into-array (list (doto (MenuItem. (format "Dispose of '%s'" (label)))
+                                                (fx/set-onaction dispose-fn)))))))
 
-          (doto (Button. nil (icon icon-width icon-width))
-            (fx/set-tooltip (description))
-            (fx/set-onaction load-fn)
-            (.setPrefWidth button-width)
-            (.setPrefHeight button-width)
-            (.setStyle (format "-fx-background-radius: %s;" arc))
-            (.setFocusTraversable false)
-            (.setContextMenu
-              (ContextMenu.
-                (into-array
-                  (list
-                    (doto (MenuItem. (format "Dispose of (quit) '%s'" (label)))
-                          (fx/set-onaction dispose-fn)))))))
-          (doto (fx/new-label (label)
-                              :size label-font-size)
-                (.setMaxWidth tile-width)
-                (.setWrapText true)
-                (.setTextAlignment TextAlignment/CENTER))
 
-          :alignment fx/Pos_CENTER
-          :spacing 5)]
-    tile))
+      (doto (fx/new-label (label) :size 11)
+        (.setMaxWidth TILE_W)
+        (.setWrapText true)
+        (.setTextAlignment TextAlignment/CENTER)
+        (.setAlignment fx/Pos_CENTER))
+      :spacing 5 :alignment fx/Pos_CENTER)))
 
 
 (defn- launcher-root
   "The Launcher root node.  Was previously the sole content of Launcher.
   Is now inserted as \"master\" in the master-detail setup of the application window."
   [detail-setter]  ;; a 1-arg fn. If arg is ^javafx.scene.Node, then that node gets set as "detail" in application window.
-  (let [
-        welcome-node
+  (let [welcome-node
         (styled/new-heading "Welcome to George" :size 24)
 
         main-wrapper ;; a function which calls the applet-fn, and passes the return-value to details-setter
@@ -230,56 +219,51 @@ Powered by open source software.")
 
         george-icon
         (fx/new-label nil 
-           :graphic (doto (fx/imageview "graphics/George_icon_128_round.png")
-                          (.setFitWidth tile-width)
-                          (.setFitHeight tile-width)) 
-           :tooltip  "\"home\""
-           :mouseclicked  #(detail-setter (styled/new-heading (c/this-app) :size 24)))
+           :graphic      (fx/imageview "graphics/George_icon_128.png" :width 64)
+           :tooltip      (c/this-app)
+           :mouseclicked #(detail-setter (styled/new-heading (c/this-app) :size 24)))
 
         about-label
-        (fx/new-label "About" 
-                      :size 11
-                      :mouseclicked about-stage
-                      :tooltip (format "Click to view or hide \"About %s\"" (c/this-app)))
+        (doto
+          (fx/new-label (first (george-version-ts))
+                        :size 11
+                        :color fx/THREES
+                        :style "-fx-padding: 2 5 2 5; -fx-background-color: WHITE;"
+                        :tooltip (format "Click to view or hide \"About %s\"" (c/this-app))
+                        :mouseclicked about-stage)
+          (fx/set-all-WH [TILE_W nil])
+          (.setAlignment fx/Pos_CENTER)
+          (.setBorder (fx/new-border fx/THREES 1.5 4)))
 
         applet-infos
         (applet/load-applets)
 
-        applet-tiles-and-paddings
-        (flatten
-          (map #(vector
-                  (padding 20)
-                  (applet-tile % tile-width main-wrapper))
-               applet-infos))
+        tiles
+        (interpose
+          (padding  MARGIN)
+          (map #(applet-tile % main-wrapper) applet-infos))
 
         root ^VBox
         (apply fx/vbox
                (concat
-                 [
-                  (padding 10)
-                  george-icon
-                  (padding 10)
-                  (hr launcher-width)]
-
-                 applet-tiles-and-paddings
-
-                 [
-                  (fx/region :vgrow :always)
-
-                  (hr launcher-width)
-                  (padding 5)
-                  about-label
-                  (padding 5)
-                  :padding 5
-                  :alignment fx/Pos_TOP_CENTER]))
+                 (list
+                   (padding MARGIN LAUNCHER_W)
+                   george-icon
+                   (padding (* 2 MARGIN)))
+                 tiles
+                 (list
+                   (fx/region :vgrow :always)
+                   (padding (* 2 MARGIN))
+                   about-label
+                   (padding MARGIN)
+                   :alignment fx/Pos_TOP_CENTER)))
 
         dispose-fn
         #(doseq [applet applet-infos]
-           (try ((:dispose applet))
-                (catch Exception _ nil)))]
+           (try ((:dispose applet)) (catch Exception _ nil)))]
 
     (doto root
-      (.setMaxWidth launcher-width)
+      (.setMaxWidth LAUNCHER_W)
       (.setMaxHeight (launcher-height)))
 
     (detail-setter welcome-node)
@@ -377,8 +361,7 @@ Powered by open source software.")
       (.toFront))))
 
 
-(defn application-root
-  []
+(defn application-root []
   (let [[master-detail-root master-setter detail-setter] (layout/master-detail)
         [l-root dispose-fn] (launcher-root detail-setter)]
     (core/init-state)

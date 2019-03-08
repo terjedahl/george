@@ -514,7 +514,7 @@ It there a need / purpose for for this, though, as long as whatever data they ar
              (-> monitors-vbox .getScene .getWindow .sizeToScene))
 
         refresh-button
-        (fx/button "Refresh" :onaction refresh-button-action)
+        (fx/new-button "Refresh" :onaction refresh-button-action)
 
         top
         (fx/hbox refresh-button)
