@@ -38,7 +38,11 @@
                         [zcaudate/hara.common.watch "2.8.7"]
                         [zcaudate/hara.io.watch "2.8.7"]
                         ;; https://github.com/terjedahl/junique
-                        [it.sauronsoftware/junique "1.0.4"]]
+                        [it.sauronsoftware/junique "1.0.4"]
+                        ;; https://github.com/aalmiray/ikonli
+                        [org.kordamp.ikonli/ikonli-javafx "11.1.0"]
+                        ;; https://fontawesome.com/
+                        [org.kordamp.ikonli/ikonli-fontawesome5-pack "11.1.0"]]
 
   :jar-exclusions      [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
 

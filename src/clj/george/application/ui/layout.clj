@@ -51,8 +51,8 @@
     (apply fx/hbox
            (concat items
                    [:spacing 3
-                    :insets (if top? [0 0 5 0] [5 0 0 0])
                     :padding 5
                     :alignment fx/Pos_TOP_LEFT]))
                     ;:background fx/GREEN]))
+    (fx/set-borderpane-insets      (if top? [0 0 5 0] [5 0 0 0]))
     (.setBorder (styled/new-border (if top? [0 0 1 0] [1 0 0 0])))))

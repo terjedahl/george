@@ -51,8 +51,8 @@
       ;; else
       (except "ERROR: The applet's 'info' function could not be resolved!"))
     (catch Exception e
-      (warn (format "Loading namespace '%s' failed!" applet-ns))
-      (debug e))))
+      (warn (format "Loading namespace '%s' failed!" applet-ns)))))
+      ;(debug e))))
 
 ;; The whole dynamic loading from classpath was cool,
 ;; but we will abandon this mechanism as it gets waaaay more complicated with Java 9/10.
@@ -60,7 +60,8 @@
 ;; Perhaps even combine it with clojure.deps ...?
 ;; TODO: Migrate this to a simple static basefile, for now.
 (def applet-ns-list 
-  ['george.applet.turtle-ide 
+  ['george.applet.turtle-ide
+   'george.projects.applet
    'arm-spraklab.george.applet.spraklab])
 
 

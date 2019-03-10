@@ -186,18 +186,18 @@
         ch))
 
 
-(defn- read-char [rdr]
+(defn read-char [rdr]
     (let [c (.read rdr)]
         (when (>= c 0)
             (normalize-newline rdr (char c)))))
 
 
-(defn- unread-char [rdr c]
+(defn unread-char [rdr c]
     (when c
         (.unread rdr (int c))))
 
 
-(defn- peek-char [rdr]
+(defn peek-char [rdr]
     (when-let [c (read-char rdr)]
         (unread-char rdr c)
         c))

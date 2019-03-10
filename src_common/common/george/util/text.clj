@@ -37,7 +37,37 @@
   (identical? \tab ch))
 
 
+(defn whitespace-char? [ch]
+  (or (space-char? ch)
+      (newline-char? ch)
+      (formfeed-char? ch)
+      (tab-char? ch)
+      (return-char? ch)))
+
+
+(def readermacro-chars #{\#})
+
+
+(def macro-chars #{\' \^ \@ \` \~})
+
+
 (def coll-delim-chars #{\{ \[ \( \) \] \}})
+
+
+(defn readermacro-char? [ch]
+  (readermacro-chars ch))
+
+
+(defn macro-char? [ch]
+  (macro-chars ch))
+
+
+(defn comment-char? [ch]
+  (= ch \;))
+
+
+(defn string-delim-char? [ch]
+  (= ch \"))
 
 
 (defn coll-delim-char? [ch]

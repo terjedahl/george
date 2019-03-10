@@ -209,7 +209,7 @@ Next global history.  SHIFT-CLICK")
 
         border-pane
         (fx/borderpane
-          :center editor :bottom bottom :insets [5 2 0 0])
+          :center editor :bottom bottom :padding [5 2 0 0])
 
         get-code-fn
         #(ed/text editor)

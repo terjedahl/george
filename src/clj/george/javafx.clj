@@ -30,7 +30,7 @@
     [javafx.scene.layout
      BorderPane HBox Priority Region StackPane VBox
      Border
-     BorderStroke BorderStrokeStyle CornerRadii BorderWidths Background BackgroundFill GridPane Pane]
+     BorderStroke BorderStrokeStyle CornerRadii BorderWidths Background BackgroundFill GridPane Pane FlowPane]
     [javafx.scene.paint Color Paint]
     [javafx.scene.text Font Text FontPosture FontWeight]
     [javafx.scene.shape Line Rectangle Polygon StrokeLineCap]
@@ -41,7 +41,8 @@
     [javafx.fxml FXMLLoader]
     [javafx.beans Observable]
     [java.awt SplashScreen]
-    [javafx.embed.swing JFXPanel]))
+    [javafx.embed.swing JFXPanel]
+    [org.kordamp.ikonli.javafx FontIcon]))
 
 
 "
@@ -575,6 +576,7 @@ and the body is called on 'changed'"
     ["Julia", "Ian", "Sue", "Matthew", "Hannah", "Stephan", "Denise"])
 
 
+; ^ListView  ;; DON'T TYPE. It touches JavaFX!
 (defn listview
  ([]
   (listview (apply observablearraylist (names-list))))
@@ -740,7 +742,7 @@ and the body is called on 'changed'"
 
 ; ^Button  ;; DON'T TYPE. It touches JavaFX!
 (defn new-button [s & {:keys [graphic onaction pref-WH all-WH tooltip style focusable?]}]
-    (let [b (Button. s graphic)]
+    (let [b (if graphic (Button. s graphic) (Button. s))]
       (when pref-WH   (set-pref-WH b pref-WH))
       (when all-WH   (set-all-WH b all-WH))
       (when onaction (set-onaction b onaction))
@@ -799,12 +801,14 @@ and the body is called on 'changed'"
 
 
 (defn textfield
-  [& {:keys [text font prompt]
+  [& {:keys [text font prompt cols]
       :or {text ""
            prompt ""
-           font nil}}]
+           font nil
+           cols nil}}]
   (let [tf (doto (TextField. text) (.setPromptText prompt))]
-    ;(when font (.setFont ta font))
+    (when font (.setFont tf font))
+    (when cols (.setPrefColumnCount tf cols))
     tf))
 
 
@@ -818,12 +822,14 @@ and the body is called on 'changed'"
       ta))
 
 
-(defn text [s & {:keys [font size color]
-                   :or {size  12
-                        color Color/BLACK}}]
-  (doto (Text. s)
+(defn text [txt & {:keys [font size color width]
+                     :or {size  12
+                          color Color/BLACK
+                          width 0}}]
+  (doto (Text. txt)
     (.setFill color)
-    (set-font (or font (new-font size)))))
+    (set-font (or font (new-font size)))
+    (.setWrappingWidth width)))
 
 
 ; ^Label  ;; DON'T TYPE. It touches JavaFX!
@@ -844,10 +850,24 @@ and the body is called on 'changed'"
      (Insets. top right bottom left)))
 
 
+(defn set-borderpane-insets [node inset-vector]
+  (BorderPane/setMargin node (insets inset-vector))
+  node)
+
+
+(defn set-stackpane-alignment [node pos]
+  (StackPane/setAlignment node pos)
+  node)
+
+
+(defn set-stackpane-insets [node inset-vector]
+  (StackPane/setMargin node (insets inset-vector))
+  node)
+
+
 (defn set-padding
     ([pane v]
-     (.setPadding pane (insets v))
-     pane)
+     (set-padding pane v v v v))
     ([pane t r b l]
      (.setPadding pane (insets t r b l))
      pane))
@@ -867,10 +887,10 @@ and the body is called on 'changed'"
     (let [[nodes kwargs] (u/partition-args
                              (filter some? args) 
                              {:spacing 0
-                              :insets 0
                               :padding 0
                               :alignment nil
-                              :background nil})
+                              :background nil
+                              :fill? true}) ;; fill? indicates whether nodes should "fill" width/height
           
           padding (:padding kwargs) 
       
@@ -878,17 +898,18 @@ and the body is called on 'changed'"
                 (VBox. (:spacing kwargs) (into-array Node nodes))
                 (HBox. (:spacing kwargs) (into-array Node nodes)))]
           
-      (doto box
-          (BorderPane/setMargin (insets (:insets kwargs)))
-          (set-alignment  (:alignment kwargs)))
-      
+      (set-alignment box (:alignment kwargs))
+
       (if (number? padding)
           (set-padding box padding)
           (apply set-padding (cons box padding)))      
 
       (when-let [b (:background kwargs)]
         (set-background box b))
-      
+
+      (when-not (:fill? kwargs)
+        (if vertical? (.setFillWidth box false) (.setFillHeight box false)))
+
       box))
 
 
@@ -900,19 +921,48 @@ and the body is called on 'changed'"
     (apply box (cons true args)))
 
 
-(defn ^BorderPane borderpane
-    "args:  & :center :top :right :bottom :left :insets"
-    [ & args]
+(defn flowpane [& args]
+  (let [[nodes kwargs] (u/partition-args
+                             (filter some? args)
+                             {:vertical? false
+                              :spacing 0
+                              :padding 0
+                              :wrap-length nil})
+        spacing (:spacing kwargs)
+        padding (:padding kwargs)
+
+        pane
+        (FlowPane.
+          (if (:vertical? kwargs) Orientation/VERTICAL Orientation/HORIZONTAL)
+          ^double spacing
+          ^double spacing
+          (into-array Node nodes))]
+
+    (if (number? padding)
+        (set-padding pane padding)
+        (apply set-padding (cons pane padding)))
+
+    (when-let [l (:wrap-length kwargs)]
+      (.setPrefWrapLength pane l))
+
+    pane))
+
+
+(defn ^BorderPane borderpane [ & args]
     (let [
           default-kwargs
           {:center nil :top nil :right nil :bottom nil :left nil
-           :insets 0}
-          [_ kwargs] (u/partition-args args default-kwargs)]
+           :padding 0}
+          [_ kwargs] (u/partition-args args default-kwargs)
+          padding        (:padding kwargs)
+          pane
+          (BorderPane. (:center kwargs) (:top kwargs) (:right kwargs) (:bottom kwargs) (:left kwargs))]
 
-      (doto
-          (BorderPane. (:center kwargs)
-                       (:top kwargs) (:right kwargs) (:bottom kwargs) (:left kwargs))
-          (.setPadding (insets (:insets kwargs))))))
+      (if (number? padding)
+          (set-padding pane padding)
+          (apply set-padding (cons pane padding)))
+
+      pane))
 
 
 (defn ^Scene scene [root & args]
@@ -1349,3 +1399,11 @@ Example of codes-map:
                 (if (instance? EventHandler v)
                     (.handle v event)
                     (v))))))
+
+(defn icon
+  ;; Usage: http://aalmiray.github.io/ikonli/#_javafx
+  ;; Cheatsheet: http://aalmiray.github.io/ikonli/cheat-sheet-fontawesome5.html
+  ;; FontAwesome: https://fontawesome.com
+  ;; Examples (fx/icon 'di-java) (fx/icon "di-java") (fx/icon 'di-java:32) (fx/icon 'di-java:64:BLUE)
+  [icon-code]
+  (FontIcon. (str icon-code)))

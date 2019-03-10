@@ -1,0 +1,35 @@
+* {
+    -g-whiteish: derive(WHITESMOKE, 20%);
+}
+
+
+.root {
+    -fx-background-color: -g-whiteish;
+}
+
+
+.projects-index-listview {
+    -fx-background-color: -g-whiteish;
+/*    -fx-background-insets: 1 0 1 1;  */
+    -fx-background-insets: 1 1 1 1;
+}
+
+
+.projects-scrollpane {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.projects-scrollpane > .viewport {
+    -fx-background: -g-whiteish;
+}
+
+
+.projects-index-listcell {
+    -fx-background-color: -g-whiteish;
+}
+.projects-index-listcell:filled:selected {
+    -fx-background-color: derive(LIGHTSTEELBLUE, 70%);
+}
+.projects-index-listcell:filled:hover {
+    -fx-background-color: derive(LIGHTSTEELBLUE, 60%);
+}

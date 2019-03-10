@@ -180,7 +180,7 @@
   (filename [f]           (.getName f))
   (size [f]               (size (to-path f)))
   (checksum [f]           (checksum (to-path f)))
-  (dir? [f]               (.isDirectory f))
+  (dir? [f]               (-> f .getCanonicalFile .isDirectory))
   (exists? [f]            (.exists f))
   (hidden? [f]            (.isHidden f))
   (same [f1 f2]           (zero? (.compareTo f1 f2)))
