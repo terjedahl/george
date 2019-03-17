@@ -122,8 +122,9 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 "
 
 
-(set! *warn-on-reflection* true)
-(set! *unchecked-math* :warn-on-boxed)
+;(set! *warn-on-reflection* true)
+;(set! *unchecked-math* :warn-on-boxed)
+;(set! *unchecked-math* true)
 
 
 (declare
@@ -233,6 +234,10 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 
 (defn flip-Y-XYWH [[x y w h]]
   [x (- ^double y) w h])
+
+
+(defn inverse-Y-XYWH [[x y w h]]
+  [x (- 1 ^double y) w h])
 
 
 (defn get-root
@@ -570,6 +575,14 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
 (defonce speed-nil-warned_ (atom false))
 
 
+(defn- snap "Snaps value to nearest whole (pixel)" [^double n]
+  (Math/round n))
+
+
+(defn- snap5 "Snaps to nearest half-pixel, counter to standard, to avoid aliasing across 2 pixels" [n]
+  (+ ^double (snap n) 0.5))
+
+
 (defn- move-to-impl
   "Implements move-to. This avoids revealing the optional parameters to the user in documentation."
  ([turtle [x y] & [prev-state res-nodes]]
@@ -608,11 +621,22 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
         c (get-color turtle)
         w (get-width turtle)
         r (is-round turtle)
+
+        ;; The line should be "snapped", but not the turtle's actual location
+        one? (= w 1)
+        straight-angle? (zero? ^double (mod (get-heading) 90))
+        snap? (and one? straight-angle?)
+        ^double start-x* (if snap? (snap5 start-x) start-x)
+        ^double start-y* (if snap? (snap5 start-y) start-y)
+        ^double stop-x*  (if snap? (snap5 stop-x) stop-x)
+        ^double stop-y*  (if snap? (snap5 stop-y) stop-y)
+
         node ^Group (:group @turtle)
         parent ^Group (.getParent node)
         line 
         (when (and (is-down turtle) c w)
-          (fx/line :x1 start-x :y1  (- start-y)
+          (fx/line :x1 start-x*
+                   :y1 (- start-y*)
                    :width w
                    :color (aux/to-color c)
                    :round r))
@@ -663,9 +687,9 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
               duration
               #(deliver timeline-synchronizer :done)
               [(.translateXProperty node) stop-x]
-              [(.translateYProperty node) (-  stop-y)]
-              (when line [(.endXProperty ^Line line) stop-x])
-              (when line [(.endYProperty ^Line line) (- stop-y)]))))
+              [(.translateYProperty node) (- stop-y)]
+              (when line [(.endXProperty ^Line line) stop-x*])
+              (when line [(.endYProperty ^Line line) (- stop-y*)]))))
         @timeline-synchronizer)  ;; we wait here til the timeline is done
     
       (fx/now
@@ -674,8 +698,8 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
           (.setTranslateY (- stop-y)))
         (when line
           (doto ^Line line
-            (.setEndX stop-x)
-            (.setEndY (- stop-y))))))
+            (.setEndX stop-x*)
+            (.setEndY (- stop-y*))))))
       
     (log-position-maybe turtle [stop-x stop-y])
     
@@ -688,7 +712,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
           (recur turtle new-target-pos [prev-state res-nodes1]))
         (do
           (append-undo-maybe turtle prev-state res-nodes1)
-          (append-grouped-maybe res-nodes1))))))        
+          (append-grouped-maybe res-nodes1))))))
 
 
 (defn move-to
@@ -2165,9 +2189,8 @@ There are a number of optional ways to set font:
     (let [b (.getBoundsInParent n)]
       [(.getMinX b) (.getMinY b) (.getWidth b) (.getHeight b)]))
   (XYWH [n]
-    (let [b (.getBoundsInParent n)]
-      [(.getMinX b) (.getMaxY b) (.getWidth b) (.getHeight b)])))
-  
+    (inverse-Y-XYWH (XYWH* n))))
+
 
 (defn XYXY->XYWH [[^double x1 ^double y1 ^double x2 ^double y2]]
   [x1 y1 (- x2 x1) (- y2 y1)])
@@ -2314,7 +2337,11 @@ There are a number of optional ways to set font:
   (clear keep-1-turtle?)
   (when keep-1-turtle?
     (reset-turtle (turtle)))
-  (set-background :default)  (reset-onkey) (set-fence :default) (set-screen-onclick nil)
+  (set-background :default)
+  (set-axis-visible false)
+  (reset-onkey)
+  (set-fence :default)
+  (set-screen-onclick nil)
   (reset! speed-nil-warned_ false)
 
   nil))
@@ -2835,9 +2862,7 @@ See topic [Clojure](:Clojure) for more information."
 
 
 (defn is-shapes [shapes]
-  (and (sequential? shapes)
-       (every? is-node shapes)
-       (every? is-node shapes)))
+  (and (sequential? shapes) (every? is-node shapes)))
 
 
 (defn to-group
@@ -2906,7 +2931,7 @@ See topic [Clojure](:Clojure) for more information."
 "
   [node-or-shapes]
   (cond 
-    (is-node node-or-shapes)   (do (XYWH node-or-shapes))
+    (is-node node-or-shapes)   (XYWH node-or-shapes)
     (is-shapes node-or-shapes) (XYXY->XYWH (union-XYXY node-or-shapes))))
 
 
@@ -2925,16 +2950,13 @@ See topic [Clojure](:Clojure) for more information."
  ([node-or-shapes [xc yc :as center] [^double x ^double y ^double w ^double h :as bounds]]
   (assert (every? number? [x y w h]) (format "'bounds' malformed or missing. Got '%s'" bounds))
   (when center (assert (every? number? [xc yc]) (format "'center' malformed. Got '%s'" center)))
-  (let [[^double xc ^double yc :as center]
-        (if center center [(/ w 2) (/ h 2)])]
-      (if (is-node node-or-shapes)
-        (do
-          (fx/set-translate-XY node-or-shapes [(- (- xc) x) 
-                                               (- yc (- y))])
-          node-or-shapes)
-        (doseq [shape node-or-shapes]
-          (set-center shape center bounds))))))
-
+  (let [[^double xc ^double yc :as center1] (if center center [(/ w 2.) (/ h 2.)])]
+    (if (is-node node-or-shapes)
+      (fx/set-translate-XY node-or-shapes [(- (- xc) x)
+                                           (- yc (- y))])
+      (doseq [shape node-or-shapes]
+        (set-center shape center1 bounds)))
+    node-or-shapes)))
 
 
 ;(defn grouped-test []

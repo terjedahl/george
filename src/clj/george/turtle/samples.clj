@@ -550,7 +550,7 @@
     (+ 
       (* 
         (if at-start? index (- tot index))
-        SIZE)
+        (inc SIZE))  ;; inc allows space for 1px edge
       HALF)))
 
 
@@ -581,12 +581,11 @@
     (with-turtle turt
       (set-position [xp (+ (offset true) yp)])
       (let [circ (shapes (filled turt (arc-right HALF 360)))]
+        (set-shape circ)
         (set-center circ)
-        (with-turtle turt
-          (set-shape circ)
-          (set-speed 1)
-          (set-down false)
-          (set-onclick #(with-turtle turt  (run-rail path-fn))))))
+        (set-speed 1)
+        (set-down false)
+        (set-onclick #(with-turtle turt  (run-rail path-fn)))))
     turt))
       
 

@@ -11,7 +11,7 @@
     [george.util :as u])
   (:import
     [javafx.animation Timeline KeyFrame KeyValue]
-    [javafx.application Application Platform]
+    [javafx.application Platform]
     [javafx.beans.value ChangeListener WritableValue]
     [javafx.collections FXCollections ObservableList ListChangeListener]
     [javafx.event EventHandler]
@@ -33,7 +33,7 @@
      BorderStroke BorderStrokeStyle CornerRadii BorderWidths Background BackgroundFill GridPane Pane FlowPane]
     [javafx.scene.paint Color Paint]
     [javafx.scene.text Font Text FontPosture FontWeight]
-    [javafx.scene.shape Line Rectangle Polygon StrokeLineCap]
+    [javafx.scene.shape Line Rectangle Polygon StrokeLineCap StrokeType]
     [javafx.stage FileChooser FileChooser$ExtensionFilter Screen Stage StageStyle Modality]
     [javafx.util Duration]
     [java.util Collection Optional List]
@@ -71,6 +71,8 @@ The includes (but is not limited to):
 
 
 ;(set! *warn-on-reflection* true)
+;(set! *unchecked-math* :warn-on-boxed)
+;(set! *unchecked-math* true)
 
 
 (defn set-implicit-exit [& [b]]
@@ -181,7 +183,8 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 
 
 (defn ^Background color-background [^Paint color & [rad insets]]
-    (Background. (into-array (list (BackgroundFill. color (corner-radii rad) insets)))))
+    (Background. ^"[Ljavafx.scene.layout.BackgroundFill;"
+                 (into-array (list (BackgroundFill. color (corner-radii rad) insets)))))
 
 
 (defn set-background [^Region r paint-or-background]
@@ -376,7 +379,7 @@ and the body is called on 'changed'"
     ([color width]
      (new-border color width 0.))
     ([color width rad]
-     (Border.
+     (Border. ^"[Ljavafx.scene.layout.BorderStroke;"
        (into-array
          (list
            (BorderStroke. color
@@ -499,7 +502,7 @@ and the body is called on 'changed'"
 (defn ^Timeline timeline
     "creates a timeline of instances of KeyFrame"
     [onfinished-fn & KeyFrames]
-    (let [t (Timeline. (into-array KeyFrames))]
+    (let [t (Timeline. ^"[Ljavafx.animation.KeyFrame;" (into-array KeyFrames))]
       (when onfinished-fn
             (.setOnFinished t  (new-eventhandler (onfinished-fn))))
       t))
@@ -651,25 +654,31 @@ and the body is called on 'changed'"
 
 
 (defn ^Group group [& nodes]
-     (Group. (into-array Node nodes)))
+     (Group. ^"[Ljavafx.scene.Node;" (into-array Node nodes)))
 
 
 (defn ^Pane pane [& nodes]
    (Pane. (into-array Node nodes)))
 
 
-(defn ^Line line [& {:keys [x1 y1 x2 y2 color width smooth round]
+(defn ^Line line [& {:keys [x1 y1 x2 y2 color width stroketype smooth round]
                      :or   {x1 0 y1 0
-                            x2 x1 y2 y1
+                            ;x2 x1 y2 y1
                             color Color/BLACK
                             width 1
+                            stroketype :centered
                             smooth true
                             round false}}]
-    (doto (Line. x1 y1 x2 y2)
+    (doto (Line. x1 y1 (or x2 x1) (or y2 y1))
       (.setStroke color)
       (.setStrokeWidth width)
       (.setSmooth smooth)
-      (.setStrokeLineCap (if round StrokeLineCap/ROUND StrokeLineCap/SQUARE))))
+      (.setStrokeLineCap (if round StrokeLineCap/ROUND StrokeLineCap/SQUARE))
+      (.setStrokeType
+        (condp = stroketype
+          :outside StrokeType/OUTSIDE
+          :inside StrokeType/INSIDE
+          StrokeType/CENTERED))))
 
 
 (defn set-stroke
@@ -1111,7 +1120,7 @@ and the body is called on 'changed'"
   "returns [x y] for center of primary screen"
   []
   (let [[w h] (primary-WH)]
-    [(/ w 2) (/ h 2)]))
+    [(/ ^double w 2.) (/ ^double h 2.)]))
 
 
 (defn ^ImageView imageview [image-or-rsc-str & {:keys [width height preserveratio smooth]
@@ -1163,17 +1172,17 @@ and the body is called on 'changed'"
         (mods :none)))))
 
 
-(defn ^Stage setoncloserequest [stage fn-or-handler]
+(defn ^Stage setoncloserequest [^Stage stage fn-or-handler]
     (.setOnCloseRequest stage (ensured-handler fn-or-handler))
     stage)
 
 
-(defn ^Stage setonhiding [stage fn-or-handler]
+(defn ^Stage setonhiding [^Stage stage fn-or-handler]
     (.setOnHiding stage (ensured-handler fn-or-handler))
     stage)
 
 
-(defn ^Stage setonhidden [stage fn-or-handler]
+(defn ^Stage setonhidden [^Stage stage fn-or-handler]
     (.setOnHidden stage (ensured-handler fn-or-handler))
     stage)
 
@@ -1240,8 +1249,10 @@ and the body is called on 'changed'"
         stg)))
 
 
-(defn filechooserfilter [description & extensions]
-    (FileChooser$ExtensionFilter. description (into-array extensions)))
+(defn filechooserfilter [^String description & extensions]
+    (FileChooser$ExtensionFilter.
+      description
+      ^"[Ljava.lang.String;" (into-array extensions)))
 
 
 (defn filechooser-filters-clj [] 
@@ -1358,7 +1369,7 @@ Example of codes-map:
               
               do-handle
               #(if (instance? EventHandler %)
-                   (.handle % event)
+                   (.handle ^EventHandler % event)
                    (do (%) (.consume event)))
               
               codes-map1 
@@ -1397,7 +1408,7 @@ Example of codes-map:
               chars-map1 (if (instance? Atom chars-map) @chars-map chars-map)]
           (when-let [v  (chars-map1 ch-str)]
                 (if (instance? EventHandler v)
-                    (.handle v event)
+                    (.handle ^EventHandler v event)
                     (v))))))
 
 (defn icon
