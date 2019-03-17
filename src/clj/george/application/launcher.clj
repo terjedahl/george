@@ -239,8 +239,8 @@ Powered by open source software.")
         (applet/load-applets)
 
         tiles
-        (interpose
-          (padding  MARGIN)
+        (interleave
+          (repeatedly #(padding MARGIN))
           (map #(applet-tile % main-wrapper) applet-infos))
 
         root ^VBox
