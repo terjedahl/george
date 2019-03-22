@@ -90,7 +90,7 @@
 
 
 (defn- codearea [& [s]]
-  (doto (InlineCssTextArea. ^String (or s ""))
+  (doto (if s (InlineCssTextArea. ^String s) (InlineCssTextArea.))
     (.setStyle "-fx-font-size: 18; -fx-font-family: 'Source Code Pro'; -fx-padding: 5;")
     ;(.setEditable false)
     ;; Prevent copying!
@@ -181,49 +181,106 @@
 
 
 (defn- split-lines [s]
-  (->>
+  (if (cs/blank? s)
+    '()
     (cs/split s #"\r?\n" -1)))
-    ;(map #(str % ""))))
 
 
-(defn- diff-patch-textarea [^InlineCssTextArea ca a b]
-  (let [ap (split-lines a) ;(parse a)
+(defn not-edit? [[_ typ _]]
+  (= := typ))
+
+
+(def collapsed [0 :collapsed ""])
+
+
+(defn- collapse-lines [lines]
+  (loop [lines0 lines lines1 '()]
+    (if (empty? lines0)
+      lines1
+      (if (not-edit? (first lines0))
+        (let [taken (take-while not-edit? lines0)
+              after (drop-while not-edit? lines0)
+              first? (empty? lines1)
+              last? (= (count taken) (count lines0))
+              cnt   (count taken)
+              taken (if (> cnt 6)
+                      (concat
+                        (if first? '() (take 3 taken))
+                        (list collapsed)
+                        (if last? '() (take-last 3 taken)))
+                      taken)]
+          (recur after (concat lines1 taken)))
+        (recur (rest lines0) (concat lines1 (list (first lines0))))))))
+
+
+(defn- diff-patch-textarea [a b & [collapse?]]
+  (let [ca (codearea (if collapse? "\n" "\n"))
+        ap (split-lines a) ;(parse a)
         bp (split-lines b) ;(parse b)
         ;_ (prn 'AP ap)
         ;_ (prn 'BP bp)
         edits (diff/diff ap bp)
         ;_ (prn 'EDITS edits)
         ;; apply dels
-        res (reduce (fn [ap i] (guc/replace-at ap i [[:- (get ap i)]]))
+        res (reduce (fn [ap i]
+                      (guc/replace-at ap i [[:- (let [s (get ap i)] (if (cs/blank? s) " " s))]]))
                     ap (:- edits))
         ;; apply adds
         res (reduce (fn [res add]
-                      (guc/insert-at res
-                                     (inc ^int (first add)) ;; increment because of how 'insert-at' works.
-                                     ;[[:+ (apply str (rest add))]]
-                                     [[:+ (apply str (interpose \newline (rest add)))]]))
-                    res (reverse (:+ edits)))]
-    ;(prn 'RES res)
-    (doseq [r res]
-      (if (string? r)
-        (let [i (.getLength ca)]
-          (.appendText ca r) (.appendText ca "\n")
-          (.setStyle ca i (+ i (count r))
-                     "-rtfx-background-color: white;"))
-        (let [[e s] r
-              i (.getLength ca)]
-          (.appendText ca s) (.appendText ca "\n")
-          (.setStyle ca i (+ i (count s))
-                     (if (= e :-)
-                       "-fx-strikethrough: true;
-                       -fx-fill: red;
-                       -rtfx-background-color: #ffe0e0;"
+                      (guc/insert-at
+                        res
+                        (inc ^int (first add)) ;; increment because of how 'insert-at' works.
+                        (mapv #(vector :+ (if (cs/blank? %) " " %)) (rest add))))
+                    res (reverse (:+ edits)))
+        ;; moralize
+        res (map #(if (string? %) [:= %] %) res)
+        ;; add line numbers
+        res (loop [nr 1
+                   res0 res
+                   res1 []]
+              (if-let [[typ txt] (first res0)]
+                (recur (if (= :- typ) nr (inc nr))
+                       (rest res0)
+                       (conj res1 [nr typ txt]))
+                res1))
+        ;; collapse
+        res (if collapse? (collapse-lines res) res)]
+    ;(prn 'RES )(mapv prn res)
 
-                       "-fx-fill: blue;
-                       -rtfx-background-color: lightblue;
-                       -rtfx-border-stroke-color: blue;
-                       -rtfx-border-stroke-width: 0.5;
-                       -rtfx-border-stroke-type: centered;")))))
+    (doseq [[nr typ txt] res]
+      (if (= typ :collapsed)
+        (let [i (.getLength ca)
+              mes (gut/** 50 "≈")]
+          (.appendText ca (str mes \newline))
+          (.setStyle ca i (+ i (count mes))
+                     "-fx-fill: #bbb;
+                     -rtfx-background-color: #fff;
+                     -fx-font-size: 20;"))
+        (let [i (.getLength ca)
+              nr-str (format "%1$2d" nr)]
+          (.appendText ca (str nr-str "  "))
+          (.setStyle ca i (+ i (count nr-str))
+                     "-fx-fill: gray;
+                     -fx-font-size: 16;")
+          (let [i (.getLength ca)]
+                ;txt (str txt \newline)]
+            (.appendText ca (str txt \newline))
+            (.setStyle ca i (+ i (count txt))
+                       (condp = typ
+                         :-
+                         "-fx-strikethrough: true;
+                         -fx-fill: red;
+                         -rtfx-background-color: #ffe0e0;"
+
+                         :+
+                         "-fx-fill: blue;
+                         -rtfx-background-color: lightblue;
+                         -rtfx-border-stroke-color: blue;
+                         -rtfx-border-stroke-width: 0.5;
+                         -rtfx-border-stroke-type: centered;"
+
+                         ;; := / default
+                         "-rtfx-background-color: white;"))))))
     ca))
 
 
@@ -322,12 +379,12 @@
                            (list :spacing 20 :fill? false)))
     :edit
     (if-let [code (:code value)]
-      (let [curr-code (.trim ^String (get (:code curr-step) code))
+      (let [collapse? (:collapse value)
+            curr-code (.trim ^String (get (:code curr-step) code))
             prev-code (.trim ^String (get (:code prev-step) code ""))
-            ca (codearea)]
-        (diff-patch-textarea ca prev-code curr-code)
-        (fx/set-all-WH ca [ 600 (-> ca .getText cs/split-lines count (* 24) (+ 5 5))]) ;;  5 5 is for codearea padding
-        (box  ca :title (str \" code \") :icon :edit))
+            ta (diff-patch-textarea prev-code curr-code collapse?)]
+        (fx/set-all-WH ta [ 600 (-> ta .getText split-lines count (* 24) (+ 5 5))]) ;;  5 5 is for codearea padding
+        (box  ta :title (str \" code \") :icon :edit))
       ;; else
       (box (step-content value project-uri) :icon :edit))
     ;; default
@@ -337,8 +394,6 @@
 (defn- step-layout [data step-index project-uri]
   (let [prev (get data (dec step-index))
         curr (get data step-index)
-        ;_ (debug 'PREV prev)
-        ;_ (debug 'CURR curr)
         content
         (-> (apply fx/vbox
                    (concat
@@ -403,7 +458,6 @@
 (defn- project-description-layout [id data ^String uri setter-fn]
   (if-not data
     (titled-pformat-layout "NO DATA" (symbol (str \< id \>)))
-
     (let [project-uri (str uri "/" id)
           title (:title data)
           load-button
