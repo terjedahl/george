@@ -120,10 +120,12 @@
   :modules             {;; Download SKSs and jmods from: https://gluonhq.com/products/javafx/
                         ;; Required for javac, compile, java (building JAR and running lein and/or repl)
                         :libs {"MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.2/lib"
+                               "Linux"   "javafx-libs/Linux/javafx-sdk-11.0.2/lib"
                                "Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.2\\lib"}
 
                         ;; Required for jlink (building JRE)
                         :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
+                               "Linux"   "javafx-libs/Linux/javafx-jmods-11.0.2"
                                "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"}
 
 
