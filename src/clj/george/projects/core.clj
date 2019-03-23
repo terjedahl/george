@@ -20,9 +20,8 @@
     [javafx.scene.paint Color]
     [javafx.scene.control ListCell ListView]
     [javafx.util Callback]
-    [javafx.scene.text TextFlow]
-    [javafx.scene Node]
-    [java.net ConnectException UnknownHostException SocketException]))
+    [java.net ConnectException UnknownHostException SocketException]
+    [javafx.scene.web WebView]))
 
 
 (defn- strip-trailing-slash [^String uri]
@@ -186,7 +185,7 @@
     (cs/split s #"\r?\n" -1)))
 
 
-(defn not-edit? [[_ typ _]]
+(defn- not-edit? [[_ typ _]]
   (= := typ))
 
 
@@ -295,8 +294,11 @@
 
 ;;;;;
 
+(defn- load-uri-vec [v]
+  (->> v (interpose "/") (apply str) slurp))
+
 (defn- read-uri-vec [v]
-  (->> v (interpose "/") (apply str) slurp read-string))
+  (read-string (load-uri-vec v)))
 
 (defn- read-final [^String uri ^String id]
   (read-uri-vec [uri id "final.clj"]))
@@ -315,6 +317,9 @@
 
 (defn- read-index-data [^String uri]
   (read-uri-vec [uri "index-data.edn"]))
+
+(defn- load-welcome [^String uri]
+  (load-uri-vec [uri "welcome.html"]))
 
 
 ;(def default-uri "http://localhost:50000")
@@ -335,6 +340,12 @@
 
 (defn- set-current-step-index [id step-index]
   (gah/set-george-projects-step id step-index))
+
+
+(defn webview [html]
+  (doto (WebView.)
+    (-> .getEngine (.loadContent html))))
+
 
 (defn- bad-image-load [image]
   (let [ex (.getException image)]
@@ -407,7 +418,7 @@
          (fx/add-class "projects-scrollpane"))))
 
 
-(defn- set-step [container title data step-index project-uri]
+(defn- set-step [container data step-index project-uri]
   (doto container
     (.setCenter (styled/scrolling-widget (format "Loading step %s ..." (inc step-index)) true))
     (.setBottom nil))
@@ -420,17 +431,18 @@
                                  :graphic (fx/icon icon-str)
                                  :tooltip tooltip
                                  :focusable? false
-                                 :onaction #(set-step container title data step-ind project-uri))
+                                 :onaction #(set-step container data step-ind project-uri))
               (.setDisable disable?)))
 
           prev-b   (button-gen 'fas-angle-left:18  "Previous step" (dec step-index) (not (pos? step-index)))
           next-b   (button-gen 'fas-angle-right:18 "Next step"     (inc step-index) (= step-index (dec step-count)))
           reset-b
-          (fx/new-label nil :graphic (fx/icon 'fas-angle-double-left:18) :tooltip "Go to first step"
-                            :mouseclicked #(set-step container title data 0 project-uri))
+          (fx/new-button nil :graphic (fx/icon 'fas-angle-double-left:16) :tooltip "Go to first step"
+                             :onaction #(set-step container data 0 project-uri)
+                             :focusable? false)
           reload-b
-          (fx/new-label nil :graphic (fx/icon 'fas-redo) :tooltip "Reload data"
-                            :mouseclicked #(set-step container title (read-steps project-uri) step-index project-uri))
+          (fx/new-label nil :graphic (fx/icon 'fas-redo:16:gray) :tooltip "Reload data"
+                            :mouseclicked #(set-step container (read-steps project-uri) step-index project-uri))
           navbar
           (fx/stackpane
             (fx/hbox
@@ -439,10 +451,10 @@
                             :tooltip (str "step id: " (:id (get data step-index) "<NA>")))
               next-b
               (fx/region :hgrow :always)
-              reset-b
               reload-b
+              reset-b
               :spacing 10 :padding 10 :alignment fx/Pos_CENTER_LEFT)
-            (styled/new-label title))]
+            (fx/new-label (:id (get data step-index) "") :size 12 :color Color/LIGHTGRAY))]
       (set-current-step-index (last (cs/split project-uri #"/")) step-index)
 
       (doto container
@@ -450,12 +462,12 @@
         (.setBottom navbar)))))
 
 
-(defn- project-player-layout [title data id project-uri]
+(defn- project-player-layout [data id project-uri]
   (doto (fx/borderpane)
-    (set-step title data (or (get-current-step-index id) 0) project-uri)))
+    (set-step data (or (get-current-step-index id) 0) project-uri)))
 
 
-(defn- project-description-layout [id data ^String uri setter-fn]
+(defn- project-description-layout [id data ^String uri setter-fn title-label]
   (if-not data
     (titled-pformat-layout "NO DATA" (symbol (str \< id \>)))
     (let [project-uri (str uri "/" id)
@@ -464,7 +476,10 @@
           (fx/new-button "Start/resume project"
              :onaction
              (fn [] (scrolling-setter (format "Loading %s ..." title)
-                      #(exception-layout (project-player-layout title (read-steps project-uri) id project-uri))
+                      #(exception-layout
+                         (do
+                           (.setText title-label title)
+                           (project-player-layout (read-steps project-uri) id project-uri)))
                       setter-fn)))
           content
           (doto
@@ -476,12 +491,12 @@
                 :spacing 10)
               (when-let [s (:description data)]
                 (fx/text s :size 16 :width 500 :color fx/ANTHRECITE))
+              load-button
               (when-let [img (:img data)]
                 (let [image (Image. (str project-uri "/" img) false)]
                   (if (.isError image)
                     (bad-image-load image)
                     (fx/imageview image))))
-              load-button
               :spacing 30 :padding [10 30 30 30]))
 
           scrollpane
@@ -489,7 +504,6 @@
             (fx/scrollpane content)
             (.setFocusTraversable false)
             (fx/add-class "projects-scrollpane"))]
-
       (fx/future-sleep-later 100 (.setVvalue scrollpane 0))
       scrollpane)))
 
@@ -525,22 +539,15 @@
       (index-listcell))))
 
 
-(defn- welcome-layout []
-  (fx/vbox
-
-    (fx/text "Welcome!" :size 28 :color Color/STEELBLUE)
-    (TextFlow.
-      (into-array
-        Node
-        (list
-            (fx/icon 'fas-arrow-left)
-            (fx/text "  Select a project." :size 18 :color fx/ANTHRECITE)
-            (fx/text "  Start with \"Starry night\"." :size 16 :color Color/GRAY))))
-
-    :spacing 20 :padding [10 30 30 30]))
+(defn- welcome-layout [^String html]
+  (webview html))
 
 
-(defn- projects-index-layout [index index-data ^String uri root-details-fn]
+(defn- replace-base [html uri]
+  (cs/replace html #"<base.+href=\"https://projects.george.andante.no/\"" (format "<base href=\"%s\"" uri)))
+
+
+(defn- projects-index-layout [index index-data ^String uri root-details-fn title-label]
   (let [[root master-fn detail-fn] (layout/master-detail)]
     (doto ^ListView (->> index
                          (map #(u/->Labeled (:title (get index-data %) (str \< % \>)) {:id % :index-data index-data}))
@@ -560,10 +567,14 @@
                    (:id (:value new-value))
                    (get index-data (:id (:value new-value)))
                    uri
-                   root-details-fn)
+                   root-details-fn
+                   title-label)
                 detail-fn)))))
 
-    (detail-fn (welcome-layout))
+    (detail-fn (scrolling-setter
+                 "Loading Welcome page ..."
+                 #(exception-layout (welcome-layout (replace-base (load-welcome uri) uri)))
+                 detail-fn))
     root))
 
 
@@ -588,23 +599,29 @@
   (let [[root m-setter d-setter]
         (layout/master-detail true)
 
+        title-label
+        (fx/new-label "Title" :size 20 :color Color/STEELBLUE)
+
         home-fn
         (fn []
+          (.setText title-label "")
           (let [uri (get-uri)]
             (scrolling-setter
               "Loading projects list ..."
-              #(exception-layout (projects-index-layout (read-index uri) (read-index-data uri) uri d-setter))
+              #(exception-layout (projects-index-layout (read-index uri) (read-index-data uri) uri d-setter title-label))
               d-setter)))
 
         home-button
         (fx/new-button "Home" :graphic (fx/icon 'fas-home)  :size 14  :onaction home-fn :focusable? false)
 
         settings-label
-        (fx/new-label "URI" :size 14 :mouseclicked #(d-setter (home-uri-layout home-fn)))]
+        (fx/new-label nil :graphic (fx/icon 'fas-cog:18:gray) :size 14 :mouseclicked #(d-setter (home-uri-layout home-fn)))]
 
     (m-setter
-      (fx/hbox  home-button (fx/region :hgrow :always) settings-label
-                :padding 10 :spacing 20 :alignment fx/Pos_CENTER_LEFT))
+      (fx/stackpane
+        (fx/hbox  home-button (fx/region :hgrow :always) settings-label
+                  :padding 10 :spacing 20 :alignment fx/Pos_CENTER_LEFT)
+        title-label))
 
     (home-fn)
 
@@ -612,7 +629,7 @@
       (fx/add-stylesheet "styles/projects.css"))))
 
 
-
+;; Used by "applet"
 (defonce feedback-borderlayout_ (atom nil))
 
 

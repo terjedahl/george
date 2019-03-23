@@ -153,6 +153,10 @@
       (get-george-projects)
       {:uri uri})))
 
+(defn- deep-merge [a & maps]
+  (if (map? a)
+    (apply merge-with deep-merge a maps)
+    (apply merge-with deep-merge maps)))
 
 (defn get-george-projects-step [id]
   (-> (get-george-projects)
@@ -162,6 +166,6 @@
 
 (defn set-george-projects-step [id step-index]
   (set-george-projects
-    (merge
+    (deep-merge
       (get-george-projects)
       {:projects {id {:current-step step-index}}})))
