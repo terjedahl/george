@@ -156,7 +156,10 @@
   (str "-splash:" (splash-image)))
 
 (defn- dock-params []
-  (list (str "-Xdock:icon=" (icns-file)) (str "-Xdock:name=" (George))))
+  (if (pl/macos?)
+    (list (str "-Xdock:icon=" (icns-file)) (str "-Xdock:name=" (George)))
+    '()))
+
 
 (defn- graphic-param []
   "-Dprism.dirtyopts=false")
