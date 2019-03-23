@@ -267,12 +267,15 @@ You can get a list containing all registered turtles with the command [``]
    #'screen
    #'set-screen-size
    #'get-screen-size
+   #'reset-screen-size
    #'set-screen-visible
    #'is-screen-visible
    #'set-background
    #'get-background
    #'set-axis-visible
    #'is-axis-visible
+   #'show-axis
+   #'hide-axis
    #'set-border-visible
    #'is-border-visible
    "Turtle (advanced)"

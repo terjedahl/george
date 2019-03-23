@@ -84,7 +84,11 @@
     padding-left 3px;
     padding-right:3px;
     margin-left 5px;
-    margint-right: 3px;
+    margin-right: 3px;
+  }
+  /* Hide the scrollbars so they don't cover the code */
+  .clj::-webkit-scrollbar {
+    display: none;
   }
   a {
     color: #337ab7;
