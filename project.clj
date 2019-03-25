@@ -61,7 +61,9 @@
                         ;; https://www.eclipse.org/jetty
                         [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
                         ;; https://github.com/cemerick/pomegranate
-                        [com.cemerick/pomegranate "1.1.0"]]
+                        [com.cemerick/pomegranate "1.1.0"]
+                        ;; https://github.com/kumarshantanu/lein-exec
+                        [lein-exec "0.3.7"]]
 
   :repositories        [;; junique
                         ["github-terjedahl-junique"
@@ -188,6 +190,9 @@
 
                                      :resource-paths    ["src_dev/rsc"]
 
+                                     ;; https://github.com/technomancy/leiningen/wiki/Faster
+                                     :jvm-opts ["-Xverify:none"]
+
                                      :dependencies      [;; Not required, but included here (also) for IDE support
 
                                                          [selmer "1.12.5"]
@@ -200,7 +205,11 @@
                                                          [org.openjfx/javafx-fxml     "11.0.2"]
                                                          [org.openjfx/javafx-swing    "11.0.2"]
                                                          [org.openjfx/javafx-web      "11.0.2"]
-                                                         [org.openjfx/javafx-media    "11.0.2"]]}
+                                                         [org.openjfx/javafx-media    "11.0.2"]]
+
+                                     :build {:properties {;; You may want to override this in your profiles.clj
+                                                          ;; (as :dev-overrides, not :dev or :dev-common)
+                                                          :app "George-DEV"}}}
 
                         :uberjar {;; Is applied by 'uberjar' TODO: Investigate: Doesn't seem to have any effect.
                                   :target-path "target/uberjar/"

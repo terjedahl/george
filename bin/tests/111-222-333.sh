@@ -9,9 +9,12 @@ echo "stop site"
 echo
 echo "Expect: Start :ts 333"
 echo
+
 sleep 2.0
 
-uri="http://localhost:9999/apps/George-DEV/platforms/MacOS/jar/"
+app=`lein pprint "[:build :properties :app]" | sed -e 's/^"//' -e 's/"$//'`
+platform=`lein exec -ep "(require '[common.george.util.platform :as p]) (println (p/platform))"`
+uri="http://localhost:9999/apps/${app}/platforms/${platform}/jar/"
 
 lein clean; lein build jre
 lein build jar :ts 333 :uri $uri; lein build site; lein site start &
