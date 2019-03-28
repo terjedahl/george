@@ -22,12 +22,18 @@ The reasons for this are:
 
 Keep in mind that the nature of EPL1 is such that you can at any time take the current code base with you and start your own project, thereby ensuring that all contributed work up to current version remains open and free.
 
-**To transfer copyright**, simply post the following as a publicly visible comment on the discussion thread [Copyright Assignment and Ownership](https://groups.google.com/forum/#!topic/george-dev/JYrMKMDmaIs):
+
+### Copyright transferals
+
+Please ensure that your name or contributor handle is added in the list bellow the following statement when you make your first pull request.
+
+_Note: If you change your contributor handle or name, please add the new handle or name but don't remove the old one._
 
 > I hereby assign copyright in this code and resources to the project "George", to be licensed under the same terms as the rest of the code.  
-> \<your--name--or--contributor-handle--here\>
 
-_Note: If you change your contributor handle or name, please post again with the new handle or name._
+- \<your--name--or--contributor-handle--here\>
+- 
+- 
 
 
 ## Governance

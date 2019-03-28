@@ -1,6 +1,6 @@
 (defproject no.andante.george/george-application  "2019.2-SNAPSHOT"
 
-  :description         "George - Application"
+  :description         "George - the main application code"
   :url                 "https://bitbucket.org/andante-george/george-application"
   :license             {:name "Eclipse Public License"
                         :url  "http://www.eclipse.org/legal/epl-v10.html"}
