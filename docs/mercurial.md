@@ -6,6 +6,11 @@ I like working with Mercurial. It is relatively straight forward and safe to use
 The options for hosting a Mercurial repo are limited, but fortunately  Bitbucket, is a very good solution.
 
 
+{{TOC}}
+
+[TOC]
+
+
 ## Install Mercurial
 
 You will need to download and install Mercurial.  You can get it at [www.mercurial-scm.org](https://www.mercurial-scm.org)

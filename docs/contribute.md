@@ -1,11 +1,9 @@
 # Contributing to George
 
-This page says something about:
 
-- Rights
-- Governance
-- Getting started
-- "How we do things here"
+{{TOC}}
+
+[TOC]
 
 
 ## Rights

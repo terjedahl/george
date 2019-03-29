@@ -30,9 +30,10 @@ and:
 lein help <task> <subtask>
 ```
 
-[TOC]
 
 {{TOC}}
+
+[TOC]
 
 
 ## Building stuff

@@ -11,9 +11,10 @@ Also, we are now switching to OpenJDK due mainly to changed licencing.
 You will need both OpenJDK and OpenJFX to run and work with the project.  
 Currently the latest version is 11.0.2
 
-[TOC] 
 
 {{TOC}}
+
+[TOC]
 
 
 ## Install OpenJDK
@@ -82,6 +83,23 @@ I get:
 
 You will need both the _JavaFX SDK_ and the _JavaFX jmods_ for your platform (Windows, MacOS, or Linux).
 
+
+### Scripted
+
+For convenience there is a script which will download and set up the SDK and jmods correctly for you on your platform.
+In a terminal, do one of:
+```bash
+./bin/setup-macos.sh
+```
+
+```cmd
+bin\setup-windows.bat
+```
+
+### Manually
+
+If you prefer to do it manually, do the following:
+
 Download them both from [gluonhq.com](https://gluonhq.com/products/javafx/), and unpack them.
 
 Then create directories in the project directory and place the SDK and jmods directories in them to match the following:
@@ -96,7 +114,7 @@ The structure has to be exact so it matches the values under `:modules :libs` an
 
 If everything is set up correctly, then now you are ready to start working with the code.
 
-See [tools.md](tools.md) to learn how.
+See <a href="tools.md">docs/tools.md</a> to learn how.
 
 
 ***
