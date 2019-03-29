@@ -114,7 +114,7 @@ The structure has to be exact so it matches the values under `:modules :libs` an
 
 If everything is set up correctly, then now you are ready to start working with the code.
 
-See <a href="tools.md">docs/tools.md</a> to learn how.
+See [tools.md](tools.md) to learn how.
 
 
 ***
