@@ -174,6 +174,7 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   is-screen-visible
   set-screen-visible
   set-screen-onclick
+  reset-screen-size
   new-screen)
   
   
@@ -1235,6 +1236,14 @@ delete <key> <not-found>  ;; returns <not-found> if didn't exist
   "Returns `true` if axis is visible, else `false`."
   []
   (-> @(get-screen) :axis (#(.isVisible ^Group %))))
+
+
+(defn show-axis "Same as `(set-axis-visible true)`" []
+  (set-axis-visible true))
+
+
+(defn hide-axis "Same as `(set-axis-visible false)`" []
+  (set-axis-visible false))
 
 
 (defn set-border-visible 
@@ -2316,6 +2325,15 @@ There are a number of optional ways to set font:
   turt))
 
 
+(defn- reset-screen []
+  (reset-screen-size)
+  (set-background :default)
+  (set-axis-visible false)
+  (reset-onkey)
+  (set-fence :default)
+  (set-screen-onclick nil))
+
+
 (defn reset
   "A combined screen and turtle command.  
   Clears the screen, and center the current turtle, leaving only one turtle.
@@ -2337,11 +2355,7 @@ There are a number of optional ways to set font:
   (clear keep-1-turtle?)
   (when keep-1-turtle?
     (reset-turtle (turtle)))
-  (set-background :default)
-  (set-axis-visible false)
-  (reset-onkey)
-  (set-fence :default)
-  (set-screen-onclick nil)
+  (reset-screen)
   (reset! speed-nil-warned_ false)
 
   nil))
@@ -2524,7 +2538,7 @@ See topic [Clojure](:Clojure) for more information."
     
   'function' is a no-arg function that will be called every time the specified character is typed or key-combo pressed.
   
-  See [JavaFX KeyCode](https://docs.oracle.com/javase/8/javafx/api/index.html?javafx/scene/input/KeyCode.html) for an overview of all available key-codes.
+  See [JavaFX KeyCode](https://openjfx.io/javadoc/11/javafx.graphics/javafx/scene/input/KeyCode.html) for an overview of all available key-codes.
  
 *Examples:*
 ```
@@ -2611,6 +2625,7 @@ See topic [Clojure](:Clojure) for more information."
      (future (f))  ;; in future to ensure an animations. (same as when called in .setOnMouseClicked) 
      true)))
 
+
 (defn new-screen
   ;; TODO: Implement support for mounting screen in alternative layout.
   "Returns a new screen object.
@@ -2644,11 +2659,30 @@ See topic [Clojure](:Clojure) for more information."
           (fx/set-translate-XY [2 2])
           (.setVisible false))
 
+        ;; Divide by 10 then multiply again \"floors\" the number.
+        floor-10 #(-> % int (/ 10) int (* 10))
+        mod100?  #(zero? (mod % 100))
+
+        w2 (floor-10 (/  w 2))
+        -w2 (- w2)
+        h2 (floor-10 (/  h 2))
+        -h2 (- h2)
+
         axis
         (doto ^Group
-              (fx/group
-                (fx/line :x1 -100 :x2 100 :color Color/CORNFLOWERBLUE :width 2)
-                (fx/line :y1 -100 :y2 100 :color Color/CORNFLOWERBLUE :width 2))
+              (apply fx/group
+                (concat
+                  (map
+                    #(fx/line :x1 -w2 :y1 % :x2 w2 :y2 % :width 1 :color (if (mod100? %) Color/GAINSBORO Color/GHOSTWHITE))
+                    (range -h2 h2 10))
+                  (map
+                    #(fx/line :x1 % :y1 -h2 :x2 % :y2 h2  :width 1 :color (if (mod100? %) Color/GAINSBORO Color/GHOSTWHITE))
+                    (range -w2 w2 10))
+                  (list
+                    (fx/line :x1 -w2 :x2 w2 :color Color/CORNFLOWERBLUE :width 2)
+                    (fx/line :y1 -h2 :y2 h2 :color Color/CORNFLOWERBLUE :width 2)
+                    (fx/set-translate-XY (fx/text "x" :color Color/CORNFLOWERBLUE :size 20) [(- w2 15) 15])
+                    (fx/set-translate-XY (fx/text "y" :color Color/CORNFLOWERBLUE :size 18) [ -12 (+ -h2 15)]))))
           (.setVisible false))
 
         root
@@ -2817,6 +2851,12 @@ See topic [Clojure](:Clojure) for more information."
   (swap! screen assoc :size (or size (get-screen-default :size)))
   (when (is-screen-visible screen)
         (resize-screen screen))))
+
+
+(defn reset-screen-size
+  "Resets the screen to the default size."
+  []
+  (set-screen-size (get-screen) (get-screen-default :size)))
 
 
 (defn get-screen-size

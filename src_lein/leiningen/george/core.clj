@@ -701,7 +701,7 @@ and unpack in project dir.")))
 
 
 (defn aws-invalidate []
-  (le/sh "aws" "cloudfront" "create-invalidation" "--distribution-id" "E3QSHE6V41FUEZ" "--paths" "/*"))
+  (le/sh "aws" "cloudfront" "create-invalidation" "--distribution-id" "E3QSHE6V41FUEZ" "--paths" "/*"  "--profile" "andante"))
 
 
 (defn aws-deploy  []
@@ -713,7 +713,7 @@ and unpack in project dir.")))
       (exit))
     (info "Deploying Site Amazon S3 for ...")
     (.delete (cio/file site ".DS_Store"))
-    (le/sh "aws" "s3" "cp" (str site) "s3://download.george.andante.no/" "--acl" "public-read" "--recursive" "--region" "eu-central-1")
+    (le/sh "aws" "s3" "cp" (str site) "s3://download.george.andante.no/" "--acl" "public-read" "--recursive" "--profile" "andante")
 
     (info "Invalidating CloudFront caches ...")
     (aws-invalidate)

@@ -3,6 +3,30 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2019.1] - 2019-03-23
+
+The main highlight for this deployment is "George Projects"; A concept and a "player" for step-by-step tutorials.
+
+### Added
+- Applet/player for George Projects.
+
+### Fixed
+- TG: Text alignment of `write` would vary based on visual bounds. Also, shifted alignment from TOP to BASELINE.
+- TG: `set-position` didn't handle x or y as nil (as per documentation).
+- TG help: Cosmetic fixes and link-fix.
+
+### Improved
+- Improve application load-time by perhaps 30-40%.
+- Reworked Inputs: Tabs replaced with vertical list à la "Open files" list.
+- Version showed in place of "About" label.  Also, adjusted some styling.
+- TG: Optimized speed of some TG commands.  
+- TG: Enhanced "Help" documentation (added som missing commands).
+- TG: Only warn once per run about nil speed in fxthread.
+- TG: Crisper 1px horizontal and vertical lines.
+- TG: Function 'reset-screen-size', also called by 'reset'. 
+- TG: Augmented axis with 10px grid, x/y, and 'show-axis' and 'hide-axis' commands. 
+
+
 ## [2019.0.1] - 2019-02-02
 
 ### Fixed

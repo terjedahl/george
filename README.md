@@ -14,8 +14,6 @@ If you simply want to run George, it will be much quicker and easier for you to 
 
 [Get George for Windows / Mac / Java](http://www.george.andante.no).
 
-
-
 ![George 2018.0](http://www.george.andante.no/static/www/graphics/screenshots/George_2018.0.png)
 
 
@@ -23,15 +21,14 @@ If you simply want to run George, it will be much quicker and easier for you to 
 
 We would love your help developing George.
 
-To learn more about how to download and run the source, develop, contribute, and to see the API docs, [read the development documentation](https://andante-george.bitbucket.io).
+To learn more about how to download and run the source, develop, contribute, start with [docs/index.md](https://bitbucket.org/andante-george/george-application/src/default/docs/index.md).
 
 
 ***
 
 ## License
 
-
-Copyright © 2016-2018 Terje Dahl
+Copyright © 2016-2019 Terje Dahl
 
 Distributed under the [Eclipse Public License 1.0](https://opensource.org/licenses/eclipse-1.0.php).
 

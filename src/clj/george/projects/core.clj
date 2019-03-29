@@ -96,27 +96,6 @@
     (.setDisable true)))
 
 
-;(defmethod diff/patch InlineCssTextArea [ca edit-script]
-;  (doseq [del (:- edit-script)]
-;    (.setStyle ca del (inc del)  "-fx-strikethrough: true; -fx-fill: red; -rtfx-background-color: pink;"))
-;  (doseq [[ind & chars] (reverse (:+ edit-script))]
-;    (let [ind (inc ind)]
-;      (.insertText ca ind (apply str chars))
-;      (.setStyle ca ind (+ ind (count chars)) "-fx-fill: blue; -rtfx-background-color: aqua;")))
-;  ca)
-
-;(defn- diff-str-test []
-;  (let [a "Ole har en bil.\nDen er veldig blå.\n  Tut tut."
-;        b "Lars har en fin bil.\nDen er grønn.\n  Tut tut."
-;        ca (doto (codearea) (gcc/set-text a))
-;        edits (diff/diff a b)]
-;    (diff/patch ca edits)
-;    (fx/init) (fx/later (fx/stage :scene (fx/scene ca :size [300 250]) :tofront true))
-;    (prn 'E edits)))
-;(diff-str-test)
-
-
-
 (defn- clojure-char? [ch]
   (or (gut/coll-delim-char? ch) (gut/readermacro-char? ch)  (gut/macro-char? ch) (gut/comment-char? ch)  (gut/string-delim-char? ch)))
 
@@ -273,10 +252,7 @@
 
                          :+
                          "-fx-fill: blue;
-                         -rtfx-background-color: lightblue;
-                         -rtfx-border-stroke-color: blue;
-                         -rtfx-border-stroke-width: 0.5;
-                         -rtfx-border-stroke-type: centered;"
+                         -rtfx-background-color: lightblue;"
 
                          ;; := / default
                          "-rtfx-background-color: white;"))))))
