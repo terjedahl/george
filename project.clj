@@ -42,7 +42,10 @@
                         ;; https://github.com/aalmiray/ikonli
                         [org.kordamp.ikonli/ikonli-javafx "11.1.0"]
                         ;; https://fontawesome.com/
-                        [org.kordamp.ikonli/ikonli-fontawesome5-pack "11.1.0"]]
+                        [org.kordamp.ikonli/ikonli-fontawesome5-pack "11.1.0"]
+                        ;; https://asm.ow2.io/index.html
+                        [org.ow2.asm/asm "7.1"]
+                        [org.ow2.asm/asm-tree "7.1"]]
 
   :jar-exclusions      [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
 
@@ -152,7 +155,9 @@
                                 ;; Required to get javac
                                 :jdk.compiler
                                 ;; Required to get jdeps, jlink, jmod, et al
-                                :jdk.jlink]
+                                :jdk.jlink
+                                ;; Required for no.andante.george.Agent
+                                :java.instrument]
 
                         ;; https://openjfx.io
                         :javafx [:javafx.controls
@@ -216,6 +221,8 @@
                         :uberjar {;; Is applied by 'uberjar' TODO: Investigate: Doesn't seem to have any effect.
                                   :target-path "target/uberjar/"
                                   :prep-task   ^:replace ["clean" "javac" "compile"]
-                                  :aot :all}
+                                  :aot :all
+                                  :manifest {"Premain-Class"            "no.andante.george.Agent"
+                                             "Can-Retransform-Classes"  "true"}}
 
                         :with-splash {:with-splash true}})

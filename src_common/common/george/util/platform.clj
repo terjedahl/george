@@ -21,6 +21,7 @@
 (def macos?
   (memoize #(-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"mac"))  boolean)))
 
+
 (def linux?
   (memoize #(-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"linux"))  boolean)))
 
@@ -41,7 +42,7 @@
 
 
 (defn platforms []
-  [WINDOWS MACOS OTHER])
+  [WINDOWS MACOS LINUX OTHER])
 
 
 (defn ^File user-home []

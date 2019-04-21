@@ -64,3 +64,17 @@
                     (into-array (list javafx.stage.Stage STRING_ARRAY_CLASS)))]
     (.invoke loadOrRun nil
       (into-array Object (list stage (into-array String args))))))
+
+
+#_(defn set-application-name [^String name]
+    (let [a (Application/GetApplication)
+          _ (doseq [f (seq (.getDeclaredFields Application))] (prn '- f))
+          n  (.getDeclaredField ^Class Application "name")
+          DN  (.getDeclaredField ^Class Application "DEFAULT_NAME")]
+      (.setAccessible n true)
+      (.setAccessible DN true)
+      (debug 'DEFAULT_NAME (.get DN a))
+      (debug 'name (.get n a))
+      (debug "Setting name field ..." name)
+      (.set n a name)
+      (debug 'name (.get n a))))

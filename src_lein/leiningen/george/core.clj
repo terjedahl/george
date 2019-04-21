@@ -112,9 +112,10 @@
 (defn- jar-name []           (format "%s-%s.jar" (George-version) (pl/platform)))
 (defn- jar-file []           (cio/file (jar-dir) (jar-name)))
 
-(defn- installer-name []     (if (pl/windows?)
-                               (str (George-version) ".msi")
-                               (str (George-version) ".pkg")))
+(defn- installer-name []     (cond
+                               (pl/windows?) (str (George-version) ".msi")
+                               (pl/macos?)   (str (George-version) ".pkg")
+                               (pl/linux?)   (str (George-version) ".tar.gz")))
 
 (defn- installer-dir []      (cio/file (native-dir) "installer"))
 (defn- installer-file []     (cio/file (installer-dir) (installer-name)))
@@ -122,6 +123,8 @@
 (defn- installed-dir []      (c/installed-dir (George)))
 
 (defn- icns-file []          (cio/file "src_macos" "rsc" "George.icns"))
+
+(defn- png-file []           (cio/file "src" "rsc" "graphics" "George_icon_128.png"))
 
 (defn- asserted-jre-dir []
   (asserted-file (jre-dir) "Directory '%s' does not exist.\n  To build the JRE, do:  lein build jre"))
@@ -248,14 +251,17 @@
 
 
 (defn- replace-with-jar-params [args & [with-opens?]]
-  (flatten
-    (map #(if (= ":jar" %)
-            (concat
-              [(access)]
-              (if with-opens? (exports-opens) [])
-              (concat (dock-params) [(splash-param) (graphic-param) "-jar" (str (asserted-jar-file))]))
-            %)
-         args)))
+  (let [jar-path (str (asserted-jar-file))]
+    (flatten
+      (map #(if (= ":jar" %)
+              (concat
+                (list (access))
+                (if with-opens? (exports-opens) '())
+                (concat
+                  (dock-params)
+                  (list (splash-param) (graphic-param) #_(format "-javaagent:%s" jar-path) "-jar" jar-path)))
+              %)
+           args))))
 
 
 (defn- module-args [& [with-opens?]]
@@ -428,7 +434,7 @@ and unpack in project dir.")))
     (codes (George) (codes :default))))
 
 
-(defn- build-msi []
+(defn- build-windows-installer []
   (asserted-jre-dir)
   (asserted-jar-file)
   (let [binaries-dir     (str (asserted-wix-binaries-dir) "\\")
@@ -534,7 +540,7 @@ and unpack in project dir.")))
 
     (cio/copy jar-file
               (cio/file (f/ensured-dir (cio/file contents-dir "jar")) (.getName jar-file)))
-    (le/sh "cp" "-a" (str jre-dir) (str (cio/file contents-dir "jre")))  ;; ensures correct "chmod"
+    (le/sh "cp" "-a" (str jre-dir) (str (cio/file contents-dir "jre")))  ;; ensures correct "chmod" om MacOS
 
     (if-let [ cert-id (env :apple-developer-application-cert-id)]
       (le/sh "codesign" "--verbose" "--sign" cert-id (str the-app))
@@ -543,7 +549,7 @@ and unpack in project dir.")))
     pkg-dir))
 
 
-(defn- build-pkg []
+(defn- build-macos-installer []
   ;; https://stackoverflow.com/questions/11487596/making-os-x-installer-packages-like-a-pro-xcode-developer-id-ready-pkg
   (let [pkg-dir         (build-macos-app)
         scripts-dir     (cio/file pkg-dir "scripts")
@@ -673,10 +679,72 @@ and unpack in project dir.")))
     (run-jre ["--list-modules"])))
 
 
+(defn- build-linux-app []
+  (let [jre-dir    (asserted-jre-dir)
+        jar-file   (asserted-jar-file)
+        tmpl-data     {:jar-name        (jar-name)
+                       :app             (George)
+                       :ts              (now-iso)
+                       :identifier (str "no.andante." (George))
+                       :strict-version  (strict (:version *project*))
+                       :splash-image (splash-image)}
+        build-dir    (cio/file "target" "_linux")
+        app-dir    (cio/file build-dir (George))
+        bin-dir    (cio/file app-dir "bin")
+        rsc-dir    (cio/file app-dir "rsc")
+
+        sh-tmpl     (slurp (cio/file "src_linux" "tmpl" "george.sh"))
+        sh-rendered (render sh-tmpl tmpl-data)
+        sh-file     (cio/file  app-dir "george.sh")
+
+        utils-tmpl     (slurp (cio/file "src_linux" "tmpl" "utils.sh"))
+        utils-rendered (render utils-tmpl tmpl-data)
+        utils-file     (cio/file  bin-dir "utils.sh")
+
+        install-tmpl     (slurp (cio/file "src_linux" "tmpl" "installer.sh"))
+        install-rendered (render install-tmpl tmpl-data)
+        install-file     (cio/file  app-dir "installer.sh")]
+
+    (clean build-dir)
+
+    (f/ensured-dir bin-dir)
+    (spit sh-file sh-rendered)           (le/sh "chmod" "755" (str sh-file))
+    (spit utils-file utils-rendered)
+    (spit install-file install-rendered) (le/sh "chmod" "755" (str install-file))
+
+
+    (cio/copy (png-file)
+              (cio/file (f/ensured-dir rsc-dir) "George.png"))
+
+    (cio/copy (cio/file (splash-image))
+              (cio/file rsc-dir (splash-image)))
+
+    (cio/copy jar-file
+              (cio/file (f/ensured-dir (cio/file app-dir "jar")) (.getName jar-file)))
+
+    (le/sh "cp" "-R" (str jre-dir) (str app-dir))  ;; 'cp -a' does *not* ensures correct "chmod" on Ubuntu
+    (le/sh "chmod" "755" "-R" (str (cio/file app-dir "jre")))
+
+    (le/sh "cp" (str (cio/file "src_linux" "tmpl" "README.txt")) (str app-dir))
+
+    app-dir))
+
+
+(defn- build-linux-installer []
+  (let [app-dir      (build-linux-app)
+        product-file (installer-file)]
+    (f/ensured-dir (.getParentFile product-file))
+    (le/sh "tar" "-C" (.getParent app-dir) "-zcf" (str product-file) (George))
+    (build-installer-props product-file)))
+    ; (clean (.getParent app-dir))
+
+
 (defn build-installer []
-  (if (pl/windows?)
-    (build-msi)
-    (build-pkg)))
+  (cond
+    (pl/windows?) (build-windows-installer)
+    (pl/macos?)   (build-macos-installer)
+    (pl/linux?)   (build-linux-installer)
+    :default      (error "Platform not supported.")))
 
 
 (defn build-site []
