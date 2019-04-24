@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -eo pipefail
+
 echo
 echo "clean - build jre"
 echo "build jar - build site - start site  :ts 333"

@@ -227,46 +227,22 @@
   (map #(if (= ":jar" %) (str (asserted-jar-file)) %) args))
 
 
-;; https://blog.codefx.org/java/five-command-line-options-hack-java-module-system
-(defn- exports-opens []
-  ;; https://github.com/FXMisc/RichTextFX/issues/776
-  (let [exports ["javafx.graphics/com.sun.javafx.geom"
-                 "javafx.graphics/com.sun.javafx.text"
-                 "javafx.graphics/com.sun.javafx.scene.text"]
-        opens   ["javafx.graphics/com.sun.javafx.text"
-                 "javafx.graphics/javafx.scene.text"]]
-    (flatten
-      (list
-        (map #(list "--add-exports" (str % "=ALL-UNNAMED")) exports)
-        (map #(list "--add-opens" (str % "=ALL-UNNAMED")) opens)))))
-
-
-;; https://jaxenter.com/jdk-9-replace-permit-illegal-access-134180.html
-(defn- access []
-  (if *debug* "--illegal-access=debug" "--illegal-access=warn"))
-;"--illegal-access=permit"
-
-
-(defn- replace-with-jar-params [args & [with-opens?]]
+(defn- replace-with-jar-params [args]
   (flatten
     (map #(if (= ":jar" %)
-            (concat
-              [(access)]
-              (if with-opens? (exports-opens) [])
-              (concat (dock-params) [(splash-param) (graphic-param) "-jar" (str (asserted-jar-file))]))
+            (concat (dock-params) [(splash-param) (graphic-param) "-jar" (str (asserted-jar-file))])
             %)
          args)))
 
 
-(defn- module-args [& [with-opens?]]
+(defn- module-args []
   (let [lib-dir (asserted-fx-lib-dir)
         mods-str (->> (javafx-modules) (interpose ",") (apply str))]
     (debug "JavaFX mods:" mods-str)
     (concat
       [;"-verbose"
        "--module-path" (str lib-dir)
-       (str "--add-modules=" mods-str)]
-      (if with-opens? (exports-opens) []))))
+       (str "--add-modules=" mods-str)])))
 
 
 (defn- proceed? [app]
@@ -617,7 +593,7 @@ and unpack in project dir.")))
 
 (defn run-java  [args]
   (if ((set args) ":jar") (assert-java11) (warn-java11))
-  (run-java-home-bin 'java (concat (module-args) (replace-with-jar-params args true))))
+  (run-java-home-bin 'java (concat (module-args) (replace-with-jar-params args))))
 
 
 (defn run-jre  [args]
@@ -749,7 +725,7 @@ and unpack in project dir.")))
   (-> *project*
       (update-in [:javac-options] concat (module-args))
       (update-in [:jvm-opts] concat
-                 (let [args (module-args true)]
+                 (let [args (module-args)]
                    ( if (:with-splash *project*)
                      (concat [(splash-param)] (dock-params) args)
                      args)))))
