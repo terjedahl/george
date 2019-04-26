@@ -16,7 +16,7 @@
                         ;; https://github.com/cemerick/nREPL
                         [nrepl "0.5.3"]
                         ;; https://github.com/FXMisc/RichTextFX
-                        [org.fxmisc.richtext/richtextfx "0.9.2"]
+                        [org.fxmisc.richtext/richtextfx "0.10.0"]
                         ;; https://github.com/TomasMikula/Flowless
                         [org.fxmisc.flowless/flowless  "0.6.1"]
                         ;; https://github.com/droitfintech/clj-diff
@@ -66,7 +66,9 @@
                         ;; https://github.com/cemerick/pomegranate
                         [com.cemerick/pomegranate "1.1.0"]
                         ;; https://github.com/kumarshantanu/lein-exec
-                        [lein-exec "0.3.7"]]
+                        [lein-exec "0.3.7"]
+                        ;; https://github.com/xsc/lein-ancient
+                        [lein-ancient "0.6.15"]]
 
   :repositories        [;; junique
                         ["github-terjedahl-junique"
@@ -81,16 +83,16 @@
   :resource-paths      ["src/rsc"      "src_spraklab/rsc"
                         "src/include"  "src_spraklab/include"]
 
-                       ;; --module-path and --add-modules= ar appended via middleware
   :javac-options       ["-source" "11"  "-target" "11"]
-                        ;"-Xlint:unchecked"
-                        ;"-Xlint:deprecation"]
+                        ;"-Xlint:unchecked" "-Xlint:deprecation"]
+                        ;; --module-path and --add-modules= ar appended via middleware
 
-  ;; --module-path, --add-modules=, -add-opens, and --add-exports ar appended via middleware
   :jvm-opts            [;; should give crisper text on Mac
                         "-Dapple.awt.graphics.UseQuartz=true"
-                        ;; rendering issue seen on Windows and in lein run (from IDE shell)
+                        ;; Prevent rendering issue seen on Windows and in lein run (from IDE shell) ... and even MacOS
+                        ;; TODO: Investigate more!
                         "-Dprism.dirtyopts=false"]
+                        ;; --module-path and --add-modules=are appended via middleware
 
   :prep-task           ["javac" "compile"]
 
@@ -132,7 +134,6 @@
                         :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
                                "Linux"   "javafx-libs/Linux/javafx-jmods-11.0.2"
                                "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"}
-
 
                         ;; https://docs.oracle.com/en/java/javase/11/docs/api/index.html
                         :java  [;; Currently required
@@ -222,7 +223,10 @@
                                   :target-path "target/uberjar/"
                                   :prep-task   ^:replace ["clean" "javac" "compile"]
                                   :aot :all
-                                  :manifest {"Premain-Class"            "no.andante.george.Agent"
-                                             "Can-Retransform-Classes"  "true"}}
+                                  :manifest   {;; Required to pick up the Java9+ version from RichTextFX MRJ
+                                               "Multi-Release"            "true"
+                                               ;; Required for java-agent
+                                               "Premain-Class"            "no.andante.george.Agent"
+                                               "Can-Retransform-Classes"  "true"}}
 
                         :with-splash {:with-splash true}})

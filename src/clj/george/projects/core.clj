@@ -21,7 +21,8 @@
     [javafx.scene.control ListCell ListView]
     [javafx.util Callback]
     [java.net ConnectException UnknownHostException SocketException]
-    [javafx.scene.web WebView]))
+    [javafx.scene.web WebView]
+    [javafx.stage Stage]))
 
 
 (defn- strip-trailing-slash [^String uri]
@@ -41,25 +42,24 @@
   (fx/vbox (apply-border region) :padding insets)))
 
 
-(defn- box [node & {:keys [icon title color size]
-                    :or {color Color/BLACK
-                         size 18}}]
-  (->
-    (fx/vbox
-      (when (or icon title)
-        (fx/hbox
-          (when icon
-            (fx/icon
-              (format "%s:18:STEELBLUE"
-                (case icon
-                  :info 'fas-info   :asterisk 'fas-asterisk
-                  :edit 'far-edit   :play 'fas-play
-                  :check 'fas-check :tip 'far-lightbulb))))
-          (when title (fx/new-label (str " " title) :size size :color color))
-          :spacing 5))
-      node
-      :padding 10 :spacing 10)
-    (apply-border)))
+(defn- box [node & {:keys [icon title color size] :or {color Color/BLACK size 18}}]
+  (let [header-box
+        (when (or icon title)
+              (fx/hbox
+                (when icon
+                  (fx/icon
+                    (format "%s:18:STEELBLUE"
+                      (case icon
+                        :info 'fas-info   :asterisk 'fas-asterisk
+                        :edit 'far-edit   :play 'fas-play
+                        :check 'fas-check :tip 'far-lightbulb))))
+                (when title (fx/new-label (str " " title) :size size :color color))
+                :spacing 5))]
+    (->
+      (fx/vbox header-box node
+        :padding (if (= icon :edit) 10 0)
+        :spacing 10)
+      ((if (= icon :edit) apply-border identity)))))
 
 
 (defn- titled-pformat-layout [title data]
@@ -143,8 +143,8 @@
 
             (recur (conj! res token))))))))
 
-(def c
-  "(defn- diff-str-test []
+#_(def c
+    "(defn- diff-str-test []
     (let [a \" Ole har en bil. \nDen er veldig blå. \n Tut tut. \"
           b \" Lars har en fin bil. \nDen er grønn. \n Tut tut. \"
           ca (doto (codearea) (gcc/set-text a))
@@ -387,8 +387,7 @@
                      (map (fn [[typ & values]]
                             (step-row typ (if (= typ :row) values (first values)) prev curr project-uri))
                           (:layout curr))
-                     (list :padding 30 :spacing 45 :fill? false)))
-          (apply-border [10 30 30 30]))]
+                     (list :padding 20 :spacing 30 :fill? false))))]
        (doto
          (fx/scrollpane content)
          (fx/add-class "projects-scrollpane"))))
@@ -419,20 +418,28 @@
           reload-b
           (fx/new-label nil :graphic (fx/icon 'fas-redo:16:gray) :tooltip "Reload data"
                             :mouseclicked #(set-step container (read-steps project-uri) step-index project-uri))
+          button-box
+          (fx/hbox
+                prev-b
+                (fx/new-label (format "Step %s of %s" (inc step-index) step-count)
+                              :tooltip (str "step id: " (:id (get data step-index) "<NA>")))
+                next-b
+                (fx/region :hgrow :always)
+                reload-b
+                reset-b
+                :spacing 10 :padding 10 :alignment fx/Pos_CENTER_LEFT)
           navbar
-          (fx/stackpane
-            (fx/hbox
-              prev-b
-              (fx/new-label (format "Step %s of %s" (inc step-index) step-count)
-                            :tooltip (str "step id: " (:id (get data step-index) "<NA>")))
-              next-b
-              (fx/region :hgrow :always)
-              reload-b
-              reset-b
-              :spacing 10 :padding 10 :alignment fx/Pos_CENTER_LEFT)
-            (fx/new-label (:id (get data step-index) "") :size 12 :color Color/LIGHTGRAY))]
+          (doto
+            (fx/stackpane
+              button-box
+              (fx/new-label (:id (get data step-index) "") :size 12 :color Color/LIGHTGRAY))
+            (.setBorder (fx/new-border fx/DEES [1 0 0 0])))]
+
       (set-current-step-index (last (cs/split project-uri #"/")) step-index)
 
+      (-> container .getScene (.setOnKeyPressed (fx/key-pressed-handler
+                                                  {#{:LEFT}  #(.fire prev-b)
+                                                   #{:RIGHT} #(.fire next-b)})))
       (doto container
         (.setCenter (step-layout data step-index project-uri))
         (.setBottom navbar)))))
@@ -466,7 +473,7 @@
                   (fx/text s :font (fx/new-font fx/ROBOTO  :normal :italic 20) :color Color/GREY))
                 :spacing 10)
               (when-let [s (:description data)]
-                (fx/text s :size 16 :width 500 :color fx/ANTHRECITE))
+                (fx/text s :size 16 :width 450 :color fx/ANTHRECITE))
               load-button
               (when-let [img (:img data)]
                 (let [image (Image. (str project-uri "/" img) false)]
@@ -529,7 +536,8 @@
                          (map #(u/->Labeled (:title (get index-data %) (str \< % \>)) {:id % :index-data index-data}))
                          (apply fx/observablearraylist)
                          fx/listview)
-      (master-fn)
+      (fx/set-pref-WH [200 nil])
+      master-fn
       (.setFocusTraversable false)
       (.setCellFactory (index-listcell-factory))
       (fx/add-class "projects-index-listview")
@@ -591,49 +599,51 @@
         (fx/new-button "Home" :graphic (fx/icon 'fas-home)  :size 14  :onaction home-fn :focusable? false)
 
         settings-label
-        (fx/new-label nil :graphic (fx/icon 'fas-cog:18:gray) :size 14 :mouseclicked #(d-setter (home-uri-layout home-fn)))]
+        (fx/new-label nil :graphic (fx/icon 'fas-cog:18:gray) :size 14 :mouseclicked #(d-setter (home-uri-layout home-fn)))
 
-    (m-setter
-      (fx/stackpane
-        (fx/hbox  home-button (fx/region :hgrow :always) settings-label
-                  :padding 10 :spacing 20 :alignment fx/Pos_CENTER_LEFT)
-        title-label))
+        top-bar
+        (doto
+          (fx/stackpane
+            (fx/hbox  home-button (fx/region :hgrow :always) settings-label
+                      :padding 10 :spacing 20 :alignment fx/Pos_CENTER_LEFT)
+            title-label)
+          (.setBorder (fx/new-border fx/DEES [0 0 1 0])))]
 
+    (m-setter top-bar)
     (home-fn)
 
     (doto root
       (fx/add-stylesheet "styles/projects.css"))))
 
 
-;; Used by "applet"
-(defonce feedback-borderlayout_ (atom nil))
-
-
 (defn hide-projects-stage []
   (when-let [stage (singleton/get ::projects-stage)]
-    (when (.isShowing stage) (.hide stage))
-    (singleton/remove ::projects-stage)
-    (when-let [bl @feedback-borderlayout_]
-      (.setCenter bl (styled/new-heading "Projects window closed"))
-      (reset! feedback-borderlayout_ nil)))
-  (styled/new-heading "George Projects has been disposed"))
+    (when (.isShowing stage) (fx/later (.hide stage)))
+    (singleton/remove ::projects-stage))
+  nil)
 
 
 (defn- new-projects-stage []
   (fx/init)
-  (fx/now
-    (styled/style-stage
-      (fx/stage :title "George Projects"
-                :scene (fx/scene (stage-root) :size [900 600])
-                :location [30 60]
-                :tofront true
-                :onhidden hide-projects-stage))))
+  (let [size     [800 600]
+        location [(- (first (fx/primary-center)) (/ (first size) 2)) 100]]
+    (fx/now
+      (styled/style-stage
+        (fx/stage
+          :style :utility
+          :title "George Projects"
+          :scene (fx/scene (stage-root) :size size)
+          :location location
+          :alwaysontop true
+          :tofront true
+          :onhidden hide-projects-stage)))))
 
 
 (defn show-projects-stage []
   (fx/later
-    (doto (singleton/get-or-create ::projects-stage new-projects-stage)
-      (.setIconified false)
-      (.toFront))
-    (reset! feedback-borderlayout_
-      (fx/borderpane :center (styled/new-heading "George Projects\n\n(shown in separate window)")))))
+    (if-let [st ^Stage (singleton/get ::projects-stage)]
+      (if (.isAlwaysOnTop st)
+        (doto st (.setAlwaysOnTop false) (.toBack))
+        (doto st (.setAlwaysOnTop true)))
+      (singleton/get-or-create ::projects-stage new-projects-stage)))
+  nil)

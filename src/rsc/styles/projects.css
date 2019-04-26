@@ -9,9 +9,8 @@
 
 
 .projects-index-listview {
-    -fx-background-color: -g-whiteish;
-/*    -fx-background-insets: 1 0 1 1;  */
-    -fx-background-insets: 1 1 1 1;
+    -fx-background-color: white;
+    -fx-background-insets: 1 0 1 1;
 }
 
 
@@ -21,11 +20,12 @@
 }
 .projects-scrollpane > .viewport {
     -fx-background: -g-whiteish;
+    -fx-background-color: white;
 }
 
 
 .projects-index-listcell {
-    -fx-background-color: -g-whiteish;
+    -fx-background-color: white;
 }
 .projects-index-listcell:filled:selected {
     -fx-background-color: derive(LIGHTSTEELBLUE, 70%);
