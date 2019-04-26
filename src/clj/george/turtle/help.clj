@@ -480,13 +480,9 @@ You can get a list containing all registered turtles with the command [``]
 
 
 (defn- create-turtle-API-stage []
-  (let [
-        stage-WH [600 400]
-        screen-WH (-> (fx/primary-screen) .getVisualBounds fx/WH)
-        location
-        [(- ^int (first screen-WH) ^int (first stage-WH) 10)
-         100]]
-
+  (let [[w _ :as stage-WH] [600 400]
+        [s-w _ ]           (fx/primary-WH)
+        location           [(- ^int s-w ^int w 10) 100]]
     (fx/now
       (doto
         (fx/stage
@@ -514,4 +510,4 @@ You can get a list containing all registered turtles with the command [``]
 ;;;;; 
 
 
-;(when (env :repl?) (fx/later (turtle-API-stage)))
+; (when (env :repl?) (fx/init) (fx/later (turtle-API-stage)))

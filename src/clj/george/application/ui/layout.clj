@@ -16,17 +16,27 @@
 
 
 (defn master-detail
-  "Returns 3-item vector: [layout-root set-master-fn set-detail-fn]"
+  "Returns 3-item vector: [layout-root set-master-fn set-detail-fn]
+  Both setter-fns return the previously held node"
   [& [vertical?]]
   (let [detail-pane
         (fx/borderpane)
+
         root
         (fx/borderpane :center detail-pane)
+
         master-setter
         #(when (nil-or-node? %)
-               (if vertical? (.setTop root %) (.setLeft root %)))
+               (let [prev (if vertical? (.getTop root) (.getLeft root))]
+                 (if vertical? (.setTop root %) (.setLeft root %))
+                 prev))
+
         detail-setter
-        #(when (nil-or-node? %) (.setCenter detail-pane %))]
+        #(when (nil-or-node? %)
+           (let [prev (.getCenter detail-pane)]
+             (.setCenter detail-pane %)
+             prev))]
+
     [root master-setter detail-setter]))
 
 

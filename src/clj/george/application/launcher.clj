@@ -165,39 +165,36 @@ Powered by open source software.")
 
 (defn- applet-tile
   "Builds a 'tile' (a parent) containing a labeled button (for the launcher)."
-  [applet-info main-wrapper]
-  (let [{:keys [label description icon main dispose]} applet-info
-
-        icon-width (- TILE_W 12)
-
-        dispose-fn
-        (fn []
-          (main-wrapper
-            #(let [res (dispose)]
-               (if (fx/node? res) res (styled/new-heading (format "'%s' unloaded" (label)))))))
+  [{:keys [label description icon main dispose]} detail-setter]
+  (let [icon-width (- TILE_W 12)
 
         load-fn
-        (fn []
-          (fx/future-later ;; avoid lag in button
-            (main-wrapper
-              #(styled/scrolling-widget (format "Loading %s ..." (label)) true))
-            (fx/future-sleep-later 50 ;; enough time that the scroller will render
-              (main-wrapper main))))]
+        #(fx/future-later ;; avoid lag in button
+           (let [prev-detail (detail-setter (styled/scrolling-widget (format "Loading %s ..." (label)) true))]
+             (future
+               (let [res (main)]
+                 (fx/later
+                   (detail-setter (or res prev-detail)))))))
+
+        unload-fn
+        #(fx/future-later
+           (detail-setter (styled/scrolling-widget (format "Unloading %s ..." (label)) true))
+           (future
+             (let [res (dispose)]
+               (fx/later
+                 (detail-setter (or res  (styled/new-heading (format "%s unloaded" (label)))))))))]
 
     (fx/vbox
       (doto
         (fx/new-button nil
-           :graphic (icon icon-width icon-width)
-           :tooltip (description)
-           :onaction load-fn
-           ;:style (format "-fx-background-radius: %s;" arc)
+           :graphic    (icon icon-width icon-width)
+           :tooltip    (description)
+           :onaction   load-fn
            :focusable? false
-           :all-WH [TILE_W TILE_W])
+           :all-WH     [TILE_W TILE_W])
         (fx/add-class "g-launcher-button")
-        (.setContextMenu
-          (ContextMenu. (into-array (list (doto (MenuItem. (format "Dispose of '%s'" (label)))
-                                                (fx/set-onaction dispose-fn)))))))
-
+        (.setContextMenu (ContextMenu. (into-array (list (doto (MenuItem. (format "Unload %s" (label)))
+                                                               (fx/set-onaction unload-fn)))))))
 
       (doto (fx/new-label (label) :size 11)
         (.setMaxWidth TILE_W)
@@ -207,15 +204,11 @@ Powered by open source software.")
       :spacing 5 :alignment fx/Pos_CENTER)))
 
 
-(defn- launcher-root
-  "The Launcher root node.  Was previously the sole content of Launcher.
-  Is now inserted as \"master\" in the master-detail setup of the application window."
-  [detail-setter]  ;; a 1-arg fn. If arg is ^javafx.scene.Node, then that node gets set as "detail" in application window.
+(defn- applet-bar
+  "The Launcher root node. Is inserted as \"master\" in the master-detail setup of the application window."
+  [detail-setter]
   (let [welcome-node
         (styled/new-heading "Welcome to George" :size 24)
-
-        main-wrapper ;; a function which calls the applet-fn, and passes the return-value to details-setter
-        #(detail-setter (when % (%)))
 
         george-icon
         (fx/new-label nil 
@@ -241,7 +234,7 @@ Powered by open source software.")
         tiles
         (interleave
           (repeatedly #(padding MARGIN))
-          (map #(applet-tile % main-wrapper) applet-infos))
+          (map #(applet-tile %  detail-setter) applet-infos))
 
         root ^VBox
         (apply fx/vbox
@@ -363,7 +356,7 @@ Powered by open source software.")
 
 (defn application-root []
   (let [[master-detail-root master-setter detail-setter] (layout/master-detail)
-        [l-root dispose-fn] (launcher-root detail-setter)]
+        [l-root dispose-fn] (applet-bar detail-setter)]
     (core/init-state)
     (master-setter l-root)
     [master-detail-root dispose-fn]))

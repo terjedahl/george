@@ -28,7 +28,7 @@ Text-less step-by-step tutorials")
 
 
 (defn dispose []
-  (((resolve 'pro/hide-projects-stage))))
+  ((resolve 'pro/hide-projects-stage)))
 
 
 (defn applet-info []

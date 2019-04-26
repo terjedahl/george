@@ -144,6 +144,8 @@ Add any additional random key+value to trigger a new load (as this triggers a ne
 (def GREEN Color/GREEN)
 (def BLACK Color/BLACK)
 (def THREES (Color/web "#333"))
+(def DEES (Color/web "#ddd"))
+(def EEES (Color/web "#eee"))
 
 (def BLUE Color/BLUE)
 (def GREY Color/GREY)
