@@ -251,7 +251,7 @@
 (defn- proceed? [app]
   (if-not (#{"George-TEST" "George"} app)
     true
-    (= "y" (do (printf "'app' is '%s'. Proceed? (y/n): " app) (flush) (read-line)))))
+    (= "y" (do (printf "'app' is '%s'. Proceed? (y/n) > " app) (flush) (read-line)))))
 
 
 ;;;; EMBED / PROPS

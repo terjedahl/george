@@ -126,14 +126,14 @@
 
   :modules             {;; Download SKSs and jmods from: https://gluonhq.com/products/javafx/
                         ;; Required for javac, compile, java (building JAR and running lein and/or repl)
-                        :libs {"MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.2/lib"
-                               "Linux"   "javafx-libs/Linux/javafx-sdk-11.0.2/lib"
-                               "Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.2\\lib"}
+                        :libs {"Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.2\\lib"
+                               "MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.2/lib"
+                               "Linux"   "javafx-libs/Linux/javafx-sdk-12.0.1/lib"}
 
                         ;; Required for jlink (building JRE)
-                        :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
-                               "Linux"   "javafx-libs/Linux/javafx-jmods-11.0.2"
-                               "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"}
+                        :mods {"Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"
+                               "MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
+                               "Linux"   "javafx-libs/Linux/javafx-jmods-12.0.1"}
 
                         ;; https://docs.oracle.com/en/java/javase/11/docs/api/index.html
                         :java  [;; Currently required
@@ -209,11 +209,11 @@
 
                                                          [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
 
-                                                         [org.openjfx/javafx-controls "11.0.2"]
-                                                         [org.openjfx/javafx-fxml     "11.0.2"]
-                                                         [org.openjfx/javafx-swing    "11.0.2"]
-                                                         [org.openjfx/javafx-web      "11.0.2"]
-                                                         [org.openjfx/javafx-media    "11.0.2"]]
+                                                         [org.openjfx/javafx-controls "12.0.1"]
+                                                         [org.openjfx/javafx-fxml     "12.0.1"]
+                                                         [org.openjfx/javafx-swing    "12.0.1"]
+                                                         [org.openjfx/javafx-web      "12.0.1"]
+                                                         [org.openjfx/javafx-media    "12.0.1"]]
 
                                      :build {:properties {;; You may want to override this in your profiles.clj
                                                           ;; (as :dev-overrides, not :dev or :dev-common)
@@ -225,7 +225,7 @@
                                   :aot :all
                                   :manifest   {;; Required to pick up the Java9+ version from RichTextFX MRJ
                                                "Multi-Release"            "true"
-                                               ;; Required for java-agent
+                                               ;; Required for no.andante.george.Agent
                                                "Premain-Class"            "no.andante.george.Agent"
                                                "Can-Retransform-Classes"  "true"}}
 

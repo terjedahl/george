@@ -5,7 +5,7 @@ set -eo pipefail
 
 
 LINK_NAME="{{ app|lower }}"
-THIS_DIR=$( dirname "$0" )
+THIS_DIR=$( cd $( dirname "$0" ); pwd )
 
 source "${THIS_DIR}/bin/utils.sh"
 
@@ -68,13 +68,13 @@ _get_set_install_type() {
 
 
 _try_clean_opt() {
-    local app_dir="${opt_dir}/{{ app }}"
+    local opt_app_dir="${opt_dir}/{{ app }}"
 
-    if [[ -d ${app_dir} ]]; then
+    if [[ -d ${opt_app_dir} ]]; then
         _info "Delete dir '{{ app }}' from '$opt_dir'"
-        if _as_sudo; then sudo rm -Rf ${app_dir}; else rm -Rf  ${app_dir}; fi
+        if _as_sudo; then sudo rm -Rf ${opt_app_dir}; else rm -Rf  ${opt_app_dir}; fi
     else
-        _info "No dir '${app_dir}' to delete"
+        _info "No dir '${opt_app_dir}' to delete"
     fi
 }
 
@@ -156,7 +156,8 @@ _append_bashrc() {
     else
         _info "Append \"${append_line}\" in file '${bashrc}'"
         # Users will not be happy if we mess up their original .bashrc file!
-        if [[ -e ${bashrc} ]]; then cp ${bashrc} "${bashrc}.backup"; fi
+        if [[ -e ${bashrc} ]]; then cp ${bashrc} "${bashrc}.backup-$(now_basic)-{{ app }}"; fi
+        echo "# \$PATH prepended by George installer.sh" >> ${bashrc}
         echo  ${append_line} >> ${bashrc}
     fi
 }
@@ -233,9 +234,9 @@ install() {
 
 _infer_set_install_type() {
     case ${THIS_DIR} in
-        "/opt/{{ app }}")         install_type=2;  _info "Inferred uninstall for machine (requires sudo privileges)" ;;
+        "/opt/{{ app }}")       install_type=2;  _info "Inferred uninstall for machine (requires sudo privileges)" ;;
         "${opt_dir}/{{ app }}") install_type=1;  _info "Inferred uninstall for user ${USER}" ;;
-        *)                        install_type=0   _info "Inferred uninstall failed. Exit with -1."; exit -1;;
+        *)                      install_type=0   _info "Inferred uninstall failed. Exit with -1."; exit -1;;
     esac
 }
 
@@ -283,10 +284,10 @@ uninstall() {
 
 
 desktop() {
-    local app_dir=$( readlink --canonicalize ${THIS_DIR} )
-    _info "Write '{{ app }}.desktop' to '${desktop_dir}' for '${app_dir}'"
+    local target_app_dir=$( readlink --canonicalize ${THIS_DIR} )
+    _info "Write '{{ app }}.desktop' to '${desktop_dir}' for '${target_app_dir}'"
     mkdir -p ${desktop_dir}
-    write_desktop_file ${app_dir} ${desktop_dir}
+    write_desktop_file ${target_app_dir} ${desktop_dir}
     echo
 }
 

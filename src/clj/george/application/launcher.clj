@@ -16,7 +16,8 @@
      [styled :as styled :refer [hr padding]]]
     [george.util.singleton :as singleton]
     [common.george.config :as c]
-    [common.george.util.cli :refer [debug warn]])
+    [common.george.util.cli :refer [debug warn]]
+    [clojure.string :as cs])
   (:import
     [javafx.geometry Rectangle2D]
     [javafx.stage Stage WindowEvent]
@@ -44,7 +45,8 @@
    George: %s
     build: %s
   Clojure: %s
-     Java: %s")
+     Java: %s
+   JavaFX: %s")
 
 (def copyright "
 Copyright 2015-2019 Terje Dahl.
@@ -56,9 +58,17 @@ Powered by open source software.")
     [version ts]))
 
 
+(defn- javafx-version []
+  (first (cs/split (or (System/getProperty "javafx.runtime.version") "N/A") #"\+")))
+
+
 (defn- about-stage-create []
   (let [[version ts] (george-version-ts)
-        version-str  (format versionf version ts (clojure-version) (env :java-version))
+        version-str  (format versionf
+                             version ts
+                             (clojure-version)
+                             (env :java-version)
+                             (javafx-version))
 
         copy-fn
         #(let [stage (fx/stage
