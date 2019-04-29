@@ -754,11 +754,11 @@ and the body is called on 'changed'"
 ; ^Button  ;; DON'T TYPE. It touches JavaFX!
 (defn new-button [s & {:keys [graphic onaction pref-WH all-WH tooltip style focusable?]}]
     (let [b (if graphic (Button. s graphic) (Button. s))]
-      (when pref-WH   (set-pref-WH b pref-WH))
-      (when all-WH   (set-all-WH b all-WH))
-      (when onaction (set-onaction b onaction))
-      (when tooltip  (set-tooltip b tooltip))
-      (when style    (.setStyle b style))
+      (when pref-WH            (set-pref-WH b pref-WH))
+      (when all-WH             (set-all-WH b all-WH))
+      (when onaction           (set-onaction b onaction))
+      (when tooltip            (set-tooltip b tooltip))
+      (when style              (.setStyle b style))
       (when (some? focusable?) (.setFocusTraversable b focusable?))
       b))
 
@@ -770,10 +770,12 @@ and the body is called on 'changed'"
 
 
 ; ^CheckBox  ;; DON'T TYPE. It touches JavaFX!
-(defn  checkbox [label & {:keys [onaction tooltip]}]
+(defn  new-checkbox [label & {:keys [onaction tooltip selected? focusable?]}]
   (let [cb (CheckBox. label)]
-    (when onaction (set-onaction cb onaction))
-    (when tooltip (set-tooltip cb tooltip))
+    (when tooltip            (set-tooltip cb tooltip))
+    (when onaction           (set-onaction cb onaction))
+    (when (some? selected?)  (.setSelected cb (boolean selected?)))
+    (when (some? focusable?) (.setFocusTraversable cb focusable?))
     cb))
 
 

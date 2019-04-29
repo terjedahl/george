@@ -1,21 +1,25 @@
+;; Copyright (c) 2016-2019 Terje Dahl. All rights reserved.
+;; The use and distribution terms for this software are covered by the Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can be found in the file epl-v10.html at the root of this distribution.
+;; By using this software in any fashion, you are agreeing to be bound by the terms of this license.
+;; You must not remove this notice, or any other, from this software.
+
 (ns george.projects.core
   (:require
     [clojure.string :as cs]
-    [clj-diff.core :as diff]
     [george.javafx :as fx]
-    [george.code.tokenizer :as gct]
-    [george.application.history :as gah]
+    [george.projects.code :as code]
+    [george.application
+     [history :as gah]
+     [input :as input]]
     [george.application.ui
      [layout :as layout]
      [styled :as styled]]
     [george.util :as u]
-    [george.util.colls :as guc]
     [common.george.util
-     [text :refer [pformat pprint] :as gut]
-     [cli :refer [debug info warn]]]
+     [cli :refer [debug info warn]]
+     [text :refer [pformat pprint]]]
     [george.util.singleton :as singleton])
   (:import
-    [org.fxmisc.richtext InlineCssTextArea]
     [javafx.scene.image Image]
     [javafx.scene.paint Color]
     [javafx.scene.control ListCell ListView]
@@ -23,6 +27,13 @@
     [java.net ConnectException UnknownHostException SocketException]
     [javafx.scene.web WebView]
     [javafx.stage Stage]))
+
+
+;; If true, then only code is shown, with eval and mark + copy options
+(defonce ^:private code-mode_ (atom false))
+(defn code-mode
+  ([b] (reset! code-mode_ b))
+  ([]  @code-mode_))
 
 
 (defn- strip-trailing-slash [^String uri]
@@ -88,188 +99,6 @@
            :font (fx/new-font "Source Code Pro" 14) :color fx/RED)))))
 
 
-(defn- codearea [& [s]]
-  (doto (if s (InlineCssTextArea. ^String s) (InlineCssTextArea.))
-    (.setStyle "-fx-font-size: 18; -fx-font-family: 'Source Code Pro'; -fx-padding: 5;")
-    ;(.setEditable false)
-    ;; Prevent copying!
-    (.setDisable true)))
-
-
-(defn- clojure-char? [ch]
-  (or (gut/coll-delim-char? ch) (gut/readermacro-char? ch)  (gut/macro-char? ch) (gut/comment-char? ch)  (gut/string-delim-char? ch)))
-
-
-(defn- special-char? [ch]
-  (or (gut/whitespace-char? ch) (clojure-char? ch)))
-
-
-(defn- read-default [rdr ch]
-  (let [sb (StringBuilder.)]
-    (.append sb ch)
-    (loop []
-      (let [ch (gct/read-char rdr)]
-        ;(if (or (not ch) (other-char? ch))
-        ;  (do (gct/unread-char rdr ch) (str sb))
-        ;  (do (.append sb ch) (recur)))))))
-        (cond
-          (not ch)
-          (str sb)
-
-          (or (gut/newline-char? ch) (clojure-char? ch))
-          (do (gct/unread-char rdr ch) (str sb))
-
-          ;(gut/whitespace-char? ch)
-          ;(do (.append sb ch) (str sb))
-
-          :else
-          (do (.append sb ch) (recur)))))))
-
-
-(defn- parse [s]
-  (let [rdr (gct/indexing-pushback-stringreader s)]
-    (loop [res (transient [])]
-      (let [ch (gct/read-char rdr)]
-        (if (nil? ch)
-          (persistent! res)
-          (let [token
-                (cond
-
-                  (or (gut/newline-char? ch) (special-char? ch))
-                  (str ch)
-
-                  :else
-                  (read-default rdr ch))]
-
-            (recur (conj! res token))))))))
-
-#_(def c
-    "(defn- diff-str-test []
-    (let [a \" Ole har en bil. \nDen er veldig blå. \n Tut tut. \"
-          b \" Lars har en fin bil. \nDen er grønn. \n Tut tut. \"
-          ca (doto (codearea) (gcc/set-text a))
-          edits (diff/diff a b)]
-      (diff/patch ca edits)
-      (fx/init) (fx/later (fx/stage :scene (fx/scene ca :size [300 250]) :tofront true))
-      (prn 'E edits)))")
-
-;(prn c)
-;(println c)
-;(prn (parse c))
-
-
-(defn- split-lines [s]
-  (if (cs/blank? s)
-    '()
-    (cs/split s #"\r?\n" -1)))
-
-
-(defn- not-edit? [[_ typ _]]
-  (= := typ))
-
-
-(def collapsed [0 :collapsed ""])
-
-
-(defn- collapse-lines [lines]
-  (loop [lines0 lines lines1 '()]
-    (if (empty? lines0)
-      lines1
-      (if (not-edit? (first lines0))
-        (let [taken (take-while not-edit? lines0)
-              after (drop-while not-edit? lines0)
-              first? (empty? lines1)
-              last? (= (count taken) (count lines0))
-              cnt   (count taken)
-              taken (if (> cnt 6)
-                      (concat
-                        (if first? '() (take 3 taken))
-                        (list collapsed)
-                        (if last? '() (take-last 3 taken)))
-                      taken)]
-          (recur after (concat lines1 taken)))
-        (recur (rest lines0) (concat lines1 (list (first lines0))))))))
-
-
-(defn- diff-patch-textarea [a b & [collapse?]]
-  (let [ca (codearea (if collapse? "\n" "\n"))
-        ap (split-lines a) ;(parse a)
-        bp (split-lines b) ;(parse b)
-        ;_ (prn 'AP ap)
-        ;_ (prn 'BP bp)
-        edits (diff/diff ap bp)
-        ;_ (prn 'EDITS edits)
-        ;; apply dels
-        res (reduce (fn [ap i]
-                      (guc/replace-at ap i [[:- (let [s (get ap i)] (if (cs/blank? s) " " s))]]))
-                    ap (:- edits))
-        ;; apply adds
-        res (reduce (fn [res add]
-                      (guc/insert-at
-                        res
-                        (inc ^int (first add)) ;; increment because of how 'insert-at' works.
-                        (mapv #(vector :+ (if (cs/blank? %) " " %)) (rest add))))
-                    res (reverse (:+ edits)))
-        ;; moralize
-        res (map #(if (string? %) [:= %] %) res)
-        ;; add line numbers
-        res (loop [nr 1
-                   res0 res
-                   res1 []]
-              (if-let [[typ txt] (first res0)]
-                (recur (if (= :- typ) nr (inc nr))
-                       (rest res0)
-                       (conj res1 [nr typ txt]))
-                res1))
-        ;; collapse
-        res (if collapse? (collapse-lines res) res)]
-    ;(prn 'RES )(mapv prn res)
-
-    (doseq [[nr typ txt] res]
-      (if (= typ :collapsed)
-        (let [i (.getLength ca)
-              mes (gut/** 50 "≈")]
-          (.appendText ca (str mes \newline))
-          (.setStyle ca i (+ i (count mes))
-                     "-fx-fill: #bbb;
-                     -rtfx-background-color: #fff;
-                     -fx-font-size: 20;"))
-        (let [i (.getLength ca)
-              nr-str (format "%1$2d" nr)]
-          (.appendText ca (str nr-str "  "))
-          (.setStyle ca i (+ i (count nr-str))
-                     "-fx-fill: gray;
-                     -fx-font-size: 16;")
-          (let [i (.getLength ca)]
-                ;txt (str txt \newline)]
-            (.appendText ca (str txt \newline))
-            (.setStyle ca i (+ i (count txt))
-                       (condp = typ
-                         :-
-                         "-fx-strikethrough: true;
-                         -fx-fill: red;
-                         -rtfx-background-color: #ffe0e0;"
-
-                         :+
-                         "-fx-fill: blue;
-                         -rtfx-background-color: lightblue;"
-
-                         ;; := / default
-                         "-rtfx-background-color: white;"))))))
-    ca))
-
-
-(defn- diff-str-test2 []
-  (let [a "Ole har en bil.\nDen er veldig blå.\n  Tut tut."
-        b "Lars har en fin bil.\nDen er grønn.\n  Tut tut."
-        ca (codearea)]
-    (diff-patch-textarea ca a b)
-    (fx/init) (fx/later (fx/stage :scene (fx/scene ca :size [300 250]) :tofront true))))
-
-;(diff-str-test2)
-
-;;;;;
-
 (defn- load-uri-vec [v]
   (->> v (interpose "/") (apply str) slurp))
 
@@ -333,7 +162,9 @@
       :spacing 5 :fill? false)))
 
 
-(defn- step-content [value project-uri]
+(defn- step-content
+  "'value' is a map containing a key in #{:img :text :button}"
+  [value project-uri]
   (if-let [img (:img value)]
     (let [image (Image.  (str project-uri "/" img) false)]
       (if (.isError image)
@@ -354,28 +185,65 @@
         (throw (IllegalArgumentException. (format "Don't know how to build step-content for: \n %s" value)))))))
 
 
+(defn- step-row-edit [value prev-step curr-step project-uri]
+  (if-let [code-name (:code value)]
+    (let [collapse?   (:collapse value)
+          load?       (not= code-name "Input")
+          curr-code   (.trim ^String (get (:code curr-step) code-name))
+          prev-code   (.trim ^String (get (:code prev-step) code-name ""))
+          textarea    (code/diff-patch-textarea prev-code curr-code collapse?)
+          set-textarea-WH
+          #(fx/set-all-WH % [ 600 (-> % .getText code/split-lines count (* 24) (+ 5 5))]) ;;  5 5 is for codearea padding
+
+          ;; The following are for "code-mode"
+          textarea-c  (fx/stackpane textarea)
+          ns-label    (doto (styled/ns-label) (.setText "user.turtle"))
+          ns-fn       (input/set-ns-label-fn ns-label)
+          interrupt-b (input/interrupt-button)
+          run-b       (fx/new-button (if load? "Load" "Run") :tooltip "Load/Run this code" :focusable? false)
+          collapsed-cb
+          (fx/new-checkbox "Collapsed" :tooltip "Code is collapsed" :selected? collapse? :focusable? false)
+          collapsed-bar
+          (fx/hbox (fx/region :hgrow :always) collapsed-cb)
+          eval-bar
+          (fx/hbox ns-label (fx/region :hgrow :always) interrupt-b run-b :spacing 3 :padding 5 :alignment fx/Pos_CENTER_LEFT)
+          eval-fn
+          (fn [] (input/do-eval curr-code run-b interrupt-b #(.getText ns-label) ns-fn code-name nil nil load?))
+          collapsed-fn
+          #(doto (code/diff-patch-textarea prev-code curr-code (.isSelected collapsed-cb) (code-mode))
+             set-textarea-WH
+             (->> (fx/children-set textarea-c 0)))]
+
+      (fx/set-onaction run-b eval-fn)
+      (fx/set-onaction collapsed-cb collapsed-fn)
+
+      (set-textarea-WH textarea)
+      (box (if-not (code-mode) textarea (fx/vbox collapsed-bar textarea-c eval-bar))
+           :title (str \" code-name \") :icon :edit))
+
+    ;; else there is another key than :code (see acceptable keys in step-content doc)
+    (box (step-content value project-uri)
+         :icon :edit)))
+
+
 (defn- step-row [type value prev-step curr-step  project-uri]
-  (case type
-    :none  (box (step-content value project-uri))
-    :info  (box (step-content value project-uri) :icon :info)
-    :check (box (step-content value project-uri) :icon :check)
-    :tip   (box (step-content value project-uri) :icon :tip)
-    :play  (box (step-content value project-uri) :icon :play)
-    :row
-    (apply fx/hbox (concat (map #(step-row (first %) (second %) prev-step curr-step project-uri) value)
-                           (list :spacing 20 :fill? false)))
-    :edit
-    (if-let [code (:code value)]
-      (let [collapse? (:collapse value)
-            curr-code (.trim ^String (get (:code curr-step) code))
-            prev-code (.trim ^String (get (:code prev-step) code ""))
-            ta (diff-patch-textarea prev-code curr-code collapse?)]
-        (fx/set-all-WH ta [ 600 (-> ta .getText split-lines count (* 24) (+ 5 5))]) ;;  5 5 is for codearea padding
-        (box  ta :title (str \" code \") :icon :edit))
-      ;; else
-      (box (step-content value project-uri) :icon :edit))
-    ;; default
-    (throw (IllegalArgumentException. (format "Unknown layout type '%s'" type)))))
+  (if (code-mode)
+    (when (= type :edit)
+      (step-row-edit value prev-step curr-step  project-uri))
+    (case type
+      :none  (box (step-content value project-uri))
+      :info  (box (step-content value project-uri) :icon :info)
+      :check (box (step-content value project-uri) :icon :check)
+      :tip   (box (step-content value project-uri) :icon :tip)
+      :play  (box (step-content value project-uri) :icon :play)
+      :row
+      (apply fx/hbox (concat (map #(step-row (first %) (second %) prev-step curr-step project-uri) value)
+                             (list :spacing 20 :fill? false)))
+      :edit
+      (step-row-edit value prev-step curr-step project-uri)
+
+      ;; default
+      (throw (IllegalArgumentException. (format "Unknown layout type '%s'" type))))))
 
 
 (defn- step-layout [data step-index project-uri]

@@ -32,10 +32,10 @@
 
 
 (defn- request-focus [focusable]
-  (try
-    (fx/future-sleep-later 300 (.requestFocus focusable))
+  (fx/future-sleep-later 300
+    (try (.requestFocus focusable)
     ;; The focusable may be gone as the interrupt being a result of closing it.
-    (catch NullPointerException _ nil)))
+      (catch NullPointerException _ nil))))
 
 
 (defn do-eval [code-str ^Button run-button ^Button interrupt-button ns-fn update-ns-fn file-name focusable post-success-fn & [load?]]
@@ -137,11 +137,10 @@ Run code, then do the inverse of checkbox selection. SHIFT-%s-ENTER" (pl/shortcu
 
         clear-checkbox
         (doto
-          (fx/checkbox "Clear"
-                       :tooltip
-                       "Clear on 'Run'. Code is cleared after successful evaluation.")
-          (.setStyle "-fx-padding: 3px;")
-          (.setFocusTraversable false))
+          (fx/new-checkbox "Clear"
+            :tooltip "Clear on 'Run'. Code is cleared after successful evaluation."
+            :focusable? false)
+          (.setStyle "-fx-padding: 3px;"))
 
         do-clear-fn
         (fn [inverse-clear]  ;; do the opposite of clear-checkbox
