@@ -110,7 +110,8 @@
 
 
 (defn- print-help []
-  (println "George CLI help:
+  (println "
+**George CLI help**
 
 Optional arguments are:
   :help | help
@@ -132,9 +133,15 @@ Optional arguments are:
   (debug "this-run" stage)
   (gui/set-text "Loading application ...")
   (cond
-    (help?)    (do (print-help) (exit))
-    (no-gui?)  (do (info "No GUI. Exiting.") (exit))  ;; TODO: main application should decide what to do if :no-gui not here!
-    :else      (future (launcher/start stage))))  ;; TODO: Pass the args on to the main application!
+    (help?)   (do (print-help) (exit))
+    (no-gui?) (do (info "No GUI. Exiting.") (exit))  ;; TODO: main application should decide what to do if :no-gui not here!
+    :default
+    ;; TODO: Pass the args on to the main application!
+    ;; TODO: 'require' only here - not in namespace
+    (future
+      (launcher/start stage))))
+
+
 
 
 (defn- installed-load [stage args]

@@ -8,7 +8,8 @@
     [clojure.string :as cs]
     [clojure.java.io :as cio]
     [common.george.util.cli :refer [debug warn info except]]
-    [george.util :as u])
+    [george.util :as u]
+    [common.george.util.platform :as pl])
   (:import
     [javafx.animation Timeline KeyFrame KeyValue]
     [javafx.application Platform]
@@ -1092,10 +1093,21 @@ and the body is called on 'changed'"
 
     (-> alert .getDialogPane (.setExpanded (:expanded? kwargs)))
 
+    ;; Workaround for JavaFX bug on Linux KDE
+    ;; https://stackoverflow.com/questions/55190380/javafx-creates-alert-dialog-which-is-too-small
+    ;; https://github.com/javafxports/openjdk-jfx/issues/222
+    (when (pl/linux?)
+      (doto alert
+        (.setOnShown
+          (new-eventhandler
+            ;; A couple of times for good measure (in case the first call came too early).
+            (doseq [t [30 100 500 1500]]
+              (future-sleep-later  t (-> alert .getDialogPane .getScene .getWindow .sizeToScene)))))))
+
     (condp = (:mode kwargs)
       :show-and-wait (option-index (.showAndWait alert) options)
       :show          (option-index (.show alert) options)
-           ;; default (nil) - simply return the dialog itself (unshown)
+      ;; default (nil) - simply return the dialog itself (unshown)
       alert)))
 
 

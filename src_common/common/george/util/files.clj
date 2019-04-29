@@ -195,6 +195,7 @@
     (let [{:keys [err]} (cond
                           (pl/macos?)    (sh "open" "--reveal" (to-string f))
                           (pl/windows?)  (sh "explorer.exe" "/select," (to-string f))
+                          (pl/linux?)    (sh "xdg-open" (to-string (parent f))) ;; Opens parent dir, but doesn't mark file.
                           :else          {:err (format "Reveal not implemented for platform '%s'" (pl/platform))})]
       (if (empty? err) true (warn err))))
   (open [f]

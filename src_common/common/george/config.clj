@@ -107,36 +107,11 @@
   (load (str (or uri (default-uri app)) PROP_NAME)))
 
 
-;(def appdata-dir
-;  "Returns the ensured default directory for storing app-data:
-;Windows: $HOME/AppData/Roaming/<app>
-;MacOS:   $HOME/Library/Application Support/<app>
-;other:   $HOME/Application Support/<app>"
-;  ^File (fn
-;          ([]
-;           (appdata-dir (operating-system)))
-;          ([os]
-;           (let [app (p/this-app)
-;                 d
-;                 (condp = os
-;                   WINDOWS
-;                   (cio/file (user-home) "AppData" "Roaming" app)
-;                   MACOS
-;                   (cio/file (user-home) "Library" "Application Support" app)
-;                   ;; OTHER
-;                   (cio/file (user-home) (str "." app)))]
-;             (guf/ensure-dir d)))))
-
-;(prn (appdata-dir))
-;(prn (appdata-dir WINDOWS))
-;(prn (appdata-dir MACOS))
-;(prn (appdata-dir OTHER))
-
-
 (defn- platform-dir
   "Returns the ensured default directory for installing or storing app-data:
   Windows: $HOME/AppData/<Local|Roaming>/<app>/<dir>
   MacOS:   $HOME/Library/Application Support/<app>/<dir>
+  Linux:   $HOME/.local/share/<app>/<dir>
   other:   $HOME/AppData/<app>/<dir>"
   [^String app ^String dir]
   (let [home (pl/user-home)]
@@ -147,6 +122,8 @@
                [home "AppData" (if (= dir "installed") "Local" "Roaming") app dir]
                (pl/macos?)
                [home "Library" "Application Support" app dir]
+               (pl/linux?)
+               [home  ".local" "share" app dir]
                :else
                [home "AppData" app dir])))))
 

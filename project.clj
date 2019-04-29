@@ -42,7 +42,10 @@
                         ;; https://github.com/aalmiray/ikonli
                         [org.kordamp.ikonli/ikonli-javafx "11.1.0"]
                         ;; https://fontawesome.com/
-                        [org.kordamp.ikonli/ikonli-fontawesome5-pack "11.1.0"]]
+                        [org.kordamp.ikonli/ikonli-fontawesome5-pack "11.1.0"]
+                        ;; https://asm.ow2.io/index.html
+                        [org.ow2.asm/asm "7.1"]
+                        [org.ow2.asm/asm-tree "7.1"]]
 
   :jar-exclusions      [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
 
@@ -123,12 +126,14 @@
 
   :modules             {;; Download SKSs and jmods from: https://gluonhq.com/products/javafx/
                         ;; Required for javac, compile, java (building JAR and running lein and/or repl)
-                        :libs {"MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.2/lib"
-                               "Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.2\\lib"}
+                        :libs {"Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.2\\lib"
+                               "MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.2/lib"
+                               "Linux"   "javafx-libs/Linux/javafx-sdk-12.0.1/lib"}
 
                         ;; Required for jlink (building JRE)
-                        :mods {"MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
-                               "Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"}
+                        :mods {"Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"
+                               "MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
+                               "Linux"   "javafx-libs/Linux/javafx-jmods-12.0.1"}
 
                         ;; https://docs.oracle.com/en/java/javase/11/docs/api/index.html
                         :java  [;; Currently required
@@ -151,7 +156,9 @@
                                 ;; Required to get javac
                                 :jdk.compiler
                                 ;; Required to get jdeps, jlink, jmod, et al
-                                :jdk.jlink]
+                                :jdk.jlink
+                                ;; Required for no.andante.george.Agent
+                                :java.instrument]
 
                         ;; https://openjfx.io
                         :javafx [:javafx.controls
@@ -202,11 +209,11 @@
 
                                                          [org.eclipse.jetty/jetty-server "9.0.0.v20130308"]
 
-                                                         [org.openjfx/javafx-controls "11.0.2"]
-                                                         [org.openjfx/javafx-fxml     "11.0.2"]
-                                                         [org.openjfx/javafx-swing    "11.0.2"]
-                                                         [org.openjfx/javafx-web      "11.0.2"]
-                                                         [org.openjfx/javafx-media    "11.0.2"]]
+                                                         [org.openjfx/javafx-controls "12.0.1"]
+                                                         [org.openjfx/javafx-fxml     "12.0.1"]
+                                                         [org.openjfx/javafx-swing    "12.0.1"]
+                                                         [org.openjfx/javafx-web      "12.0.1"]
+                                                         [org.openjfx/javafx-media    "12.0.1"]]
 
                                      :build {:properties {;; You may want to override this in your profiles.clj
                                                           ;; (as :dev-overrides, not :dev or :dev-common)
@@ -217,6 +224,9 @@
                                   :prep-task   ^:replace ["clean" "javac" "compile"]
                                   :aot :all
                                   :manifest   {;; Required to pick up the Java9+ version from RichTextFX MRJ
-                                               "Multi-Release" "true"}}
+                                               "Multi-Release"            "true"
+                                               ;; Required for no.andante.george.Agent
+                                               "Premain-Class"            "no.andante.george.Agent"
+                                               "Can-Retransform-Classes"  "true"}}
 
                         :with-splash {:with-splash true}})

@@ -10,6 +10,7 @@
 
 (def WINDOWS "Windows")
 (def MACOS "MacOS")
+(def LINUX "Linux")
 (def OTHER "other")
 
 
@@ -21,22 +22,27 @@
   (memoize #(-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"mac"))  boolean)))
 
 
+(def linux?
+  (memoize #(-> (System/getProperty "os.name") .toLowerCase (->> (re-find #"linux"))  boolean)))
+
+
 (def shortcut-key
   (memoize #(if (macos?) "CMD" "CTRL")))
 
 
 (def platform
-  "Returns 'Windows', 'MacOS' or 'Other'"
+  "Returns 'Windows', 'MacOS' 'Linux' or 'Other'"
   (memoize
     #(let [os (.toLowerCase (System/getProperty "os.name"))]
        (cond
          (.contains os "windows") WINDOWS
          (.contains os "mac")     MACOS
+         (.contains os "linux")   LINUX
          :else                    OTHER))))
 
 
 (defn platforms []
-  [WINDOWS MACOS OTHER])
+  [WINDOWS MACOS LINUX OTHER])
 
 
 (defn ^File user-home []
