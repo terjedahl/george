@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2019.1.1] - 2019-04-29
+
+The main feature in this deployment is the Linux/Ubuntu installer.
+
+### Added
+- Tooling for building a Linux distribution, including installer script, .desktop file support.
+- A Java agent for intercepting and altering a specific JavaFX class to support setting application name.
+- A workaround for known Linux KDE rendering bug in JavaFX
+- JavaFX setup-scripts for three platforms.
+
+### Improved
+- George Projects: Cleaned up layout/design somewhat.
+- George Projects: Added advanced "code-mode" feature - for testing and presenting only code part of each step.
+- Documentation for developers/contributors.
+
+
 ## [2019.1] - 2019-03-23
 
 The main highlight for this deployment is "George Projects"; A concept and a "player" for step-by-step tutorials.

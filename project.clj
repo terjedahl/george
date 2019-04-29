@@ -1,4 +1,4 @@
-(defproject no.andante.george/george-application  "2019.2-SNAPSHOT"
+(defproject no.andante.george/george-application  "2019.1.1"
 
   :description         "George - the main application code"
   :url                 "https://bitbucket.org/andante-george/george-application"
@@ -8,7 +8,7 @@
   :dependencies        [;; https://clojure.org/community/downloads
                         [org.clojure/clojure "1.10.0"]
                         ;; https://github.com/clojure/core.async
-                        [org.clojure/core.async "0.4.490"]
+                        [org.clojure/core.async "0.4.490" :exclusions [org.ow2.asm/asm-all]]
                         ;; https://github.com/clojure/tools.reader
                         [org.clojure/tools.reader "1.3.2"]
                         ;; https://github.com/mmcgrana/clj-stacktrace
@@ -126,13 +126,13 @@
 
   :modules             {;; Download SKSs and jmods from: https://gluonhq.com/products/javafx/
                         ;; Required for javac, compile, java (building JAR and running lein and/or repl)
-                        :libs {"Windows" "javafx-libs\\Windows\\javafx-sdk-11.0.2\\lib"
-                               "MacOS"   "javafx-libs/MacOS/javafx-sdk-11.0.2/lib"
+                        :libs {"Windows" "javafx-libs\\Windows\\javafx-sdk-12.0.1\\lib"
+                               "MacOS"   "javafx-libs/MacOS/javafx-sdk-12.0.1/lib"
                                "Linux"   "javafx-libs/Linux/javafx-sdk-12.0.1/lib"}
 
                         ;; Required for jlink (building JRE)
-                        :mods {"Windows" "javafx-libs\\Windows\\javafx-jmods-11.0.2"
-                               "MacOS"   "javafx-libs/MacOS/javafx-jmods-11.0.2"
+                        :mods {"Windows" "javafx-libs\\Windows\\javafx-jmods-12.0.1"
+                               "MacOS"   "javafx-libs/MacOS/javafx-jmods-12.0.1"
                                "Linux"   "javafx-libs/Linux/javafx-jmods-12.0.1"}
 
                         ;; https://docs.oracle.com/en/java/javase/11/docs/api/index.html

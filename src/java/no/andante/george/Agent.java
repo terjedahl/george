@@ -57,10 +57,19 @@ To learn more about ASM, the User guide is excellent:  https://asm.ow2.io/versio
 
 public class Agent {
 
+    private final static boolean is_debug = System.getenv("DEBUG") != null || System.getenv("debug") != null;
+
     private final static String application_name = System.getenv("APPLICATION_NAME");
 
 
+    private static void debug(String s) {
+        if (is_debug)
+            System.out.println("[DEBUG][Agent]: " + s);
+    }
+
+
     public static void premain(String agentArg, Instrumentation instr){
+        debug("APPLICATION_NAME: " + application_name);
         if(application_name != null)
             instr.addTransformer(new ApplicationNameTransformer(), true);
     }
@@ -69,10 +78,10 @@ public class Agent {
     static class ApplicationNameTransformer implements ClassFileTransformer {
 
         public byte[] transform(ClassLoader cl, String name, Class c, ProtectionDomain pd, byte[] bytes) {
-
             if (!"com/sun/glass/ui/Application".equals(name))
                 return bytes;
 
+            debug("Found 'com/sun/glass/ui/Application'.");
             ClassNode node = new ClassNode(ASM4);
             ClassReader reader = new ClassReader(bytes);
             reader.accept(node, 0);
@@ -84,32 +93,35 @@ public class Agent {
 
 
         private void transformApplication(ClassNode node) {
-
             @SuppressWarnings("unchecked")
             final List<FieldNode> fields = node.fields;
             for(FieldNode f: fields)
-                if(f.name.equals("DEFAULT_NAME"))
+                if(f.name.equals("DEFAULT_NAME")) {
+                    debug("Setting DEFAULT_NAME");
                     f.value = application_name;
+                }
 
             @SuppressWarnings("unchecked") final List<MethodNode> methods = node.methods;
             for(MethodNode method: methods) {
                 // Inactivate 'setName' method by replace the body with a single RETURN opcode
                 if(method.name.equals("setName")) {
-                    //Replace the body with only a
+                    //Replace the body with a return statement.
                     InsnList insns = new InsnList();
                     insns.add(new InsnNode(RETURN));
                     method.instructions = insns;
                 }
-                // Have the 'Application' constructor set name from DEFAULT_NAME field in stead of from compiled constant pool.
+                // Have the 'Application' constructor set name from DEFAULT_NAME field instead of from compiled constant pool.
                 else if(method.name.equals("<init>")) {
                     InsnList insns = method.instructions;
                     @SuppressWarnings("unchecked")
                     ListIterator<AbstractInsnNode> it = insns.iterator();
                      while(it.hasNext()) {
-                        AbstractInsnNode insn = it.next();
-                        if (insn.getType() == LDC_INSN)
-                            insns.set(insn, new FieldInsnNode(GETSTATIC, node.name, "DEFAULT_NAME", Type.getType(String.class).getDescriptor()));
-                    }
+                         AbstractInsnNode insn = it.next();
+                         if (insn.getType() == LDC_INSN) {
+                            debug("Replacing LDC instruction with GETSTATIC");
+                             insns.set(insn, new FieldInsnNode(GETSTATIC, node.name, "DEFAULT_NAME", Type.getType(String.class).getDescriptor()));
+                         }
+                     }
                 }
             }
         }
