@@ -6,28 +6,58 @@
 (ns george.projects.code
   (:require
     [clojure.string :as cs]
-    [clj-diff.core :as diff]
     [george.javafx :as fx]
     [george.code.tokenizer :as gct]
-    [george.util.colls :as guc]
-    [common.george.util.text :as gut :refer [pformat]])
+    [george.util.java :as guj]
+    [common.george.util.text :as gut :refer [pformat pprint]])
   (:import
-    [org.fxmisc.richtext InlineCssTextArea]))
+    [org.fxmisc.richtext InlineCssTextArea]
+    [com.github.difflib.text DiffRowGenerator DiffRow]
+    [java.util List ArrayList]
+    [org.fxmisc.flowless VirtualizedScrollPane]))
 
 
-(defn- codearea [& [s]]
-  (doto (if s (InlineCssTextArea. ^String s) (InlineCssTextArea.))
-    (.setStyle "-fx-font-size: 18; -fx-font-family: 'Source Code Pro'; -fx-padding: 5;")
-    (.setDisable true))) ;; Prevent copying!
+(def NL (.charAt "\u300f" 0))
+(def SP (.charAt "\u3007" 0))
 
+(def DEL_START (.charAt "\u300a" 0))
+(def DEL_END   (.charAt "\u300b" 0))
+(def ADD_START (.charAt "\u301a" 0))
+(def ADD_END   (.charAt "\u301b" 0))
+(def starts    #{DEL_START ADD_START})
+(def dels-adds #{DEL_START DEL_END ADD_START ADD_END})
+
+(def coll-delim-chars
+  ;#{\{ \[ \( \) \] \}}
+  #{\{ \[  \) \] \}})
+  ;#{\{ \[  \] \}})
+
+(def punctuation-chars
+  #{\. \, \! \?})
 
 
 (defn- clojure-char? [ch]
-  (or (gut/coll-delim-char? ch) (gut/readermacro-char? ch) (gut/macro-char? ch) (gut/comment-char? ch) (gut/string-delim-char? ch)))
+  (or
+    (coll-delim-chars ch)
+    (gut/readermacro-char? ch) (gut/macro-char? ch) (gut/comment-char? ch) (gut/string-delim-char? ch)))
 
 
-(defn- special-char? [ch]
-  (or (gut/whitespace-char? ch) (clojure-char? ch)))
+(defn- println-> [s]
+  (println s) s)
+
+
+(defn- prn-> [s]
+  (prn s) s)
+
+
+(defn- pprint-> [d]
+  (pprint d) d)
+
+
+(defn- new-textarea [& [s]]
+  (doto (if s (InlineCssTextArea. ^String s) (InlineCssTextArea.))
+    (.setStyle "-fx-font-size: 18; -fx-font-family: 'Source Code Pro'; -fx-padding: 5;")
+    (.setDisable true))) ;; Prevent copying!
 
 
 (defn- read-default [rdr ch]
@@ -35,54 +65,18 @@
     (.append sb ch)
     (loop []
       (let [ch (gct/read-char rdr)]
-        ;(if (or (not ch) (other-char? ch))
-        ;  (do (gct/unread-char rdr ch) (str sb))
-        ;  (do (.append sb ch) (recur)))))))
         (cond
           (not ch)
           (str sb)
 
-          (or (gut/newline-char? ch) (clojure-char? ch))
+          (or (gut/newline-char? ch) (clojure-char? ch) (gut/whitespace-char? ch) (punctuation-chars ch))
           (do (gct/unread-char rdr ch) (str sb))
 
           ;(gut/whitespace-char? ch)
           ;(do (.append sb ch) (str sb))
 
-          :else
+          :default
           (do (.append sb ch) (recur)))))))
-
-
-(defn- parse [s]
-  (let [rdr (gct/indexing-pushback-stringreader s)]
-    (loop [res (transient [])]
-      (let [ch (gct/read-char rdr)]
-        (if (nil? ch)
-          (persistent! res)
-          (let [token
-                (cond
-
-                  (or (gut/newline-char? ch) (special-char? ch))
-                  (str ch)
-
-                  :else
-                  (read-default rdr ch))]
-
-            (recur (conj! res token))))))))
-
-#_(def c
-    "(defn- diff-str-test []
-    (let [a \" Ole har en bil. \nDen er veldig blå. \n Tut tut. \"
-          b \" Lars har en fin bil. \nDen er grønn. \n Tut tut. \"
-          ca (doto (codearea) (gcc/set-text a))
-          edits (diff/diff a b)]
-      (diff/patch ca edits)
-      (fx/init) (fx/later (fx/stage :scene (fx/scene ca :size [300 250]) :tofront true))
-      (prn 'E edits)))")
-
-;(prn c)
-;(println c)
-;(prn (parse c))
-
 
 
 (defn split-lines [s]
@@ -91,11 +85,11 @@
     (cs/split s #"\r?\n" -1)))
 
 
-(defn- not-edit? [[_ typ _]]
-  (= := typ))
+(defn- not-edit? [[[old-nr new-nr] _]]
+  (and old-nr new-nr))
 
 
-(def collapsed [0 :collapsed ""])
+(def collapsed [[0 0] :collapsed])
 
 
 (defn- collapse-lines [lines]
@@ -118,79 +112,250 @@
         (recur (rest lines0) (concat lines1 (list (first lines0))))))))
 
 
+(def CSS {:collapsed
+          "-fx-fill: #bbb;
+          -rtfx-background-color: #fff;
+          -fx-font-size: 20;"
+          :nr  ;; line number
+          "-fx-fill: gray;
+          -fx-font-size: 16;"
+          :nr-old
+          "-fx-fill: gray;
+          -rtfx-background-color: #ddd;
+          -fx-font-size: 16;"
+          :- ;; delete
+          "-fx-strikethrough: true;
+          -fx-fill: red;
+          -rtfx-background-color: #ffe0e0;"
+          :+ ;; add
+          "-fx-fill: blue;
+          -rtfx-background-color: lightblue;"
+          := ;; default
+          "-rtfx-background-color: white;"
+          :=old
+          "-fx-fill: gray;
+          -rtfx-background-color: #ddd;"})
+
+
+(defn- append [textarea txt style-k]
+  (let [i (.getLength textarea)]
+    (.appendText textarea txt)
+    (.setStyle textarea i (+ i (count txt)) (CSS style-k))
+    textarea))
+
+
+(defn- read-span [rdr ch]
+  (let [sb (doto (StringBuilder.) (.append ch))]
+    (loop []
+      (let [ch (gct/read-char rdr)]
+        (cond
+          (nil? ch)
+          (str sb)
+
+          (or (gut/whitespace-char? ch) (clojure-char? ch) (punctuation-chars ch) (= ch NL))
+          (do (gct/unread-char rdr ch) (str sb))
+
+          :default
+          (do (.append sb ch) (recur)))))))
+
+
+(defn- parse [s]
+  (let [rdr (gct/indexing-pushback-stringreader s)]
+    (loop [res (transient [])]
+      (let [ch (gct/read-char rdr)]
+        (if (nil? ch)
+          (persistent! res)
+          (let [span
+                (cond
+
+                  (or (gut/whitespace-char? ch) (clojure-char? ch) (punctuation-chars ch) (= ch NL))
+                  (str ch)
+
+                  :default
+                  (read-span rdr ch))]
+
+            (recur (conj! res span))))))))
+
+
+(defn- read-tagged [rdr end]
+  (let [sb (StringBuilder.)]
+    (loop []
+      (let [ch (gct/read-char rdr)
+            ch (if (= ch SP) \space ch)]
+        (cond
+          (nil? ch)  (str sb)
+          (dels-adds ch)
+
+          (do (when (starts ch) (gct/unread-char rdr ch))
+              (if (or (nil? end) (= end ch))
+                (str sb)
+                (throw (Exception. (format "Mismatched tags: Expected '%s', got '%s'" end ch)))))
+
+          :default
+          (do (.append sb ch) (recur)))))))
+
+
+(defn- parse-diff-inlines [s]
+  (let [rdr (gct/indexing-pushback-stringreader s)]
+    (loop [res (transient [])]
+      (if (nil? (gct/peek-char rdr))
+        (persistent! res)
+        (let [ch (gct/read-char rdr)
+              tagged
+              (condp = ch
+                ADD_START [:+ (read-tagged rdr ADD_END)]
+                DEL_START [:- (read-tagged rdr DEL_END)]
+                ;default
+                [:= (do (gct/unread-char rdr ch) (read-tagged rdr nil))])]
+          (recur (conj! res tagged)))))))
+
+
+(defn- mark-empties
+  "Inserts a placeholding uincode-char into empty lines - to ensure correct diffing."
+  [lines]
+  (map #(if (= "" %) (str SP) %) lines))
+
+
+(defn- generate-diff [a b]
+  (let [list-a  (mark-empties (split-lines a))
+        list-b  (mark-empties (split-lines b))
+        generator (-> (DiffRowGenerator/create)
+                      (.showInlineDiffs true)
+                      (.inlineDiffBySplitter (guj/function (fn [s] (ArrayList. ^List (parse s)))))
+                      (.oldTag (guj/function (fn [b] (str (if b DEL_START DEL_END)))))
+                      (.newTag (guj/function (fn [b] (str (if b ADD_START ADD_END)))))
+                      .build)]
+    (-> generator
+      (.generateDiffRows ^List list-a ^List list-b)
+      (->> (map (fn [^DiffRow r] [(.getOldLine r) (.getNewLine r)]))))))
+
+
+(defn- nil-empties
+  "replaces empty strings with nil"
+  [rows]
+  (let [nil-it #(if (empty? %) nil %)]
+    (loop [rows rows res (transient [])]
+      (if-let [[old new] (first rows)]
+        (recur (rest rows) (conj! res [(nil-it old) (nil-it new)]))
+        (persistent! res)))))
+
+
+(defn- number-lines
+  "puts 'new' and 'old' in separate tuples [nr old-txt] if not nil"
+  [rows]
+  (loop [rows rows old-nr 1 new-nr 1 res (transient [])]
+    (if-let [[old new] (first rows)]
+      (let [[old-nrd old-nr] (if old [[old-nr old] (inc old-nr)] [nil old-nr])
+            [new-nrd new-nr] (if new [[new-nr new] (inc new-nr)] [nil new-nr])]
+        (recur (rest rows) old-nr new-nr (conj! res [old-nrd new-nrd])))
+      (persistent! res))))
+
+
+(defn- combine-numbers
+  "pulls out number into separate tuple [old-nr new-nr] and unifies txt where text is the same"
+  [rows]
+  (loop [rows rows res (transient [])]
+    (if-let [row (first rows)]
+      (let [[[old-nr old-txt] [new-nr new-txt]] row
+            res
+            (cond
+              (= old-txt new-txt)
+              (conj! res [[old-nr new-nr] new-txt])
+              (nil? old-nr)
+              (conj! res [[nil new-nr] new-txt])
+              (nil? new-nr)
+              (conj! res [[old-nr nil] old-txt])
+              :default
+              (-> res (conj! [[old-nr nil] old-txt]) (conj! [[nil new-nr] new-txt])))]
+        (recur (rest rows) res))
+      (persistent! res))))
+
+
+(defn- format-numbers [old-nr new-nr]
+  (let [format-nr #(if % (format "%1$2d" %) "  ")]
+    (format "  %s %s  " (format-nr old-nr) (format-nr new-nr))))
+
+(defn- append-row [ta [[old-nr new-nr] txt]]
+  (let [old? (nil? new-nr)
+        pieces (parse-diff-inlines txt)]
+    (when-not (and old? (= 1 (count pieces)) (-> pieces first first (= :=)))
+      (let [i (.getLength ta)
+            nr-str (format-numbers old-nr new-nr)
+            _ (.appendText ta nr-str)
+            i1 (.getLength ta)
+            styles (mapv (fn[[t s]] (let [i (.getLength ta)] (.appendText ta s) [(if (and old? (= := t)) :=old t) i (+ i (count s))])) pieces)
+            _ (.appendText ta "\n")]
+        (.setStyle ta i i1 (CSS (if old? :nr-old :nr)))
+        (doseq [[typ start end] styles]
+          (.setStyle ta start end (CSS typ)))))))
+
+
+(defn- append-collapsed [ta]
+        (let [i (.getLength ta)
+              m (gut/** 50 "≈")]
+          (.appendText ta (str m \newline))
+          (.setStyle ta i (+ i (count m)) (CSS :collapsed))))
+
+
+(defn- ->textarea3 [rows]
+  (let [ta (new-textarea "\n")]
+    (doseq [[[_ _] txt :as row] rows]
+      (if (= :collapsed txt)
+        (append-collapsed ta)
+        (append-row ta row)))
+    ta))
+
+
 (defn diff-patch-textarea [a b & [collapse?]]
-  (let [ca (codearea (if collapse? "\n" "\n"))
-        ap (split-lines a) ;(parse a)
-        bp (split-lines b) ;(parse b)
-        ;_ (prn 'AP ap)
-        ;_ (prn 'BP bp)
-        edits (diff/diff ap bp)
-        ;_ (prn 'EDITS edits)
-        ;; apply dels
-        res (reduce (fn [ap i]
-                      (guc/replace-at ap i [[:- (let [s (get ap i)] (if (cs/blank? s) " " s))]]))
-                    ap (:- edits))
-        ;; apply adds
-        res (reduce (fn [res add]
-                      (guc/insert-at
-                        res
-                        (inc ^int (first add)) ;; increment because of how 'insert-at' works.
-                        (mapv #(vector :+ (if (cs/blank? %) " " %)) (rest add))))
-                    res (reverse (:+ edits)))
-        ;; moralize
-        res (map #(if (string? %) [:= %] %) res)
-        ;; add line numbers
-        res (loop [nr 1
-                   res0 res
-                   res1 []]
-              (if-let [[typ txt] (first res0)]
-                (recur (if (= :- typ) nr (inc nr))
-                       (rest res0)
-                       (conj res1 [nr typ txt]))
-                res1))
-        ;; collapse
-        res (if collapse? (collapse-lines res) res)]
-    ;(prn 'RES )(mapv prn res)
-
-    (doseq [[nr typ txt] res]
-      (if (= typ :collapsed)
-        (let [i (.getLength ca)
-              mes (gut/** 50 "≈")]
-          (.appendText ca (str mes \newline))
-          (.setStyle ca i (+ i (count mes))
-                     "-fx-fill: #bbb;
-                     -rtfx-background-color: #fff;
-                     -fx-font-size: 20;"))
-        (let [i (.getLength ca)
-              nr-str (format "%1$2d" nr)]
-          (.appendText ca (str nr-str "  "))
-          (.setStyle ca i (+ i (count nr-str))
-                     "-fx-fill: gray;
-                     -fx-font-size: 16;")
-          (let [i (.getLength ca)]
-                ;txt (str txt \newline)]
-            (.appendText ca (str txt \newline))
-            (.setStyle ca i (+ i (count txt))
-                       (condp = typ
-                         :-
-                         "-fx-strikethrough: true;
-                         -fx-fill: red;
-                         -rtfx-background-color: #ffe0e0;"
-
-                         :+
-                         "-fx-fill: blue;
-                         -rtfx-background-color: lightblue;"
-
-                         ;; := / default
-                         "-rtfx-background-color: white;"))))))
-    ca))
+  (-> (generate-diff a b)
+      ;pprint->
+      nil-empties
+      ;pprint->
+      number-lines
+      ;pprint->
+      combine-numbers
+      (#(if collapse? (collapse-lines %) %))
+      ;pprint->
+      ->textarea3))
 
 
-(defn- diff-str-test2 []
-  (let [a "Ole har en bil.\nDen er veldig blå.\n  Tut tut."
-        b "Lars har en fin bil.\nDen er grønn.\n  Tut tut."
-        ca (codearea)]
-    (diff-patch-textarea ca a b)
-    (fx/init) (fx/later (fx/stage :scene (fx/scene ca :size [300 250]) :tofront true))))
+;;;;;;;;;;;;;;
 
-;(diff-str-test2)
+
+(def a "
+This is  a test sentence, I believe.
+How are you?
+
+Good.
+
+Very good.
+(println :hello)
+
+A
+
+B
+
+C")
+
+(def b "This is a  test for diffutils, I believe...
+
+Are you fine?
+Good.
+Very very good.
+
+(println
+  (+ 2 3))
+
+A
+B
+C")
+
+
+(defn- staged [textarea]
+  (fx/init) (fx/now (fx/stage :scene (fx/scene (VirtualizedScrollPane. textarea) :size [700 350]) :tofront true)))
+
+
+;;;;
+
+;(-> (diff-patch-textarea a b) staged)
+;(-> (diff-patch-textarea nil "a b c d") staged)

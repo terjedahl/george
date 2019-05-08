@@ -1,4 +1,4 @@
-(defproject no.andante.george/george-application  "2019.1.1"
+(defproject no.andante.george/george-application  "2019.1.2-SNAPSHOT"
 
   :description         "George - the main application code"
   :url                 "https://bitbucket.org/andante-george/george-application"
@@ -45,7 +45,9 @@
                         [org.kordamp.ikonli/ikonli-fontawesome5-pack "11.1.0"]
                         ;; https://asm.ow2.io/index.html
                         [org.ow2.asm/asm "7.1"]
-                        [org.ow2.asm/asm-tree "7.1"]]
+                        [org.ow2.asm/asm-tree "7.1"]
+                        ;; https://github.com/java-diff-utils/java-diff-utils
+                        [io.github.java-diff-utils/java-diff-utils "4.0"]]
 
   :jar-exclusions      [#".DS_Store" #"arm.spraklab.*(clj|java)$"]
 

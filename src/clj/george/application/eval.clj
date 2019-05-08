@@ -10,6 +10,7 @@
     [clj-stacktrace
      [repl :refer [pst-str]]
      [core :refer [parse-exception]]]
+    [g]
     [george.application
      [repl :as repl]
      [output :refer [oprint oprintln output-showing?]]]

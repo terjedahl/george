@@ -22,15 +22,18 @@
   (:import
     [javafx.scene.image Image]
     [javafx.scene.paint Color]
-    [javafx.scene.control ListCell ListView]
+    [javafx.scene.control ListCell ListView Separator]
     [javafx.util Callback]
     [java.net ConnectException UnknownHostException SocketException]
     [javafx.scene.web WebView]
-    [javafx.stage Stage]))
+    [javafx.stage Stage]
+    [javafx.scene.layout GridPane]
+    [javafx.scene Node]))
 
 
 ;; If true, then only code is shown, with eval and mark + copy options
 (defonce ^:private code-mode_ (atom false))
+
 (defn code-mode
   ([b] (reset! code-mode_ b))
   ([]  @code-mode_))
@@ -102,11 +105,14 @@
 (defn- load-uri-vec [v]
   (->> v (interpose "/") (apply str) slurp))
 
+
 (defn- read-uri-vec [v]
   (read-string (load-uri-vec v)))
 
+
 (defn- read-final [^String uri ^String id]
   (read-uri-vec [uri id "final.clj"]))
+
 
 (defn- read-steps
  ([^String uri ^String id]
@@ -114,14 +120,18 @@
  ([^String project-uri]
   (read-uri-vec [project-uri "steps.edn"])))
 
+
 (defn- read-description [^String uri ^String id]
   (read-uri-vec [uri id "description.edn"]))
+
 
 (defn- read-index [^String uri]
   (read-uri-vec [uri "index.edn"]))
 
+
 (defn- read-index-data [^String uri]
   (read-uri-vec [uri "index-data.edn"]))
+
 
 (defn- load-welcome [^String uri]
   (load-uri-vec [uri "welcome.html"]))
@@ -129,6 +139,7 @@
 
 ;(def default-uri "http://localhost:50000")
 (def default-uri "https://projects.george.andante.no")
+
 
 (defn- get-uri [& [not-default?]]
   (or (gah/get-george-projects-uri)
@@ -201,10 +212,12 @@
           ns-fn       (input/set-ns-label-fn ns-label)
           interrupt-b (input/interrupt-button)
           run-b       (fx/new-button (if load? "Load" "Run") :tooltip "Load/Run this code" :focusable? false)
+          copy-bt
+          (styled/small-button "Copy" :onaction #(fx/set-clipboard-str curr-code) :tooltip "Copy this (complete) source to clipboard" :focusable? false)
           collapsed-cb
           (fx/new-checkbox "Collapsed" :tooltip "Code is collapsed" :selected? collapse? :focusable? false)
           collapsed-bar
-          (fx/hbox (fx/region :hgrow :always) collapsed-cb)
+          (fx/hbox copy-bt (fx/region :hgrow :always) collapsed-cb)
           eval-bar
           (fx/hbox ns-label (fx/region :hgrow :always) interrupt-b run-b :spacing 3 :padding 5 :alignment fx/Pos_CENTER_LEFT)
           eval-fn
@@ -271,20 +284,20 @@
           button-gen
           (fn [icon-str tooltip step-ind disable?]
             (doto (fx/new-button nil
-                                 :graphic (fx/icon icon-str)
-                                 :tooltip tooltip
+                                 :graphic    (fx/icon icon-str)
+                                 :tooltip    tooltip
                                  :focusable? false
-                                 :onaction #(set-step container data step-ind project-uri))
+                                 :onaction   #(set-step container data step-ind project-uri))
               (.setDisable disable?)))
 
           prev-b   (button-gen 'fas-angle-left:18  "Previous step" (dec step-index) (not (pos? step-index)))
           next-b   (button-gen 'fas-angle-right:18 "Next step"     (inc step-index) (= step-index (dec step-count)))
           reset-b
-          (fx/new-button nil :graphic (fx/icon 'fas-angle-double-left:16) :tooltip "Go to first step"
-                             :onaction #(set-step container data 0 project-uri)
+          (fx/new-button nil :graphic    (fx/icon 'fas-angle-double-left:16) :tooltip "Go to first step"
+                             :onaction   #(set-step container data 0 project-uri)
                              :focusable? false)
           reload-b
-          (fx/new-label nil :graphic (fx/icon 'fas-redo:16:gray) :tooltip "Reload data"
+          (fx/new-label nil :graphic      (fx/icon 'fas-redo:16:gray) :tooltip "Reload data"
                             :mouseclicked #(set-step container (read-steps project-uri) step-index project-uri))
           button-box
           (fx/hbox
@@ -305,12 +318,11 @@
 
       (set-current-step-index (last (cs/split project-uri #"/")) step-index)
 
-      (-> container .getScene (.setOnKeyPressed (fx/key-pressed-handler
-                                                  {#{:LEFT}  #(.fire prev-b)
-                                                   #{:RIGHT} #(.fire next-b)})))
       (doto container
         (.setCenter (step-layout data step-index project-uri))
-        (.setBottom navbar)))))
+        (.setBottom navbar)
+        (-> .getScene (.setOnKeyPressed (fx/key-pressed-handler {#{:LEFT}  #(.fire prev-b)
+                                                                 #{:RIGHT} #(.fire next-b)})))))))
 
 
 (defn- project-player-layout [data id project-uri]
@@ -442,9 +454,18 @@
                    (fx/future-sleep-later 500 (home-fn)))
 
         set-button   (fx/new-button "Set"   :onaction set-fn   :tooltip "Set as URI and load.")
+        codemode-ch  (fx/new-checkbox "Code mode" :selected? (code-mode) :tooltip "Set player to \"code mode\".")
         reset-button (fx/new-button "Reset" :onaction reset-fn :tooltip "Set URI back to default and load.")]
 
-    (fx/vbox (fx/hbox (fx/new-label "Projects URI:") uri-field set-button reset-button :spacing 5) :padding 10)))
+    (fx/set-onaction codemode-ch #(do (code-mode (.isSelected codemode-ch)) (home-fn)))
+
+    (doto (GridPane.)
+      (.addRow 0 (into-array Node [(fx/new-label "Projects URI:" :size 14) uri-field set-button reset-button]))
+      (.add (Separator.) 0 1 4 1)
+      (.add codemode-ch 1 2)
+      (.setHgap 10)
+      (.setVgap 20)
+      (.setPadding (fx/insets [20 30 20 10])))))
 
 
 (defn- stage-root []
