@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2019.1.2] - 2019-05-09
+
+### Improved
+- George Projects: Better diffing with "unified view" of code in project steps.
+- George Projects: Checkbox for code-mode in settings, and copy button (in code-mode).
+
+
 ## [2019.1.1] - 2019-04-29
 
 The main feature in this deployment is the Linux/Ubuntu installer.
