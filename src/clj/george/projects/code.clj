@@ -17,8 +17,9 @@
     [org.fxmisc.flowless VirtualizedScrollPane]))
 
 
-(def NL (.charAt "\u300f" 0))
 (def SP (.charAt "\u3007" 0))
+(def LT (.charAt "\u3008" 0))
+(def GT (.charAt "\u3009" 0))
 
 (def DEL_START (.charAt "\u300a" 0))
 (def DEL_END   (.charAt "\u300b" 0))
@@ -152,7 +153,7 @@
           (nil? ch)
           (str sb)
 
-          (or (gut/whitespace-char? ch) (clojure-char? ch) (punctuation-chars ch) (= ch NL))
+          (or (gut/whitespace-char? ch) (clojure-char? ch) (punctuation-chars ch))
           (do (gct/unread-char rdr ch) (str sb))
 
           :default
@@ -168,7 +169,7 @@
           (let [span
                 (cond
 
-                  (or (gut/whitespace-char? ch) (clojure-char? ch) (punctuation-chars ch) (= ch NL))
+                  (or (gut/whitespace-char? ch) (clojure-char? ch) (punctuation-chars ch))
                   (str ch)
 
                   :default
@@ -181,7 +182,11 @@
   (let [sb (StringBuilder.)]
     (loop []
       (let [ch (gct/read-char rdr)
-            ch (if (= ch SP) \space ch)]
+            ch (condp = ch
+                 SP \space
+                 LT \<
+                 GT \>
+                 ch)]
         (cond
           (nil? ch)  (str sb)
           (dels-adds ch)
@@ -210,15 +215,25 @@
           (recur (conj! res tagged)))))))
 
 
-(defn- mark-empties
+(defn- replace-empty-lines
   "Inserts a placeholding uincode-char into empty lines - to ensure correct diffing."
   [lines]
   (map #(if (= "" %) (str SP) %) lines))
 
 
+(defn- replace-LTGT
+  "Replace all '<' + '>' to avoid having them replaced with '&lt;' + '&gt;' by DiffRowGenerator"
+  [s]
+  (apply str (map #(condp = % \< LT \> GT %) s)))
+
+
+(defn split-et-al [s]
+  (-> s replace-LTGT split-lines replace-empty-lines))
+
+
 (defn- generate-diff [a b]
-  (let [list-a  (mark-empties (split-lines a))
-        list-b  (mark-empties (split-lines b))
+  (let [list-a  (split-et-al a)
+        list-b  (split-et-al b)
         generator (-> (DiffRowGenerator/create)
                       (.showInlineDiffs true)
                       (.inlineDiffBySplitter (guj/function (fn [s] (ArrayList. ^List (parse s)))))
