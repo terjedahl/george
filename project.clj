@@ -41,7 +41,7 @@
                         [it.sauronsoftware/junique "1.0.4"]
                         ;; https://github.com/aalmiray/ikonli
                         [org.kordamp.ikonli/ikonli-javafx "11.1.0"]
-                        ;; https://fontawesome.com/
+                          ;; https://fontawesome.com/
                         [org.kordamp.ikonli/ikonli-fontawesome5-pack "11.1.0"]
                         ;; https://asm.ow2.io/index.html
                         [org.ow2.asm/asm "7.1"]
@@ -87,7 +87,7 @@
 
   :javac-options       ["-source" "11"  "-target" "11"]
                         ;"-Xlint:unchecked" "-Xlint:deprecation"]
-                        ;; --module-path and --add-modules= ar appended via middleware
+                       ;; --module-path and --add-modules= ar appended via middleware
 
   :jvm-opts            [;; should give crisper text on Mac
                         "-Dapple.awt.graphics.UseQuartz=true"
@@ -114,16 +114,30 @@
 
   ;; Custom middleware
   :middleware         [leiningen.george.middleware/inject-javafx-modules]
+
   ;:implicit-middleware false
 
   ;; Default config for 'lein server'
   :server              {:port 9998
                         :dir "."}
 
-  :build               {:msi-upgrade-codes {"George"      "14DE2AD0-4422-4D1F-8D80-F8EC5B9186BA"
-                                            "George-TEST" "CB327885-311F-4724-AD4F-C15C7EAB33AB"
+  ;; One of these are selected based on [:build :properties :app]
+  ;;   and written (via middleware in :dev) or when building JAR to file rsc/george-server
+  :george-servers     {"George"      "https://server.george.andante.no"
+                       "George-TEST" "https://test.server.george.andante.no"
+                       ;; Uncomment this if you are not running george-server locally.
+                       ;"George-DEV"  "https://dev.server.george.andante.no"
+                       :default      "http://localhost:6500"}
+
+  :build               {:properties        {:app          "George-DEV"}
+
+                        :msi-upgrade-codes {"George-TEST" "CB327885-311F-4724-AD4F-C15C7EAB33AB"
+                                            "George"      "14DE2AD0-4422-4D1F-8D80-F8EC5B9186BA"
                                             :default      "92DB4AE3-F596-4FCA-8CB1-5E7B45A95340"}
+
                         :splash-image      "george_icon_128.png"
+
+                        ;; Config for 'lein site'
                         :site              {:port 9999}}
 
   :modules             {;; Download SKSs and jmods from: https://gluonhq.com/products/javafx/
@@ -181,15 +195,16 @@
                         :output-path "target/docs"
                         :namespaces [george.application.turtle.turtle]
                         :source-uri
-                        ;"https://github.com/weavejester/codox/blob/{version}/codox.example/{filepath}#L{basename}-{line}"
                         "https://bitbucket.org/andante-george/george-application/src/default/{filepath}?at=default#{basename}-{line}"
                         :html {:namespace-list :flat}}
 
   :profiles            {:repl {:env {:repl? "true"}}
 
+
                         :dev [:dev-common :dev-overrides]
 
-                        :dev-overrides {} ;; Optionally  override this in your profiles.clj
+                        ;; Use this to optionally override anything in :dev-common this in your profiles.clj
+                        :dev-overrides {}
 
                         :dev-common {;; Is used by 'lein javac', 'lein compile', 'lein run'
                                      :target-path       "target/classes/%s/"
@@ -215,11 +230,10 @@
                                                          [org.openjfx/javafx-fxml     "12.0.1"]
                                                          [org.openjfx/javafx-swing    "12.0.1"]
                                                          [org.openjfx/javafx-web      "12.0.1"]
-                                                         [org.openjfx/javafx-media    "12.0.1"]]
+                                                         [org.openjfx/javafx-media    "12.0.1"]]}
 
-                                     :build {:properties {;; You may want to override this in your profiles.clj
-                                                          ;; (as :dev-overrides, not :dev or :dev-common)
-                                                          :app "George-DEV"}}}
+                                     ;; You may want to override this in your profiles.clj
+                                     ;; - as :dev-overrides, not :dev or :dev-common
 
                         :uberjar {;; Is applied by 'uberjar' TODO: Investigate: Doesn't seem to have any effect.
                                   :target-path "target/uberjar/"

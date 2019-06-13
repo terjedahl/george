@@ -6,7 +6,12 @@
 (ns george.projects.data
   (:require
     [clojure.string :as cs]
-    [george.application.history :as gah]))
+    [clojure.pprint :refer [pprint]]
+    [george.application.state.george-projects :as state]
+    [george.application.server.core :as gas]
+    [common.george.util.cli :refer [except]])
+  (:import
+    [java.io IOException]))
 
 
 ;; If true, then only code is shown, with eval and mark + copy options
@@ -16,10 +21,6 @@
 (defn code-mode
   ([b] (reset! code-mode_ b))
   ([]  @code-mode_))
-
-
-(defn strip-trailing-slash [^String uri]
-  (if (.endsWith uri "/") (subs uri 0 (dec (count uri))) uri))
 
 
 (defn load-uri-vec [v]
@@ -62,21 +63,74 @@
 
 
 (defn get-uri [& [not-default?]]
-  (or (gah/get-george-projects-uri)
+  (or (state/get-uri)
       (when-not not-default? default-uri)))
 
 
 (defn set-uri [^String uri]
-  (gah/set-george-projects-uri uri))
+  (state/set-uri uri))
 
 
 (defn get-current-step-index [id]
-  (gah/get-george-projects-step id))
+  (state/get-step id))
 
 
 (defn set-current-step-index [id step-index]
-  (gah/set-george-projects-step id step-index))
+  (state/set-step id step-index))
 
 
 (defn replace-base [html uri]
   (cs/replace html #"<base.+href=\"https://projects.george.andante.no/\"" (format "<base href=\"%s\"" uri)))
+
+
+
+(defn get-license-key [short-code]
+  (try
+    (slurp (format "%sgumroad/key_for_code?short_code=%s" gas/*server* short-code))
+    (catch IOException _ nil)))
+
+
+(defn get-short-code [license-key]
+  (slurp (format "%sgumroad/code_for_key?license_key=%s" gas/*server* license-key)))
+
+
+(defn verify-license-key
+  "Returns a map: {:valid [:valid :valid-school :expired] :name 'some name' :school 'name or nil'}
+  'increment?' should only be applied for private users, and only for first-time check (i.e. when the user enters the key or gets it via code, not when we are simply doing standard check)"
+  [license-key]
+  (let [res (slurp (format "%sgumroad/verify_key?license_key=%s" gas/*server* license-key))]
+    (try
+      (read-string res)
+      (catch Exception e
+        (.printStackTrace e)
+        (except "Could not parse received data:\n" res)))))
+
+
+(defonce licensed_ (atom nil))
+
+(defn licensed []
+  @licensed_)
+
+(defn set-licensed [licensed]
+  (-> (reset! licensed_ licensed)
+      state/set-licensed))
+
+
+(defn remove-licensed []
+  (state/remove-licensed)
+  (reset! licensed_ nil))
+
+
+(defn project-locked? [id]
+  (if (= id "stars")
+      false
+      (not @licensed_)))
+
+
+(defn init-licensed
+  "Called from g.p.view/new-project-stage"
+  []
+  (let [l (state/get-licensed)]
+    (when l
+      (let [res (verify-license-key (:license-key l))]
+        (set-licensed (assoc res :short-code (:short-code l)))))))

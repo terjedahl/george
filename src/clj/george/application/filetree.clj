@@ -706,7 +706,7 @@ modified:  %s  " (to-string path) size creationTime lastModifiedTime)))
 
         save-button
         (doto
-          (-> alert .getDialogPane (.lookupButton (-> alert .getButtonTypes first)))
+          (fx/alert-button alert)
           (.setDisable (not new?)))
 
         do-checks

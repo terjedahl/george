@@ -97,6 +97,7 @@
 
 (defn- rsc-dir []          (cio/file "src" "rsc"))
 (defn- embed-file []       (cio/file (rsc-dir) c/PROP_NAME))
+(defn- george-server-file [] (cio/file (rsc-dir) "george-server"))
 
 (defn- George []             (c/get-app (embed-file)))
 (defn- George-version []     (str (George) "-" (:version *project*)))
@@ -254,6 +255,21 @@
     (= "y" (do (printf "'app' is '%s'. Proceed? (y/n) > " app) (flush) (read-line)))))
 
 
+(defn- select-george-server
+  "Selects server from [:build :george-server] based on [:build :properties :app]"
+  [& [app]]
+  (let [app    (or app (-> *project* :build :properties :app))
+        gs     (-> *project* :george-servers)
+        server (or (gs app) (gs :default))]
+    (debug "select-george-server" app server)
+    server))
+
+
+(defn- write-george-server [& [app]]
+  (let [server (select-george-server app)]
+    (spit (george-server-file) server)
+    (println "george-server:\n" server)))
+
 ;;;; EMBED / PROPS
 
 
@@ -264,6 +280,7 @@
     (let [p (assoc (c/default-props app- uri  ts)  :version version)
           f (embed-file)]
       (c/dump f p)
+      (println (str (.getName f) ":"))
       (pprint p))))
 
 
@@ -619,7 +636,8 @@ and unpack in project dir.")))
 
 
 (defn build-embed [args]
-  (apply build-embed-props (cons (:version (asserted-project)) args)))
+  (apply build-embed-props (cons (:version (asserted-project)) args))
+  (write-george-server (George)))
 
 
 (defn build-jar [args]

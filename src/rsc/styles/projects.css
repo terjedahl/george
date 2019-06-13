@@ -13,6 +13,14 @@
     -fx-background-insets: 1 0 1 1;
 }
 
+.projects-list-lock {
+    -fx-icon-code: fas-lock;
+    -fx-icon-color: slategray;
+}
+.projects-list-lock:hover {
+    -fx-icon-code: fas-unlock;
+    -fx-icon-color: darkslategray;
+}
 
 .projects-scrollpane {
     -fx-background-insets: 0;

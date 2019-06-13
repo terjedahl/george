@@ -653,7 +653,7 @@ and the body is called on 'changed'"
 
 
 (defn ^StackPane stackpane [& nodes]
-  (StackPane. (into-array Node nodes)))
+  (StackPane. (into-array Node (filter some? nodes))))
 
 
 (defn ^Group group [& nodes]
@@ -880,8 +880,8 @@ and the body is called on 'changed'"
 
 
 (defn set-padding
-    ([pane v]
-     (set-padding pane v v v v))
+    ([pane n]
+     (set-padding pane n n n n))
     ([pane t r b l]
      (.setPadding pane (insets t r b l))
      pane))
@@ -1008,6 +1008,13 @@ and the body is called on 'changed'"
     (let [index (.indexOf options (-> result .get .getText))]
       (when (not= index -1)
         index))))
+
+
+(defn alert-button
+  "Returns the first button of the alert dialog, or the one returned by 'select-fn' if provided.
+  'select-fn' could be e.g. 'second' or '#(get % 1)' or 'last' "
+  [alert & [select-fn]]
+  (-> alert .getDialogPane (.lookupButton (-> alert .getButtonTypes (#((or select-fn first) %))))))
 
 
 (defn ^Alert$AlertType alerttype [type-kw] 
@@ -1219,7 +1226,7 @@ and the body is called on 'changed'"
            :sizetoscene true
            :size nil ;[200 200]
            :location nil ;[100 100]
-           :centeronowner? nil  ;; overrides 'location'  TODO: implement this!
+           :centeronowner? nil  ;; overrides 'location'
            :centeronscreen? nil ;; overrides 'centerononwer?'
            :owner nil
            :show true
@@ -1254,6 +1261,19 @@ and the body is called on 'changed'"
           
         (when-let [owner (:owner kwargs)]
           (.initOwner stg owner))
+
+        (when-let [cos (:centeronowner? kwargs)]
+          (when cos (when-let [owner (:owner kwargs)]
+                      (.setOnShown stg
+                        (new-eventhandler
+                          (let [[x y] (XY owner)
+                                [w h] (WH owner)
+                                xc (+ x (/ w 2))
+                                yc (+ y (/ h 2))
+                                [w h] (WH stg)]
+                            (doto stg
+                              (.setX (- xc (/ w 2)))
+                              (.setY (- yc (/ h 2))))))))))
 
         (when-let [cos (:centeronscreen? kwargs)]
           (when cos (.centerOnScreen stg)))

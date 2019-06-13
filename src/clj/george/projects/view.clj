@@ -12,20 +12,26 @@
      [text :refer [pformat pprint]]]
     [george.projects
      [code :as code]
-     [data :as d]]
+     [data :as d]
+     [locked :as locked]]
     [george.application.input :as input]
     [clojure.string :as cs]
     [george.util :as u]
-    [george.application.ui.layout :as layout])
+    [george.application.ui.layout :as layout]
+    [common.george.util.text :as gut]
+    [george.util.singleton :as singleton])
   (:import
     [javafx.scene.paint Color]
     [java.net SocketException ConnectException UnknownHostException]
     [javafx.scene.web WebView]
     [javafx.scene.image Image]
-    [javafx.scene.layout GridPane]
+    [javafx.scene.layout GridPane StackPane]
     [javafx.scene Node]
     [javafx.scene.control Separator ListView ListCell]
     [javafx.util Callback]))
+
+
+(defonce home-fn_ (atom nil))
 
 
 (defn- scrolling-setter [message layout-fn setter-fn]
@@ -87,7 +93,7 @@
            :font (fx/new-font "Source Code Pro" 14) :color fx/RED)))))
 
 
-(defn webview [html]
+(defn- webview [html]
   (doto (WebView.)
     (-> .getEngine (.loadContent html))))
 
@@ -283,7 +289,7 @@
                 :spacing 10)
               (when-let [s (:description data)]
                 (fx/text s :size 16 :width 450 :color fx/ANTHRECITE))
-              load-button
+              (if (d/project-locked? id) (apply-border (locked/locked-pane @home-fn_) 5) load-button)
               (when-let [img (:img data)]
                 (let [image (Image. (str project-uri "/" img) false)]
                   (if (.isError image)
@@ -303,11 +309,16 @@
 (defn listcell-layout [{:keys [label value]}]
   (let [{:keys [id index-data]} value
         ingres (:ingres (get index-data id))]
-    (-> (fx/vbox
-          (fx/new-label label :size 16 :color fx/ANTHRECITE)
-          (fx/new-label (str ingres) :size 14 :color Color/GRAY)
-          :spacing 3 :padding [7 15 7 15])
-        (apply-border 5))))
+    (fx/stackpane
+      (-> (fx/vbox
+            (fx/new-label label :size 16 :color fx/ANTHRECITE)
+            (fx/new-label (str ingres) :size 14 :color Color/GRAY)
+            :spacing 3 :padding [7 15 7 15])
+          (apply-border 5))
+      (when (d/project-locked? id)
+        (doto (locked/clickable-lock @home-fn_)
+          (StackPane/setAlignment fx/Pos_BOTTOM_RIGHT)
+          (StackPane/setMargin (fx/insets 10)))))))
 
 
 (defn- index-listcell []
@@ -367,30 +378,57 @@
     root))
 
 
-(defn- home-uri-layout [home-fn]
-  (let [uri-field
-        (fx/textfield :text (or (d/get-uri true) "") :font (fx/new-font 16) :prompt d/default-uri :cols 20)
-        set-fn #(let [uri (-> uri-field .getText .trim d/strip-trailing-slash)]
-                  (d/set-uri (when-not (cs/blank? uri) uri))
-                  (home-fn))
-        reset-fn (fn []
-                   (.setText uri-field "")
-                   (d/set-uri nil)
-                   (fx/future-sleep-later 500 (home-fn)))
+(defn- confirm-remove-licensed []
+  (let [res (fx/alert
+              :title "Remove?"
+              :type :confirmation
+              :header "Removing the licensing will lock George Projects."
+              :text "Do you want to proceed?"
+              :options ["Yes. Remove!"]
+              :cancel-option? true
+              :owner (singleton/get :george.projects.core/projects-stage))]
 
-        set-button   (fx/new-button "Set"   :onaction set-fn   :tooltip "Set as URI and load.")
-        codemode-ch  (fx/new-checkbox "Code mode" :selected? (d/code-mode) :tooltip "Set player to \"code mode\".")
-        reset-button (fx/new-button "Reset" :onaction reset-fn :tooltip "Set URI back to default and load.")]
+    (boolean res)))
 
-    (fx/set-onaction codemode-ch #(do (d/code-mode (.isSelected codemode-ch)) (home-fn)))
+
+(defn- settings-layout []
+  (let [code-font  (fx/new-font fx/ROBOTO_MONO 16)
+
+        label*     #(fx/new-label % :size 14)
+        text*      #(fx/text %1 :font code-font)
+        field*     #(doto (fx/textfield :text %1 :prompt %2 :cols %3 :font code-font) (.setEditable %4))
+
+        {:keys [license-key short-code valid message]} (d/licensed)
+
+        codemode-ch (fx/new-checkbox "" :selected? (d/code-mode) :tooltip "Set player to \"code mode\".")
+
+        uri-field   (field* (or (d/get-uri true) "") d/default-uri 30 true)
+        set-fn      #(let [uri (-> uri-field .getText .trim gut/strip-trailing-slash)]
+                       (d/set-uri (when-not (cs/blank? uri) uri))
+                       (@home-fn_))
+
+        set-button  (fx/new-button "Set" :onaction set-fn :tooltip "Set as URI and load.")]
+
+    (fx/set-onaction codemode-ch #(do (d/code-mode (.isSelected codemode-ch)) (@home-fn_)))
 
     (doto (GridPane.)
-      (.addRow 0 (into-array Node [(fx/new-label "Projects URI:" :size 14) uri-field set-button reset-button]))
-      (.add (Separator.) 0 1 4 1)
-      (.add codemode-ch 1 2)
+      (.addRow 0 (into-array Node (list (label* "Short-code:") (text* short-code))))
+      (.addRow 1 (into-array Node (list (label* "License key:") (doto (text* license-key) (.setStyle "-fx-fill: gray;")))))
+
+      (#(when (not valid)
+          (.add % (fx/new-label message :size 16 :color Color/RED) 1 2)))
+      (.add
+        (if license-key
+          (fx/new-button "Remove licensing"       :onaction #(when (confirm-remove-licensed) (d/remove-licensed) (@home-fn_)))
+          (fx/new-button "Unlock George Projects" :onaction #(locked/unlock-dialog @home-fn_)))
+        1 3)
+      (.add (Separator.) 0 4 4 1)
+      (.addRow 5 (into-array Node (list (label* "Code mode:") codemode-ch)))
+      (.add (Separator.) 0 6 4 1)
+      (.addRow 7 (into-array Node (list (label* "Projects URI:") uri-field set-button)))
       (.setHgap 10)
       (.setVgap 20)
-      (.setPadding (fx/insets [20 30 20 10])))))
+      (.setPadding (fx/insets 30)))))
 
 
 (defn- stage-root []
@@ -413,25 +451,34 @@
         (fx/new-button "Home" :graphic (fx/icon 'fas-home)  :size 14  :onaction home-fn :focusable? false)
 
         settings-label
-        (fx/new-label nil :graphic (fx/icon 'fas-cog:18:gray) :size 14 :mouseclicked #(d-setter (home-uri-layout home-fn)))
+        (fx/new-label nil :graphic (fx/icon 'fas-cog:18:gray) :size 14 :mouseclicked #(d-setter (settings-layout)))
 
         top-bar
         (doto
           (fx/stackpane
-            (fx/hbox  home-button (fx/region :hgrow :always) settings-label
+            (fx/hbox  home-button (fx/region :hgrow :always) (locked/licensed-to) settings-label
                       :padding 10 :spacing 20 :alignment fx/Pos_CENTER_LEFT)
             title-label)
           (.setBorder (fx/new-border fx/DEES [0 0 1 0])))]
 
     (m-setter top-bar)
+    (reset! home-fn_ home-fn)
     (home-fn)
-
     (doto root
       (fx/add-stylesheet "styles/projects.css"))))
 
 
+(defn- init-licensed []
+  (when (d/init-licensed)
+    (when-let [f @home-fn_]
+      (fx/later (f)))))
+
+
 (defn new-projects-stage [hidden-fn]
   (fx/init)
+  (try
+    (init-licensed)
+    (catch Exception e (.printStackTrace e)))
   (let [size     [800 600]
         location [(- (first (fx/primary-center)) (/ (first size) 2)) 100]]
     (fx/now

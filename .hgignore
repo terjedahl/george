@@ -13,6 +13,7 @@ javafx-libs/*
 .nrepl-port
 pom.xml
 src/rsc/app.properties
+src/rsc/george-server
 codesign-*
 profiles.clj
 

@@ -5,10 +5,8 @@
 
 (ns george.projects.core
   (:require
-    [clojure.string :as cs]
     [george.javafx :as fx]
     [george.projects
-     [data :as d]
      [view :as v]]
     [common.george.util
      [cli :refer [debug info warn]]
@@ -21,6 +19,7 @@
 (defn hide-projects-stage []
   (when-let [stage (singleton/get ::projects-stage)]
     (when (.isShowing stage) (fx/later (.hide stage)))
+    (reset! v/home-fn_ nil)
     (singleton/remove ::projects-stage))
   nil)
 

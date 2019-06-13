@@ -103,6 +103,14 @@
       (str txt \newline))))
 
 
+(defn ^String ensure-trailing-slash [^String s]
+  (if (.endsWith s "/") s (str s \/)))
+
+
+(defn ^String strip-trailing-slash [^String uri]
+  (if (.endsWith uri "/") (subs uri 0 (dec (count uri))) uri))
+
+
 (defn ^String pprint
   "Same as clojure.core/pprint"
  ([object]

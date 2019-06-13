@@ -44,10 +44,9 @@
 
 
 (defn warn
-  "Prints to stderr if not LEIN_SILENT or GEORGE_SILENT."
+  "Prints to stderr."
   [& args]
-  (when *info*
-    (apply errln (cons "[WARNING]" args))))
+  (apply errln (cons "[WARNING]" args)))
 
 
 (defn except
