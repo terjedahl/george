@@ -8,16 +8,15 @@
 
   (:require
     [clojure.pprint :refer [pprint pp]]
-    ;[george.app.inspector :as inspector] :reload
-    ;[george.app.stage :as stage] :reload
-
-    [clojure.string :as cs]
-    [clojure.java.io :as cio]
     [clojure.data :as data]
     [clojure.core.async :as async]
-
     [george.javafx :as fx]
-    [george.application.core :as core])
+    [george.application.core :as core]
+    [common.george.util.cli :refer [repl? debug info warn except]]
+    [george.util.math :as um]
+    [george.util.singleton :as singleton]
+    [george.util :as u]
+    [clojure.string :as cs])
 
   (:import
     [org.xiph.speex.spi SpeexEncoding]
@@ -29,15 +28,17 @@
      Clip
      LineUnavailableException UnsupportedAudioFileException Mixer Line Line$Info]
     [java.nio ByteBuffer ByteOrder]
-    [java.io ByteArrayOutputStream ByteArrayInputStream FileNotFoundException]
+    [java.io ByteArrayOutputStream ByteArrayInputStream FileNotFoundException Writer]
     [java.net URL MalformedURLException UnknownHostException]
     [javazoom.spi.mpeg.sampled.file MpegFileFormatType]
     [javafx.scene.control ToggleGroup RadioButton]
     [javafx.stage Stage StageStyle]
-    [javafx.scene Scene]))
+    [javafx.scene Scene]
+    [javafx.scene.shape Rectangle]
+    [javafx.scene.paint Color]))
 
 
-; (set! *warn-on-reflection* true)
+(set! *warn-on-reflection* true)
 
 
 (def DEFAULT_MIC_FORMAT
@@ -53,21 +54,19 @@
 
 ;(def DEFAULT_BUFFER_SIZE 4096)  ;; 44.1k Hz / 2k samples = 22 Hz
 (def DEFAULT_BUFFER_SIZE
-  (let [
-        f  DEFAULT_MIC_FORMAT
+  (let [f  ^AudioFormat DEFAULT_MIC_FORMAT
         Ss (.getSampleRate f)
         Sz (/ (.getSampleSizeInBits f) 8) ;; /8 for bits to byte
         c  (.getChannels f)]
-        
     (/ (* Ss Sz c) 8)))  ;; /8 for 1/8 second data
 
 
 (def DEFAULT_SPEEX_FORMAT
   (AudioFormat.
     SpeexEncoding/SPEEX_Q6,
-    (.getSampleRate DEFAULT_MIC_FORMAT)
+    (.getSampleRate ^AudioFormat DEFAULT_MIC_FORMAT)
     -1     ; sample size in bits
-    (.getChannels DEFAULT_MIC_FORMAT)
+    (.getChannels ^AudioFormat DEFAULT_MIC_FORMAT)
     -1,     ; frame size
     -1,     ; frame rate
     false))
@@ -78,24 +77,19 @@
 
 
 (defn audio-bytes->samples [bytes is-big-endian]
-  (let [
-        tempBB
-        (ByteBuffer/wrap bytes)]
-        
+  (let [tempBB (ByteBuffer/wrap bytes)]
     (when-not is-big-endian (.order tempBB ByteOrder/LITTLE_ENDIAN))
     (short-array
       (/ (count bytes) 2)
-      (for [i (range (/ (count bytes) 2))]
+      (for [_ (range (/ (count bytes) 2))]
         (.getShort tempBB)))))
 
 
 (defn biggest-sample [samples]
-  (max
-    (apply max samples)
-    (- (apply min samples))))
+  (max (apply max samples) (- (apply min samples))))
 
 
-(defn target-data-line? [line-info]
+(defn target-data-line? [^DataLine$Info line-info]
   (= (.getLineClass line-info) TargetDataLine))
 
 
@@ -105,391 +99,311 @@
     (.getSourceLineInfo mixer line-info)))
 
 
-(defn get-compatible-mixer-list [data-line-info]
+(defprotocol ObjectData
+  (->map [obj]))
+
+
+(extend-protocol ObjectData
+  nil
+  (->map [_] nil)
+  Mixer
+  (->map [mixer]
+    (let [info (.getMixerInfo mixer)]
+      {:name        (.getName info)
+       :description (.getDescription info)
+       :vendor      (.getVendor info)})))
+
+
+(defmethod print-method Mixer [^Mixer m, ^Writer w]
+  (.write w (str m (->map m))))
+
+
+(defn- contains-default [^String s] (or (.contains s "default") (.contains s "primary") (.contains s "primær")))
+
+
+(defn- no-default [mixer-list]
+  (filter #(-> ^Mixer % .getMixerInfo .getName .toLowerCase contains-default not) mixer-list))
+
+
+(defn get-compatible-mixer-list []
   (->>
-    ;; get mixer-info-list
-    (AudioSystem/getMixerInfo)
-    ;; extract mixers for each mixer-info
-    (map
-      (fn [mixer-info] (AudioSystem/getMixer mixer-info)))
-    ;; only want mixers that have line-info for one or more compatible lines
-    (filter
-      (fn [mixer] (boolean (seq (get-directed-lineinfo-from-mixer mixer data-line-info)))))))
+    (AudioSystem/getMixerInfo) ;; get mixer-info-list
+    (map #(AudioSystem/getMixer %))  ;; extract mixers for each mixer-info
+    (filter #(seq (get-directed-lineinfo-from-mixer % DEFAULT_MIC_TARGET_DATA_LINE_INFO))) ;; only mixers with one or more compatible lines
+    no-default))
 
 
-(defn print-mixer [mixer]
-  (println mixer)
-  (let [mixer-info (.getMixerInfo mixer)]
-    (println "          mixer:" mixer)
-    (println "           name:" (.getName mixer-info))
-    (println "    description:" (.getDescription mixer-info))))
-
-
-(defn print-mixerinfo [mixer]
-  (let [mixer-info (.getMixerInfo mixer)]
-    (println "          mixer-info:" mixer-info)))
-
-
-(defn print-compatible-mixers []
+(defn- print-compatible-mixers []
   (println "\n# compatible mixers for given line info (mic-target-data-line-info)")
-  (doseq [mixer (get-compatible-mixer-list DEFAULT_MIC_TARGET_DATA_LINE_INFO)]
-    (print-mixer mixer)))
+  (doseq [mixer (get-compatible-mixer-list)]
+    (println mixer)))
 
 
-(defn contains-default [s] (or (.contains s "default") (.contains s "primary")))
+(defn- get-first-compatible-mixer []
+  (first (get-compatible-mixer-list)))
 
 
-(defn no-default [mixer-list]
-  (filter #(-> % .getMixerInfo .getName .toLowerCase contains-default not) mixer-list))
+(defonce ^:private selected-mixer_ (atom nil))
+(add-watch selected-mixer_ :selected-mixer #(println "selected-mixer:" %4))
 
 
-(defn get-first-compatible-mixer-and-line [data-line-info]
-  (println "get-first-compatible-mixer-and-line")
-  (let [mixer ^Mixer (first (get-compatible-mixer-list data-line-info))
-        line (.getLine  mixer data-line-info)]
-    [mixer line]))
+(defn- get-selected-mixer [] @selected-mixer_)
 
 
-(def selected-mixer-atom (atom nil))
+(defn- get-mixer []
+  (or (get-selected-mixer) (get-first-compatible-mixer)))
 
 
-(add-watch selected-mixer-atom :selected-mixer-atom
-           (fn [_ _ _ new-mixer]
-             (println "selected-mixer-atom updated:")
-             (print-mixer new-mixer)))
+(defn- get-mixer-safe []
+  (u/timeout 1000 nil
+    (get-mixer)))
 
 
-(defn get-selected-mixer-and-line [data-line-info]
-  (println "get-selected-mixer-and-line")
-  (if-let [mixer @selected-mixer-atom]
-    [mixer (.getLine mixer data-line-info)]
-    nil))
+(defn- get-line [^Mixer mixer]
+  (when mixer
+    (.getLine mixer DEFAULT_MIC_TARGET_DATA_LINE_INFO)))
+
+
+(defn get-mixer-and-line-safe []
+  (prn 'get-mixer-and-line-safe)
+  (let [res
+        (u/timeout 1000 :failed
+          (when-let [mixer (get-mixer)]
+              [mixer (get-line mixer)]))]
+    (cond
+      (= :failed res) (except "g.a.microphone failed to acquire mixer and line. Timed out (1000ms)!")
+      (nil? res)      (warn "g.a.microphone failed to acquire mixer and line. None available!")
+      :default        res)))
 
 
 (defn ignite [lights prosent sticky-prosent]
-  "'turn on' number of lights relative to prosent level and also lights the light at sticky-prosent"
+  "'turn on' number of lights relative to percent level and also lights the light at sticky-percent"
   (let [len (count lights)
-        lim-activate (Math/round ^double (* (/ len 100.) prosent))
+        lim-activate    (Math/round ^double (* (/ len 100.) prosent))
         sticky-activate (Math/round ^double (* (/ len 100.) sticky-prosent))]
-    
     (fx/later
-      (doseq [l lights]
+      (doseq [^Rectangle l lights]
         (.setFill l fx/GREY))
-      (doseq [l (take lim-activate lights)]
+      (doseq [^Rectangle l (take lim-activate lights)]
         (.setFill l fx/BLUE))
-      (if(< 0 sticky-activate len)
-        (.setFill (get lights sticky-activate) fx/BLUE)))))
+      (when (< 0 sticky-activate len)
+        (.setFill ^Rectangle (get lights sticky-activate) fx/BLUE)))))
 
 
-(defn level-meter [label]
-  (let [
-        lights 
+(defn level-meter [mixer]
+  (let [{:keys [name description]} (->map mixer)
+
+        lights
         (vec (repeatedly 15 #(fx/rectangle :size [12 36] :fill fx/BLUE :arc 8)))
-          ;(for [i (range 15)]
-            ;(doto
-            ;  (javafx.scene.shape.Rectangle. 12. 36. fx/BLUE)
-            ;  (.setArcWidth 8.)
-            ;  (.setArcHeight 8.))))
-        lights-pane 
+        lights-pane
         (apply fx/hbox (concat lights [:spacing 10 :padding 20]))
-
         outer-pane
-        ;(doto (fx/vbox (fx/text label) lights-pane])
-        ;  (.setPadding (javafx.geometry.Insets. 20. 20. 0. 20.))) 
-        (fx/vbox 
-          (fx/text label) 
+        (fx/vbox
+          (fx/vbox (fx/text name :size 14) (fx/text description :size 10 :color Color/GRAY) :spacing 5 :padding [0 0 0 20])
           lights-pane
-          :padding [20. 20. 0. 20.])]
-        
-    (def lights lights)
+          :padding [20 20 0 20])]
     (ignite lights 10 10)
-
     [outer-pane lights]))
 
 
 (defn mixer-line-meter [^Mixer mixer line-info]
-  (let [
-        line
-        (.getLine mixer line-info)
-        [meter-pane meter-lights]
-        (level-meter (-> mixer .getMixerInfo .getName))  ;; TODO: Also add description (and other goodies)
-
-        radio-button
-        (fx/radiobutton)]
+  (let [radio-button              (fx/radiobutton)
+        [meter-pane meter-lights] (level-meter mixer)]
         
     {:radio-button radio-button
-     :mixer mixer
-     :line line
-     :meter-pane
-     ;(doto (fx/hbox [radio-button meter-pane])
-     ;  (.setAlignment fx/Pos_CENTER)
-     ;  (fx/set-padding 0 0 0 20.)
-     ;  )
-     (fx/hbox radio-button meter-pane
-       :alignment fx/Pos_CENTER
-       :padding [0 0 0 20.])
-  
-     :meter-lights meter-lights}))
-
+     :mixer        mixer
+     :line         (.getLine mixer line-info)
+     :meter-lights meter-lights
+     :meter-pane   (fx/hbox radio-button meter-pane
+                     :alignment fx/Pos_CENTER
+                     :padding [0 0 0 20.])}))
 
 
 (defonce do-monitoring-atom (atom false))
 
 
-(defn calculate-prosent [BAOS buffer len monitor-data-size is-big-endian]
+(defn calculate-prosent [^ByteArrayOutputStream BAOS buffer len monitor-data-size is-big-endian]
   (.reset BAOS)
   (.write BAOS buffer 0 (if (> len monitor-data-size) monitor-data-size len))
   (-> BAOS .toByteArray (audio-bytes->samples is-big-endian) biggest-sample (/ Short/MAX_VALUE) (* 100.)))
 
 
-(defn start-monitoring [{:keys [line meter-lights]} run-flag-atom]
-  (println "start-monitoring")
+(defn start-monitoring [{:keys [^TargetDataLine line meter-lights]} run-flag-atom]
+  ;(prn 'start-monitoring)
   (reset! do-monitoring-atom true)
   (let [
-        is-big-endian (.isBigEndian DEFAULT_MIC_FORMAT)
-        AIS (AudioInputStream. line)
-        buffer-size 4096 ;; 44.1k Hz / 2k samples = 22 Hz
-        buffer (byte-array buffer-size)
-        BAOS (ByteArrayOutputStream. buffer-size)
+        is-big-endian     (.isBigEndian ^AudioFormat DEFAULT_MIC_FORMAT)
+        AIS               (AudioInputStream. line)
+        buffer-size       4096 ;; 44.1k Hz / 2k samples = 22 Hz
+        buffer            (byte-array buffer-size)
+        BAOS              (ByteArrayOutputStream. buffer-size)
         monitor-data-size (/ buffer-size 8)]
-        
     (future
-      (.open ^TargetDataLine line DEFAULT_MIC_FORMAT)
-      (.start line)
-      (loop [len (.read AIS buffer) cnt 0 prev-prosent 0 prev-sticky-prosent 0 prev-sticky-countdown 0]
+      (doto ^TargetDataLine line (.open DEFAULT_MIC_FORMAT) (.start))
+      (loop [len (.read AIS buffer)
+             cnt 0
+             prev-prosent 0
+             prev-sticky-prosent 0
+             prev-sticky-countdown 0]
+        ;(prn 'looping? len @run-flag-atom)
         (when (and @run-flag-atom (not= len -1))
-          ;(println "looping ...")
-          (let [
-                do-monitor-update (= cnt 0)
-                prosent
-                (if do-monitor-update
-                  (calculate-prosent BAOS buffer len monitor-data-size is-big-endian)
-                  prev-prosent)
+          (let [update? (zero? cnt)
+                prosent (if-not update? prev-prosent (calculate-prosent BAOS buffer len monitor-data-size is-big-endian))
                 [sticky-prosent sticky-countdown]
-                (if (> prosent prev-sticky-prosent)
-                  [prosent 30]
-                  (if (= prev-sticky-countdown 0)
-                    [0 0]
-                    [prev-sticky-prosent (dec prev-sticky-countdown)]))
+                (case
+                  (> prosent prev-sticky-prosent) [prosent 30]
+                  (zero? prev-sticky-countdown)   [0 0]
+                  :default                        [prev-sticky-prosent (dec prev-sticky-countdown)])
 
-                sticky-prosent (if (> sticky-prosent 100) 100 sticky-prosent)
-                sticky-prosent (if (< sticky-prosent 0) 0 sticky-prosent)]
+                sticky-prosent (um/clamp-int 0 sticky-prosent 100)]
                 
-            (when do-monitor-update
+            (when update?
               (ignite meter-lights prosent sticky-prosent))
-            (recur (.read AIS buffer) (mod (inc cnt) 2) prosent sticky-prosent sticky-countdown))))
+            (recur (.read AIS buffer) (int (mod (inc cnt) 2)) (int prosent) (int sticky-prosent) (int sticky-countdown)))))
+      ;(prn 'stop)
+      (doto line (.stop) (.flush) (.close)))))
 
-      (doto line .stop .flush .close))))
-
-
-(defn show-monitor0 []
-  (fx/init)
-  (fx/later
-    (let [
-          compatible-mixers-no-default
-          (no-default (get-compatible-mixer-list DEFAULT_MIC_TARGET_DATA_LINE_INFO))
-
-          mixer-line-meter-list
-          (map #(mixer-line-meter % DEFAULT_MIC_TARGET_DATA_LINE_INFO) compatible-mixers-no-default)
-
-          meter-pane-list
-          (map
-            (fn [m-l-m]
-              (:meter-pane m-l-m))
-
-            mixer-line-meter-list)
-
-          toggle-group (ToggleGroup.)
-          _ (doseq [m-l-m mixer-line-meter-list]
-              (doto (:radio-button m-l-m)
-                (.setToggleGroup toggle-group)
-                (fx/set-onaction 
-                  (fn []
-                    ;(println "mixer selected:")
-                    ;(print-mixer (:mixer m-l-m))
-                    (reset! selected-mixer-atom (:mixer m-l-m))))))
-                    
-
-          meters-pane
-          (fx/vbox meter-pane-list)
-
-          stage
-          (doto (Stage. StageStyle/UTILITY)
-            (.setScene (Scene. meters-pane))
-            (.sizeToScene)
-            (.setResizable false)
-            (.setAlwaysOnTop true)
-            (.setTitle "Microphone Monitor")
-
-            (.setOnHidden
-              (fx/new-eventhandler
-                 (println "monitor window closed")
-                 (reset! do-monitoring-atom false)))
-
-            (.show))]
-
-      (doseq [LM mixer-line-meter-list]
-        (start-monitoring LM do-monitoring-atom)))))
-      
 
 (defonce splitters-atom (atom {}))
 
 
-(defn show-monitor1 []
+(defn create-monitor-stage []
   (fx/init)
-  (fx/later
-    (let [
-          _ (add-watch splitters-atom :show-monitor-splitters-watch
-                       (fn [key _ old-splitters-map new-splitters-map]
-                         (println "  ## watch:" key)
-                         (let [
-                               [removed-mixers added-mixers _]
-                               (data/diff
-                                 (keys old-splitters-map)
-                                 (keys new-splitters-map))]
-                               
-                           (if-not (empty? removed-mixers)
-                             (println "  ## removed-mixers:" removed-mixers))
-                             
-                           (if-not (empty? added-mixers)
-                             (println "  ## added-mixers:" added-mixers)))))
-               
-          compatible-mixers-no-default
-          (no-default (get-compatible-mixer-list DEFAULT_MIC_TARGET_DATA_LINE_INFO))
+  ;; TODO: This watch should update the monitor stage
+  (add-watch splitters-atom :show-monitor-splitters-watch
+             (fn [key _ old-splitters-map new-splitters-map]
+               (println "  ## watch:" key)
+               (let [[removed-mixers added-mixers _]
+                     (data/diff (keys old-splitters-map) (keys new-splitters-map))]
+                 (if-not (empty? removed-mixers) (println "  ## removed-mixers:" removed-mixers))
+                 (if-not (empty? added-mixers) (println "  ## added-mixers:" added-mixers)))))
+  (let [mixer-line-meter-list
+        (->> (get-compatible-mixer-list)
+             (map #(mixer-line-meter % DEFAULT_MIC_TARGET_DATA_LINE_INFO)))
 
-          mixer-line-meter-list
-          (map #(mixer-line-meter % DEFAULT_MIC_TARGET_DATA_LINE_INFO) compatible-mixers-no-default)
+        ;mixer-line-meter-list '()  ;; For testing handling no-mixers visually
 
-          meter-pane-list
-          (map :meter-pane  mixer-line-meter-list)
+        meter-pane-list
+        (map :meter-pane mixer-line-meter-list)
 
-          toggle-group (ToggleGroup.)
-          _ (doseq [m-l-m mixer-line-meter-list]
-              (doto ^RadioButton (:radio-button m-l-m)
-                (.setToggleGroup toggle-group)
-                (fx/set-onaction 
-                  (fn []
-                    ;(println "mixer selected:")
-                    ;(print-mixer (:mixer m-l-m))
-                    (reset! selected-mixer-atom (:mixer m-l-m))))))
-                    
+        toggle-group (ToggleGroup.)
 
-          meters-pane
+        meters-pane
+        (if (seq mixer-line-meter-list)
           (apply fx/vbox meter-pane-list)
+          (fx/vbox (fx/new-label "No microphones found") :padding 100))]
 
-          stage
-          ;(doto (javafx.stage.Stage. javafx.stage.StageStyle/UTILITY)
-          ;  (.setScene (javafx.scene.Scene. meters-pane))
-          ;  (.sizeToScene)
-          ;  (.setResizable false)
-          ;  (.setAlwaysOnTop true)
-          ;  (.setTitle "Microphone Monitor")
-          ;
-          ;  (.setOnHidden
-          ;    (fx/new-eventhandler
-          ;       (println "monitor window closed")
-          ;       (reset! do-monitoring-atom false)))
-          ;
-          ;  (.show))
-          (fx/stage
-            :style :utility
-            :title "Microphone Monitor"
-            :scene (fx/scene meters-pane)
-            :location [20 40]
-            :resizable false
-            :alwaysontop true
-            :onhidden
-            (fx/new-eventhandler
-               (println "monitor window closed")
-               (reset! do-monitoring-atom false)))]
-          
-      (doseq [LM mixer-line-meter-list]
-        (start-monitoring LM do-monitoring-atom)))))
+    (doseq [m-l-m mixer-line-meter-list]
+     (doto ^RadioButton (:radio-button m-l-m)
+       (.setToggleGroup toggle-group)
+       (.setSelected (= (:mixer m-l-m) @selected-mixer_))
+       (fx/set-onaction
+         #(reset! selected-mixer_ (:mixer m-l-m)))))
+
+    (doseq [LM mixer-line-meter-list]
+      (start-monitoring LM do-monitoring-atom))
+
+    (fx/now
+      (fx/stage
+        :style :utility
+        :title "Microphone Monitor"
+        :scene (fx/scene meters-pane)
+        :location [20 40]
+        :resizable false
+        :alwaysontop true
+        :onhidden #(do (reset! do-monitoring-atom false)
+                       (singleton/remove ::monitor-stage))))))
 
 
-(defn get-mixer-and-line []
-  (let [mixer-and-line
-        (if-let [m&l (get-selected-mixer-and-line DEFAULT_MIC_TARGET_DATA_LINE_INFO)]
-          m&l
-          (get-first-compatible-mixer-and-line DEFAULT_MIC_TARGET_DATA_LINE_INFO))]     
-    mixer-and-line))
+#_(defn show-monitor-stage "Singleton" []
+    (fx/later
+      (if-let [st ^Stage (singleton/get ::monitor-stage)]
+        (if (.isAlwaysOnTop st)
+          (doto st (.setAlwaysOnTop false) (.toBack))
+          (doto st (.setAlwaysOnTop true) (.toFront)))
+
+        (singleton/get-or-create ::monitor-stage #(create-monitor-stage)))))
 
 
-(defn start-speex-record []
-  "takes a map representing a 'speex-recorder' as arg
-  returns a map with relavant values for this recording"
-  (println "start-speex-record")
+(defn toggle-monitor-stage "Singleton" []
+  (fx/later
+    (if-let [st ^Stage (singleton/get ::monitor-stage)]
+      (.hide st)
+      (singleton/get-or-create ::monitor-stage #(create-monitor-stage)))))
+
+
+(defn- exception-alert [owner title header text ^Exception exception]
+  (fx/later
+    (fx/alert
+      :owner  owner ;(core/get-application-stage)
+      :type   :error
+      :title  title
+      :header header
+      :text   text
+      :expandable-content
+      (fx/expandable-content
+        (->> exception .getStackTrace seq (cons (.toString exception)) (interpose "\n  ") (apply str))
+        (fx/new-font fx/ROBOTO_MONO 12)
+        500))))
+
+
+(defn start-speex-record [& [owner]]
+  (prn 'start-speex-record)
   (try
-    (let [
-          [mixer mic-TDL]
-          (get-mixer-and-line)]
-
-      (.open ^TargetDataLine mic-TDL DEFAULT_MIC_FORMAT)
-
-      ;;setForeground(lf.topPanelStatusTextColor);
-      ;;    setFont(lf.USER_NAME_FONT);
-      ;;    setText("Mikrofontilgang: OK");
-      (println "   # Mikrofontilgang: OK ")
-
+    (let [^TargetDataLine mic-TDL (second (get-mixer-and-line-safe))]
       ;; start TDL before thread creation, to start capture as soon as possible
-      (.start mic-TDL)
-
-      (let [
-            mic-AIS
-            (AudioInputStream. mic-TDL)
-            ;; wrap mic-AIS in speex-AIS for automatic conversion
+      (doto mic-TDL
+        (.open DEFAULT_MIC_FORMAT)
+        (.start))
+      (println "TargetDataLine (mic) opened and started")
+      (let [;; wrap mic-AIS in speex-AIS for automatic conversion
             speex-AIS
-            (AudioSystem/getAudioInputStream DEFAULT_SPEEX_FORMAT mic-AIS)
-
+            (->> (AudioInputStream. mic-TDL)
+                 (AudioSystem/getAudioInputStream ^AudioFormat DEFAULT_SPEEX_FORMAT))
             buffer
             (byte-array DEFAULT_BUFFER_SIZE)
-
             captured-speex-BAOS
             (ByteArrayOutputStream. (* 2 2 2 DEFAULT_BUFFER_SIZE)) ;; give it a sensible start-size
-
             capture-thread
-            (doto 
+            (doto
               (Thread.
                 #(loop [len (.read speex-AIS buffer)]
-                   (when (not= len -1)
+                   (when-not (neg? len)
                      (.write captured-speex-BAOS buffer 0 len)
                      (recur (.read speex-AIS buffer)))))
-              .start)]
-
+              (.start))]
         [mic-TDL capture-thread captured-speex-BAOS]))
 
     (catch LineUnavailableException lue
       (.printStackTrace lue)
-      (fx/later
-            (fx/alert
-              :owner (core/get-application-stage)
-              :type :error
-              :title "Line unavailable"
-              :header "The selected line is \"unavailable\""
-              :text
-              (format "%s
-
-View stacktrace bellow:" (.getMessage lue))
-              :expandable-content 
-              (fx/expandable-content  
-                                     (->> lue .getStackTrace seq (cons (.toString lue )) (interpose "\n  ") (apply str)) 
-                                     (fx/new-font fx/ROBOTO_MONO 12)
-                                     500)))
-              
-      ;;setText("<html>Mikrofonfeil:<br>Systemet får ikke kontakt med mikrofon!</html>");
-      nil)))
+      (exception-alert
+        owner
+        "Line unavailable"
+         (format "\"%s\" is \"unavailable\"" (-> (get-mixer-safe) ->map :name))
+         (format "%s \n\nTry selecting another line from \"microphone monitor\" \n\nView stacktrace bellow:"
+                 (cs/capitalize (.getMessage lue)))
+         lue))
+    (catch IllegalArgumentException iae
+      (.printStackTrace iae)
+      (exception-alert
+        owner
+        "Unsupported conversion"
+        "An \"unsupported conversion\" occurred"
+        (format "There might be a problem with %s. \nTry selecting another line from \"microphone monitor\" \n\nView stacktrace bellow:"
+                (-> (get-mixer-safe) ->map :name))
+        iae))))
 
 
-(defn stop-speex-record [[mic-TDL capture-thread captured-Speex-BAOS]]
+(defn stop-speex-record [[^TargetDataLine mic-TDL ^Thread capture-thread ^ByteArrayOutputStream captured-Speex-BAOS]]
   "returns a byte-array fo captured speex"
   (println "stop-speex-record")
-  (doto mic-TDL .stop .flush .close) ;; causes capture-thread loop to end and thread to exit
+  (doto mic-TDL (.stop) (.close)) ;; causes capture-thread loop to end and thread to exit
   (.join capture-thread) ;; wait for capture-thread to exit
   (.toByteArray captured-Speex-BAOS))
 
 
-(defn add-subscriber-to-splitter [splitter status-fn outputstream]
-  swap! ((:subscribers-atom splitter) conj {:status-fn status-fn :outputstream outputstream}))
+#_(defn add-subscriber-to-splitter [splitter status-fn outputstream]
+    swap! ((:subscribers-atom splitter) conj {:status-fn status-fn :outputstream outputstream}))
 
 
 (defn stop-splitter [mim {:keys [subscribers-atom running-atom] :as splitter}]
@@ -500,7 +414,7 @@ View stacktrace bellow:" (.getMessage lue))
     (-> subscriber :status-fn false)))
 
 
-(defn start-splitter [mim {:keys [mixer TDL  AIS subscribers-atom running-atom] :as splitter}]
+(defn start-splitter [mim {:keys [mixer TDL ^AudioInputStream AIS subscribers-atom running-atom] :as splitter}]
   (println "start-splitter splitter:") (pprint splitter)
   (let [buffer (byte-array (/ DEFAULT_BUFFER_SIZE 2))]
     (reset! running-atom true)
@@ -510,7 +424,7 @@ View stacktrace bellow:" (.getMessage lue))
       (loop [len (.read AIS buffer)]
         (when (and (not= len -1) @running-atom)
           (doseq [subscriber @subscribers-atom]
-            (.write (:outputstream subscriber) buffer 0 len))
+            (.write ^ByteArrayOutputStream (:outputstream subscriber) buffer 0 len))
           (recur (.read AIS buffer))))
       (println "  # splitter loop ended"))
       ;(doseq [OS @outputstreams-atom]
@@ -522,7 +436,7 @@ View stacktrace bellow:" (.getMessage lue))
       (-> subscriber :status-fn splitter))))
 
 
-(defn- get-TDL-from-mixer [mixer]
+(defn- get-TDL-from-mixer [^Mixer mixer]
   (let [lines (.getTargetLines mixer)]
     ;(println "  empty?:" (empty? lines))
     ;(if-not (empty? lines)
@@ -554,7 +468,7 @@ View stacktrace bellow:" (.getMessage lue))
   (let [subscribers-atom (atom '())
         running-atom (atom false)
 
-        TDL (get-TDL-from-mixer mixer)
+        TDL ^TargetDataLine (get-TDL-from-mixer mixer)
         AIS (AudioInputStream. TDL)]
      
     (try
@@ -579,7 +493,7 @@ View stacktrace bellow:" (.getMessage lue))
         nil))))
 
 
-(defn mixer->mim [mixer]
+(defn mixer->mim [^Mixer mixer]
   (let [m (-> mixer .getMixerInfo)]
     {:name (apply str (take 30 (.getName m))) ;; a hack to avoid comparison issues if name is truncated
      :description (.getDescription m)
@@ -605,7 +519,7 @@ View stacktrace bellow:" (.getMessage lue))
         _ (println "### current-nonrunning-splitters:") _ (pprint current-nonrunning-splitters)
 
         found-mixers
-        (no-default (get-compatible-mixer-list DEFAULT_MIC_TARGET_DATA_LINE_INFO))
+        (no-default (get-compatible-mixer-list))
 
         found-mim-mixer-map
         (apply conj (map (fn [m] {(mixer->mim m) m}) found-mixers))
@@ -699,7 +613,7 @@ View stacktrace bellow:" (.getMessage lue))
       (fx/set-padding 0 0 0 20.))))
       
 
-(defn update-monitors-pane [current-mixers mim-monitor-map-atom monitors-vbox stage]
+(defn update-monitors-pane [current-mixers mim-monitor-map-atom monitors-vbox ^Stage stage]
   (let [
         [_ added-mixers shared-mims]
         (data/diff (keys @mim-monitor-map-atom)(keys current-mixers))
@@ -734,28 +648,27 @@ View stacktrace bellow:" (.getMessage lue))
 (defonce found-mixers-curr-atom (atom {})) ;; [mim mixer]
 
 
-(defn get-subscribers-list-atom
-  "Returns the atom containing the subscribers to the given mim.
+#_(defn get-subscribers-list-atom
+    "Returns the atom containing the subscribers to the given mim.
   If it doesn't exist, one will be created."
-  [mim]
-  (if-let[s-a (@subscribers-atom mim)]
-    s-a
-    ;; else
-    (let [l-a (atom (list))]
-      (swap! subscribers-atom assoc mim l-a)
-      l-a)))
+    [mim]
+    (if-let[s-a (@subscribers-atom mim)]
+      s-a
+      ;; else
+      (let [l-a (atom (list))]
+        (swap! subscribers-atom assoc mim l-a)
+        l-a)))
 
 
-(defn get-mims-list []
-  (keys @mim-wrapper-map-atom))
+#_(defn get-mims-list []
+    (keys @mim-wrapper-map-atom))
 
 
 (defn find-mixers!
   "Queries system for compatible mixers, and sets mims for found splitters int root-level atom"
   []
   (println "find-mixers!")
-  (let [mixer-list
-        (no-default (get-compatible-mixer-list DEFAULT_MIC_TARGET_DATA_LINE_INFO))]
+  (let [mixer-list (get-compatible-mixer-list)]
     (reset! found-mixers-prev-atom @found-mixers-curr-atom)
     (reset! found-mixers-curr-atom
             (apply conj {}
@@ -793,15 +706,14 @@ View stacktrace bellow:" (.getMessage lue))
      :running-atom running-atom})) 
 
 
-(defn get-mixer [mim]
-  (println "get-mixer")
-  (println "  mim: " mim)
+(defn- get-mixer-from-mim [mim]
+  (prn 'get-mixer-from-mim mim)
   (@found-mixers-curr-atom mim))
 
 
-(defn open-TDL [TDL]
-  (println "open-TDL")
-  (.open ^TargetDataLine TDL DEFAULT_MIC_FORMAT)
+(defn- open-TDL [^TargetDataLine TDL]
+  (prn 'open-TDL)
+  (.open  TDL DEFAULT_MIC_FORMAT)
   TDL)
 
 
@@ -872,7 +784,7 @@ View stacktrace bellow:" (.getMessage lue))
                                (make-line-wrapper
                                  (open-TDL-safe
                                    (get-TDL-from-mixer
-                                     (get-mixer mim))))})
+                                     (get-mixer-from-mim mim))))})
                             mims-for-mixer-to-add)))
     mims-for-mixer-to-add))
 
@@ -884,16 +796,14 @@ View stacktrace bellow:" (.getMessage lue))
     (println " start lines for mixers: ")
     (doseq [mim added-mims]
       (println "  mim:" mim)
-      (doto (:line (@mim-wrapper-map-atom mim)) .start))
+      (doto ^TargetDataLine (:line (@mim-wrapper-map-atom mim)) (.start)))
     
     (println " stop lines fo mixers: ")
     ( doseq [mim removed-mims]
       (println "  mim:" mim)
-      (doto (:line (@mim-wrapper-map-atom mim)) .stop .flush))
+      (doto ^TargetDataLine (:line (@mim-wrapper-map-atom mim)) (.stop) (.flush)))
 
     nil))
-
-;(show-monitors)
 
 
 (defn find-update-activate! []
@@ -984,7 +894,7 @@ View stacktrace bellow:" (.getMessage lue))
   (when @monitors-stage-atom
     (fx/later
       (update-meters-pane!)
-      (.sizeToScene @monitors-stage-atom))))
+      (.sizeToScene ^Stage @monitors-stage-atom))))
 
 
 (defn monitors-pane []
@@ -992,7 +902,7 @@ View stacktrace bellow:" (.getMessage lue))
 
 
 (defn -monitors-stage! []
-  (if-let [stg @monitors-stage-atom]
+  (if-let [^Stage stg @monitors-stage-atom]
     ;; is this relevant for utility-stage?!?
     (.setIconified stg false)
     ;;else
@@ -1186,4 +1096,6 @@ A channel with sliding-buffer is preferable.
     ;(println "  line open?:" (.isOpen line))))
 
 
-;(dev)
+;(when repl? (dev))
+;(when repl? (create-monitor-stage))
+;(when repl? (show-monitor-stage))

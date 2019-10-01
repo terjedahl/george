@@ -63,5 +63,4 @@
   (exit -1))
 
 
-(defn repl? []
-  (env :repl?))
+(def repl? (boolean (env :repl?)))

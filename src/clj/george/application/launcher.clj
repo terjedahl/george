@@ -16,7 +16,7 @@
      [styled :as styled :refer [hr padding]]]
     [george.util.singleton :as singleton]
     [common.george.config :as c]
-    [common.george.util.cli :refer [debug warn]]
+    [common.george.util.cli :refer [debug warn repl?]]
     [clojure.string :as cs])
   (:import
     [javafx.geometry Rectangle2D]
@@ -282,8 +282,7 @@ Powered by open source software.")
   (fx/new-eventhandler
      (.toFront application-stage)
      (core/notify-dialog-listeners true)
-     (let [repl? (boolean (env :repl?))
-           button-index
+     (let [button-index
            (fx/now
              (fx/alert
                :title "Quit?"
@@ -386,5 +385,5 @@ Powered by open source software.")
 
 ;;; DEV ;;;
 
-;(when (env :repl?)  (fx/init) (start))
+;(when repl? (fx/init) (start))
 

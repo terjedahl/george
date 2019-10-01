@@ -70,7 +70,7 @@
   (fx/now
     (doto stage
           add-icon
-          (-> .getScene (skin-application (repl?))))))
+          (-> .getScene (skin-application repl?)))))
 
 
 (def LINK_COLOR "#337ab7")

@@ -41,6 +41,9 @@
   [timeout-ms timeout-val & body]
   `(timeout* ~timeout-ms ~timeout-val (fn [] ~@body)))
 
+;(prn 'res (timeout 1000 :failed (Thread/sleep 500) :sucess))
+;(prn 'res (timeout 1000 :failed (Thread/sleep 1500) :sucess))
+
 
 (defmacro with-latch
   "Prevents application from exiting when done -

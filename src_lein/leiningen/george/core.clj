@@ -429,7 +429,7 @@ and unpack in project dir.")))
   (asserted-jar-file)
   (let [binaries-dir     (str (asserted-wix-binaries-dir) "\\")
 
-        wix-dir          (cio/file "target" "wix")
+        wix-dir          (cio/file "target" "_wix")
 
         tmpl-data        {:app          (George)
                           :jar-name     (jar-name)
@@ -483,9 +483,9 @@ and unpack in project dir.")))
     (when (.exists msi-file)
       (sign-msi msi-file))
 
-    (build-installer-props msi-file)
+    (build-installer-props msi-file)))
 
-    (clean wix-dir)))
+    ;(clean wix-dir)))
 
 
 (defn- build-macos-app []
@@ -499,7 +499,7 @@ and unpack in project dir.")))
                        :strict-version  (strict (:version *project*))
                        :splash-image (splash-image)}
 
-        pkg-dir       (cio/file "target" "pkg")
+        pkg-dir       (cio/file "target" "_pkg")
         appl-dir      (cio/file pkg-dir "root" "Applications")
         the-app       (cio/file appl-dir (str (George) ".app"))
 
@@ -603,9 +603,9 @@ and unpack in project dir.")))
       (warn "Environment variable 'apple-developer-installer-cert-id' not found."))
 
     (le/sh "chmod" "755" (str product-file))
-    (build-installer-props product-file)
+    (build-installer-props product-file)))
 
-    (clean pkg-dir)))
+    ;(clean pkg-dir)))
 
 
 ;;;; IMPLEMENTATIONS
@@ -679,7 +679,7 @@ and unpack in project dir.")))
                        :identifier (str "no.andante." (George))
                        :strict-version  (strict (:version *project*))
                        :splash-image (splash-image)}
-        build-dir    (cio/file "target" "_linux")
+        build-dir    (cio/file "target" "_nix")
         app-dir    (cio/file build-dir (George))
         bin-dir    (cio/file app-dir "bin")
         rsc-dir    (cio/file app-dir "rsc")

@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2019.1.4] - 2019-10-01
+
+### Fixed
+- An issue where "default" microphone would be included in list of possibles when name was translated by OS.
+- An issue where fetching a line from a bad or missing microphone whould hang the process.
+
+
 ## [2019.1.3] - 2019-06-13
 
 The main feature in this version is license handling in George Projects.
