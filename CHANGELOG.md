@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 
+## [2019.1.5] - 2019-10-04
+
+### Fixed
+- When starting from an "installed" jar, the classloader was not set in Swing's rendering thread, causing errors when loading service providers et al.  
+
+
 ## [2019.1.4] - 2019-10-01
 
 ### Fixed

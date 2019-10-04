@@ -9,7 +9,8 @@
     [common.george.util.cli :refer [debug]])
   (:import
     [clojure.lang DynamicClassLoader]
-    [java.net URLClassLoader URL]))
+    [java.net URLClassLoader URL]
+    [javax.swing SwingUtilities]))
 
 
 (def STRING_ARRAY_CLASS (class (make-array String 0)))
@@ -22,34 +23,36 @@
   ;; platformClassLoader will give us everything from the JRE/standard libraries, but nothing more.
   (URLClassLoader. (into-array URL (list jar-url)) (ClassLoader/getPlatformClassLoader)))
 
-(defn- new-dynamic-classloader [loader]
+
+(defn- new-dynamic-classloader [cl]
   ;; Now we set a nice "clean" DynamicClassLoader as the contextClassLoader.
   ;; Clojure will not work without DynamicClassLoader as its ContextClassLoader.
-  (DynamicClassLoader. loader))
+  (DynamicClassLoader. cl))
 
 
-(defn- set-context-classloader [loader]
+(defn- set-context-classloader [cl]
   ;; It will propagate to all other threads.
-  (.setContextClassLoader (Thread/currentThread) loader)
-  loader)
+  (.setContextClassLoader (Thread/currentThread) cl)
+  cl)
 
 
-(defn- set-fx-classloader [loader]
-  ;; Also, we need to set it on the JavaFX thread.
-  (fx/init :classloader loader)
-  loader)
+(defn- set-gui-classloader [cl]
+  ;Set classloader on JavaFX thread and Swing dispatch thread.
+  (fx/init :classloader cl)
+  (SwingUtilities/invokeAndWait #(set-context-classloader cl))
+  cl)
 
 
 (defn make-and-set-classloader-for-jar
   "Creates a clean dynamic classloader for the jar,
   sets it as context-classloader and as classloader in fx-thread,
   and returns it."
-  [jar-url with-javafx?]
+  [jar-url with-gui?]
   (-> jar-url
       new-url-classloader
       new-dynamic-classloader
       set-context-classloader
-      (#(if with-javafx? (set-fx-classloader %) %))))
+      (#(if with-gui? (set-gui-classloader %) %))))
 
 
 (defn invoke-static-main [loader class-str args]
