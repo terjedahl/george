@@ -1,7 +1,7 @@
 
 
 
-![George logo](http://www.george.andante.no/static/george/graphics/George_logo.png)  
+![George logo](docs/graphics/George_logo.png)  
 *Create. Learn. Think.*
 
 ***
@@ -12,9 +12,9 @@ It can be run as a standalone Jar, or as a natively installed application for Wi
 
 If you simply want to run George, it will be much quicker and easier for you to download and install the latest native version for your system.  That way you are also guaranteed to always have an automatically updated latest version.  
 
-[Get George for Windows / Mac / Java](http://www.george.andante.no).
+[Get George for Windows / Mac / Linux / Java](https://htmlpreview.github.io/?https://github.com/terjedahl/george/blob/master/docs/get_george.html).
 
-![George 2018.0](http://www.george.andante.no/static/www/graphics/screenshots/George_2018.0.png)
+![George 2018.0](docs/graphics/George_2018.0.png)
 
 
 ## Develop and contribute

@@ -1,0 +1,494 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+
+    <title>George downloads</title>
+
+    <script src="https://use.fontawesome.com/fae2fd0b99.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.css" />
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+          integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+          crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <!--
+        <link rel="stylesheet"
+              href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
+              integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp"
+              crossorigin="anonymous">
+    -->
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+
+    <!-- code highlighting -->
+    <!--
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/default.min.css">
+        <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/highlight.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.4.0/languages/clojure.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
+    -->
+    <!--  custom styles -->
+    <link rel="stylesheet" type="text/css" href="/static/george/styles/index.css">
+
+    <style>
+
+        .reset-box-sizing, .reset-box-sizing *, .reset-box-sizing *:before, .reset-box-sizing *:after {
+            -webkit-box-sizing: content-box;
+            -moz-box-sizing: content-box;
+            box-sizing: content-box;
+        }
+        input.gsc-input, .gsc-input-box, .gsc-input-box-hover, .gsc-input-box-focus, .gsc-search-button {
+            box-sizing: content-box;
+            line-height: normal;
+        }
+
+
+
+        .table tbody tr td {
+            padding: 10px;
+            border-top-width: 0;
+        }
+        .btn-block {
+            width: 300px; }
+
+        .installer-info {
+            width: 250px;
+            font-size: 10px;
+            padding: 5px;
+        }
+        hr {
+            margin:50px 0;
+        }
+
+    </style>
+
+
+    <link href="https://plus.google.com/u/0/b/106413535969062760751/106413535969062760751/posts"  rel="publisher" />
+
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+            (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+            m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//templates.www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-11875787-3', 'auto');
+        ga('send', 'pageview');
+    </script>
+
+    <script src="//code.jquery.com/jquery-3.3.1.min.js"></script>
+
+    <!--<script src="https://code.jquery.com/jquery-1.12.4.min.js"
+            integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+            crossorigin="anonymous"></script>
+-->
+</head>
+
+
+<body>
+
+<div id="site-header">
+    <div class="container">
+
+        <div style="float:right;width:350px;margin-top:25px;">
+            <script>
+                (function() {
+                    var cx = '013625233193402753231:nnj9ap-jcf4';
+                    var gcse = document.createElement('script');
+                    gcse.type = 'text/javascript';
+                    gcse.async = true;
+                    gcse.src = 'https://cse.google.com/cse.js?cx=' + cx;
+                    var s = document.getElementsByTagName('script')[0];
+                    s.parentNode.insertBefore(gcse, s);
+                })();
+            </script>
+            <gcse:search></gcse:search>
+
+            <!--
+            https://developers.google.com/custom-search/
+            https://cse.google.com/cse/setup/basic?cx=013625233193402753231:nnj9ap-jcf4
+            -->
+        </div>
+
+
+
+        <div>
+            <a href="https://github.com/terjedahl/george" alt="George startpage"  id="george-logo">
+                <img src="graphics/George_logo.png" width="200" height="40" />
+            </a>
+            <div id="logo-sub">Create. Learn. Think.</div>
+            <!-- <div id="logo-sub">A universe of programming</div> -->
+        </div>
+        <br>
+
+
+    </div>
+</div><!-- site-header -->
+
+<div class="container">
+
+
+    <style>
+
+        /*    .flat{background-image:none;}
+            .navbar-default {background-color:white;}
+        */
+    </style>
+    <nav class="navbar navbar-default">
+        <div class="container-fluid">
+            <ul class="nav nav-pills">
+
+<!--                <li role="presentation" class="navbar-btn ">-->
+<!--                    <a href="/"  title="George home page">Home</a></li>-->
+
+<!--                <li role="presentation" class="navbar-btn ">-->
+<!--                    <a href="/projects"  title="George Projects">George Projects</a></li>-->
+
+                <li role="presentation" class="navbar-btn active">
+                    <a href=""  title="George download">Download George</a></li>
+
+
+<!--                <li role="presentation" class="navbar-btn ">-->
+<!--                    <a href="/turtle" title="Turtle Geometry - feature app on George">Turtle Geometry</a></li>-->
+
+                <!--
+                            <li role="presentation" class="navbar-btn ">
+                                <a href="/book"  title="George - The book">Book</a></li>
+                -->
+
+
+                <!--
+                            <li role="presentation" class="navbar-btn ">
+                                <a href="/outreach" title="George Outreach Initiative - teach children programming">Outreach</a></li>
+                -->
+
+<!--                <li role="presentation" class="navbar-btn ">-->
+<!--                    <a href="/parent" title="Parents, how to teach your child programming">Parent</a></li>-->
+
+<!--                <li role="presentation" class="navbar-btn ">-->
+<!--                    <a href="/teacher" title="Teacher, start programming in your classroom">Teacher</a></li>-->
+
+<!--                <li role="presentation" class="navbar-btn ">-->
+<!--                    <a href="/contribute" title="Designers. Developers. Testers. Educators. Evangelists.">Contribute</a></li>-->
+
+                <!--
+                            <li role="presentation" class="navbar-btn dropdown">
+                                <a class="dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">
+                                    Dropdown <span class="caret"></span>
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a href="#">Action</a></li>
+                                    <li><a href="#">Another action</a></li>
+                                    <li><a href="#">Something else here</a></li>
+                                    <li role="separator" class="divider"></li>
+                                    <li><a href="#">Separated link</a></li>
+                                </ul>
+                            </li>
+                -->
+            </ul>
+        </div>
+    </nav>
+
+    <br>
+
+
+
+
+    <h1>Downloads</h1>
+    <br>
+    <table class="table" style="border-spacing:20px;">
+        <tr><td>
+            <a class="btn btn-primary btn-lg btn-block" href="https://download.george.andante.no/apps/George/platforms/Windows/installer/George-2019.1.5.msi" role="button">
+                George for Windows
+            </a>
+        </td><td>
+        <pre class="installer-info">version: 2019.1.5
+build:   2019-10-03T16:19:55Z
+file:    George-2019.1.5.msi
+size:    95232000 bytes</pre>
+        </td>
+            <td>
+                MSI (Microsoft Installer):<br>
+                - Install per-user (without admin privileges)<br>
+                - Install per-machine <em>with</em> admin privileges<br>
+                - "Silent" install with 'msiexec' for sys-admins
+            </td></tr>
+
+        <tr><td>
+            <a class="btn btn-primary btn-lg btn-block" href="https://download.george.andante.no/apps/George/platforms/MacOS/installer/George-2019.1.5.pkg" role="button">
+                George for MacOS
+            </a>
+
+        </td><td>
+        <pre class="installer-info">version: 2019.1.5
+build:   2019-10-03T16:15:01Z
+file:    George-2019.1.5.pkg
+size:    95263420 bytes</pre>
+        </td><td>
+            PKG installer:<br>
+            - Install per-user (without admin privileges)<br>
+            - Install per-machine <em>with</em> admin privileges<br>
+        </td></tr>
+
+
+        <tr>
+            <td>
+                <div class="dropdown">
+                    <button class="btn btn-primary btn-lg btn-block dropdown-toggle" type="button"  data-toggle="dropdown">
+                        George for Ubuntu <span class="caret"></span></button>
+                    <div class="dropdown-menu" style="padding:20px; font-size:16px;">
+                        <p>Ubuntu <em>easy install:</em>
+                        <ul>
+                            <li>
+                                <form>
+                                    <div class="form-group">
+                                        Copy this one-liner and paste and execute in a terminal:
+                                        <input type="text" class="form-control" value="bash -c &quot;$(curl -s https://www.george.andante.no/downloads/get-george)&quot;"
+                                               style="width:700px;font-family: monospace; margin-top:10px;"
+                                               onfocus="this.select();" readonly></div></form></li></ul></p>
+
+                        <p>Ubuntu <em>controlled install:</em>
+                        <ol>
+                            <li>Download archive &nbsp;&rarr;&nbsp;
+                                <a class="btn btn-default" href="https://download.george.andante.no/apps/George/platforms/Linux/installer/George-2019.1.5.tar.gz" role="button">George-2019.1.5.tar.gz</a></li>
+                            <li style="padding-bottom:10px;"> Open a terminal</li>
+                            <li style="padding-bottom:10px;"><code>cd</code> into your download-folder and do <code>tar -xf George-2019.1.5.tar.gz</code></li>
+                            <li>Execute <code>George/installer.sh</code></li></ol></p></div></div>
+
+            </td><td>
+        <pre class="installer-info">version: 2019.1.5
+build:   2019-10-04T07:42:25Z
+file:    George-2019.1.5.tar.gz
+size:    102775056 bytes</pre>
+        </td><td>
+            Zipped archive (.tar.gz) with installer script:<br>
+            - Install per-user (without sudo privileges)<br>
+            - Install per-machine <em>with</em> sudo privileges<br>
+            Compatible with Ubuntu 18.04, Kubuntu 18.04
+        </td></tr>
+
+
+
+
+
+
+    </table>
+
+    <p>George is open source - free to use and own, and alter as you please.<br>
+        You may distribute copies of the original freely.<br>
+        You may also distribute your alterations as long as you publish your changes in accordance with <a href="https://opensource.org/licenses/eclipse-1.0.php" target="_blank">Eclipse Public Licence 1.0</a>.</p>
+
+
+    <hr/>
+
+
+    <h2>Testing <a id="testing">&nbsp;</a></h2>
+
+
+    <p><em>George-TEST</em> is for anyone who wants to help test new features and new versions before they are deployed to <em>George</em>"(production). Don't rely on George-TEST for regular use, as it may change unexpectedly and sometimes even break.</p>
+
+    <p>George-TEST installs and runs as a completely separate application from George. You may therefore have both George and George-TEST installed on the same machine.  They will not share any state or data-files, and can be installed, upgraded, used, and uninstalled independently.</p>
+
+    <table class="table" style="border-spacing:20px;">
+        <tr><td>
+            <a class="btn btn-default btn-lg btn-block" href="https://download.george.andante.no/apps/George-TEST/platforms/Windows/installer/George-TEST-2019.1.4-RC1.msi" role="button">
+                George-TEST for Windows
+            </a>
+        </td><td>
+        <pre class="installer-info">version: 2019.1.4-RC1
+build:   2019-09-30T12:30:17Z
+file:    George-TEST-2019.1.4-RC1.msi
+size:    95227904 bytes</pre>
+        </td>
+            <td><div style="width:400px;"></div></td></tr>
+
+        <tr><td>
+            <a class="btn btn-default btn-lg btn-block" href="https://download.george.andante.no/apps/George-TEST/platforms/MacOS/installer/George-TEST-2019.1.4-RC1.pkg" role="button">
+                George-TEST for MacOS
+            </a>
+
+        </td><td>
+        <pre class="installer-info">version: 2019.1.4-RC1
+build:   2019-09-30T12:42:43Z
+file:    George-TEST-2019.1.4-RC1.pkg
+size:    95263292 bytes</pre>
+        </td><td>
+
+        </td></tr>
+
+
+        <tr>
+            <td>
+                <div class="dropdown">
+                    <button class="btn btn-default btn-lg btn-block dropdown-toggle" type="button"  data-toggle="dropdown">
+                        George-TEST for Ubuntu <span class="caret"></span></button>
+                    <div class="dropdown-menu" style="padding:20px; font-size:16px;">
+                        <p>Ubuntu <em>easy install:</em>
+                        <ul>
+                            <li>
+                                <form>
+                                    <div class="form-group">
+                                        Copy this one-liner and paste and execute in a terminal:
+                                        <input type="text" class="form-control" value="bash -c &quot;$(curl -s https://www.george.andante.no/downloads/get-george-test)&quot;"
+                                               style="width:700px;font-family: monospace; margin-top:10px;"
+                                               onfocus="this.select();" readonly></div></form></li></ul></p>
+
+                        <p>Ubuntu <em>controlled install:</em>
+                        <ol>
+                            <li>Download archive &nbsp;&rarr;&nbsp;
+                                <a class="btn btn-default" href="https://download.george.andante.no/apps/George-TEST/platforms/Linux/installer/George-TEST-2019.2-SNAPSHOT.tar.gz" role="button">George-TEST-2019.2-SNAPSHOT.tar.gz</a></li>
+                            <li style="padding-bottom:10px;"> Open a terminal</li>
+                            <li style="padding-bottom:10px;"><code>cd</code> into your download-folder and do <code>tar -xf George-TEST-2019.2-SNAPSHOT.tar.gz</code></li>
+                            <li>Execute <code>George-TEST/installer.sh</code></li></ol></p></div></div>
+
+            </td><td>
+        <pre class="installer-info">version: 2019.2-SNAPSHOT
+build:   2019-04-27T20:55:09Z
+file:    George-TEST-2019.2-SNAPSHOT.tar.gz
+size:    100790535 bytes</pre>
+        </td><td>
+            Zipped archive (.tar.gz) with installer script:<br>
+            - Install per-user (without sudo privileges)<br>
+            - Install per-machine <em>with</em> sudo privileges<br>
+            Compatible with Ubuntu 18.04, Kubuntu 18.04
+        </td></tr></table>
+
+
+    <hr/>
+
+
+    <h2>Source code</h2>
+
+    <p>You may simply be curious and want to look at parts of the code, or want experiment with altering aspects of the program.
+        Or perhaps you would like to contribute to the main project.<br>
+
+        No matter: Click on through; try downloading and running it locally; try making some alterations; then see documentation on how to contribute.</p>
+
+
+    <table class="table">
+        <tr><td>
+            <a class="btn btn-default btn-lg btn-block" href="https://github.com/terjedahl/george"
+               target="_blank" role="button">George on Github</a>
+        </td><td>
+            - Hosted on Github<br>
+            - Requires Git and Java installed to build and run. (See documentation)
+        </td></tr>
+    </table>
+
+    <hr/>
+
+
+    <h2>Legacy versions</h2>
+
+    <p><em>As of 2019 the following downloads are deprecated.</em></p>
+
+    <h3>Windows</h3>
+    <br>
+    <table class="table" style="border-spacing:20px;">
+        <tr><td>
+            <a class="btn btn-info btn-lg btn-block" href="https://s3.eu-central-1.amazonaws.com/george-download/native/exe/George-1.1.1-installer.exe" role="button">
+                George for Windows - legacy
+            </a>
+        </td>
+            <td  style="width:600px;">
+                Standard installer dialog which installs George in the user's home directory.<br>
+                - Good for single users.<br>
+                - Does not require admin rights.
+            </td></tr>
+    </table>
+
+
+    <h3>MacOS</h3>
+
+    <table class="table">
+        <tr><td>
+            <a class="btn btn-info btn-lg btn-block" href="https://s3.eu-central-1.amazonaws.com/george-download/native/dmg/George-1.1.1-installer.dmg" role="button">
+                George for MacOS - legacy
+            </a>
+
+        </td><td style="width:600px;">
+            Disk-image with install-script and "app".<br>
+            - Script installs system-wide or for single user.<br>
+            - System-wide install may require admin-rights.<br>
+        </td></tr>
+    </table>
+
+
+
+
+
+    <hr>
+    <em>This page last updated: 2022-07-21</em>
+
+
+</div>
+
+
+<!-- footer -->
+
+<div id="site-footer">
+
+    <div class="container">
+
+        <div class="row">
+
+            <div class="coll-md-6 pull-left">
+                <em>Contact:</em><br>
+                <a href="mailto:terje@andante.no">Terje Dahl&nbsp;&lt;terje@andante.no&gt;</a><br>
+                +47&nbsp;&nbsp;911 66 024&nbsp;&nbsp;/&nbsp;&nbsp;+46&nbsp;&nbsp;(0)766 36 80 47
+            </div>
+
+            <div class="coll-md-6 pull-right">
+                <a href="http://www.andante.no" target="_blank"
+                   id="Andante-logo">
+                    <img src="graphics/Andante_logo.png"  width="120" height="24"
+                         alt="Andante logo"
+                         id="Andante-logo"><br>
+                </a>
+                <br>
+                © 2014-2019 Terje Dahl&nbsp;
+            </div>
+
+        </div>
+
+
+    </div><!-- container -->
+
+</div>
+
+
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+
+
+<!-- http://fancybox.net -->
+<!--
+<link rel="stylesheet" href="/static/george/js/fancybox-2.1.5/source/jquery.fancybox.css" type="text/css" media="screen" />
+<script type="text/javascript" src="/static/george/js/fancybox-2.1.5/source/jquery.fancybox.pack.js"></script>
+-->
+
+<script src="https://cdn.jsdelivr.net/gh/fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.js"></script>
+
+<script type="text/javascript" src="/static/george/js/main.js"></script>
+
+
+</body>
+</html>
